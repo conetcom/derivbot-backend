@@ -2,13 +2,11 @@ const express = require("express");
 const cors = require("cors");
 const http = require("http");
 const { Server } = require("socket.io");
-
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
 const derivRoutes = require("./routes/derivRoutes");
 const botRoutes = require("./routes/botRoutes");
 const tradeRoutes = require("./routes/tradeRoutes");
-
 const pool = require("./config/db");
 
 const app = express();

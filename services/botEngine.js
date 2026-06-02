@@ -110,6 +110,7 @@ const state = {
     const epoch = data.tick.epoch;
 
     io.to(`user_${user.id}`).emit("price_update", price);
+   // console.log("📡 Tick recibido:", price);
 
     // 🛑 bloqueos
     if (state.running || state.cooldown || state.currentContractId) return;
@@ -277,6 +278,7 @@ expiry_time: new Date(Date.now() + 60000),
   c.entry_spot ||
   c.buy_price ||
   c.current_spot;
+  const entryPrice = current;
 
 if (!state.entrySaved && current) {
 

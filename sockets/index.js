@@ -9,8 +9,12 @@ module.exports = (server) => {
     console.log("Cliente conectado");
 
     socket.on("join", (userId) => {
-      socket.join(userId);
-    });
+
+  console.log("JOIN:", userId);
+
+  socket.join(`user_${userId}`);
+
+});
   });
 
   return io;

@@ -1,29 +1,42 @@
-const DerivService = require("../services/derivService");
 const pool = require("../config/db");
+const DerivService = require("../services/DerivService");
 const { encrypt } = require("../utils/crypto");
 
 const connectDeriv = async (req, res) => {
+
   try {
-    const { token } = req.body;
-   
+
+    const { token, account_name } = req.body;
+
     if (!token) {
-      return res.status(400).json({ error: "Token requerido" });
+      return res.status(400).json({
+        error: "Token requerido"
+      });
     }
 
-    console.log("TOKEN RECIBIDO:", token);
-
-    const encryptedToken = encrypt(token);
-
+    // conectar deriv
     const deriv = new DerivService(token);
 
     await deriv.connect();
 
     const balance = await deriv.getBalance();
-    console.log(balance);
 
+    // encriptar token
+    const encryptedToken = encrypt(token);
+
+    // guardar nueva cuenta
     await pool.query(
-      "UPDATE users SET deriv_token = $1 WHERE id = $2",
-      [encryptedToken, req.user.id]
+      `
+      INSERT INTO deriv_accounts
+      (user_id, account_name, deriv_token, balance)
+      VALUES ($1, $2, $3, $4)
+      `,
+      [
+        req.user.id,
+        account_name || "Cuenta Deriv",
+        encryptedToken,
+        balance.balance
+      ]
     );
 
     res.json({
@@ -32,11 +45,15 @@ const connectDeriv = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("🔥 ERROR CONNECT DERIV:", error);
+
+    console.error(error);
 
     res.status(500).json({
-      error: error.message || "Error conectando a Deriv"
+      error: error.message
     });
   }
 };
-module.exports = { connectDeriv };
+
+module.exports = {
+  connectDeriv
+};

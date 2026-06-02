@@ -8,7 +8,7 @@
     "dev": "nodemon app.js"
   },
   "keywords": [],
-  "author": "",
+  "author": "Wilmer Martinez",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {

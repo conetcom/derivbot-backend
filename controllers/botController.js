@@ -1,233 +1,498 @@
 const pool = require("../config/db");
+
 const DerivService = require("../services/derivService");
-const { startBot, stopBot } = require("../services/botEngine");
+
+const {
+  startBot,
+  stopBot
+} = require("../services/botEngine");
+
 const { decrypt } = require("../utils/crypto");
-
-// 🧠 memoria de bots activos
-const activeBots = new Map();
-
-/**
- * 🔗 Obtener cliente Deriv
- */
-const getDerivClient = async (userId) => {
-  const result = await pool.query(
-    "SELECT deriv_token FROM users WHERE id = $1",
-    [userId]
-  );
-
-  const encryptedToken = result.rows[0]?.deriv_token;
-
-  if (!encryptedToken) {
-    throw new Error("No tienes token de Deriv configurado");
-  }
-
-  const derivToken = decrypt(encryptedToken);
-
-  if (!derivToken) {
-    throw new Error("Token inválido");
-  }
-
-  const deriv = new DerivService(derivToken);
-  await deriv.connect();
-
-  return deriv;
-};
-/**
- * 🚀 START BOT
- */
-const start = async (req, res) => {
-  console.log("🚀 LLEGÓ AL BOT CONTROLLER");
-
-  try {
-    const user = req.user; // 🔥 PRO: viene de JWT
-   const { symbol, stake, strategy } = req.body;
-    console.log("📥 BODY:", req.body);
-    console.log("👤 USER:", user);
-
-    // 🔒 VALIDACIONES PRO
-    if (!user?.id) {
-      return res.status(401).json({ error: "Usuario no autenticado" });
-    }
-
-    if (!symbol || !stake) {
-      return res.status(400).json({
-        error: "symbol y stake son requeridos"
-      });
-    }
-
-    if (isNaN(stake) || Number(stake) <= 0) {
-      return res.status(400).json({
-        error: "stake debe ser un número válido"
-      });
-    }
-
-    // 🔥 EVITAR MULTI BOT
-    if (activeBots.has(user.id)) {
-      return res.status(400).json({
-        error: "Ya tienes un bot activo"
-      });
-    }
-
-    // 🔥 EVITAR TRADE ABIERTO EN DB (PRO REAL)
-    const openTrade = await pool.query(
-      "SELECT id FROM trades WHERE user_id = $1 AND status = 'open' LIMIT 1",
-      [user.id]
-    );
-
-    if (openTrade.rows.length > 0) {
-      return res.status(400).json({
-        error: "Tienes un trade abierto, espera a que cierre"
-      });
-    }
-
-    // 🔗 conectar deriv
-    const deriv = await getDerivClient(user.id);
-
-    // 🧠 crear bot en DB
-    const result = await pool.query(
-      `INSERT INTO bots (user_id, name, strategy, symbol, stake, status)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING id`,
-      [
-        user.id,
-        "Bot automático",
-        "simple",
-        symbol,
-        stake,
-        "active"
-      ]
-    );
-
-    const botId = result.rows[0].id;
-
-    console.log("🤖 BOT ID:", botId);
-
-    // 🚀 iniciar bot
-    const botInstance = await startBot(
-      user,
-      { id: botId, symbol, stake, strategy },
-      deriv,
-      req.io
-    );
-
-    // 💾 guardar en memoria (MEJORADO)
-    activeBots.set(user.id, {
-      bot: botInstance,
-      deriv,
-      botId,
-      startedAt: new Date()
-    });
-
-    res.json({
-      success: true,
-      botId
-    });
-
-  } catch (err) {
-    console.error("🔥 ERROR START:", err);
-
-    res.status(500).json({
-      error: err.message
-    });
-  }
-};
-
-/**
- * 🛑 STOP BOT
- */
-const stop = async (req, res) => {
-  try {
-    const user = req.user;
-
-    if (!user?.id) {
-      return res.status(401).json({
-        error: "Usuario no autenticado"
-      });
-    }
-
-    if (!activeBots.has(user.id)) {
-      return res.status(400).json({
-        error: "No hay bot activo"
-      });
-    }
-
-    const { deriv, botId } = activeBots.get(user.id);
-    // 🔥 cerrar trades abiertos al detener
-await pool.query(
-  `
-  UPDATE trades
-  SET status = 'closed',
-      profit = 0
-        WHERE user_id = $1 AND status = 'open'
-  `,
-  [user.id]
-);
-
-console.log("🧹 Trades abiertos cerrados automáticamente");
-
-    console.log("🛑 Deteniendo bot:", botId);
-
-    // detener lógica
-    await stopBot(user);
-
-    // 🔄 actualizar DB
-    await pool.query(
-      "UPDATE bots SET status = 'stopped' WHERE id = $1",
-      [botId]
-    );
-
-    // 🔌 cerrar conexión deriv
-    if (deriv?.ws) {
-      deriv.ws.close();
-    }
-
-    activeBots.delete(user.id);
-
-    res.json({
-      success: true
-    });
-
-  } catch (err) {
-    console.error("🔥 ERROR STOP:", err);
-
-    res.status(500).json({
-      error: err.message
-    });
-  }
-};
-
-/**
- * 📊 STATUS
- */
-const status = (req, res) => {
-  const user = req.user;
-
-  if (!user?.id) {
-    return res.status(401).json({
-      error: "Usuario no autenticado"
-    });
-  }
-
-  const botData = activeBots.get(user.id);
-
-  res.json({
-    active: activeBots.has(user.id),
-    bot: botData
-      ? {
-          botId: botData.botId,
-          startedAt: botData.startedAt
-        }
-      : null
-  });
-};
 
 const {
   createTrade,
-  closeTrade,
-  updateTradeByContract
+  closeTrade
 } = require("../models/tradesModel");
 
-const manualTrade = async (req, res) => {
+// ======================================
+// 🧠 MEMORIA BOTS ACTIVOS
+// ======================================
+const activeBots = new Map();
+
+// ======================================
+// 🔗 OBTENER CLIENTE DERIV
+// ======================================
+// ======================================
+// 🔗 OBTENER CLIENTE DERIV
+// ======================================
+const getDerivClient = async (
+  userId,
+  accountId = null
+) => {
+
+  let query = `
+    SELECT *
+    FROM deriv_accounts
+    WHERE user_id = $1
+  `;
+
+  let params = [userId];
+
+  // cuenta específica
+  if (accountId) {
+
+    query += ` AND id = $2`;
+
+    params.push(accountId);
+
+  } else {
+
+    query += `
+      AND is_active = true
+    `;
+  }
+
+  query += ` LIMIT 1`;
+
+  const result = await pool.query(
+    query,
+    params
+  );
+
+  const account = result.rows[0];
+
+  if (!account) {
+
+    throw new Error(
+      "No tienes cuenta Deriv configurada"
+    );
+  }
+
+  // 🔥 TOKEN ENCRIPTADO
+  const derivToken = decrypt(
+    account.deriv_token
+  );
+
+  if (!derivToken) {
+
+    throw new Error(
+      "Token Deriv inválido"
+    );
+  }
+
+  console.log(
+    "🔑 TOKEN OK"
+  );
+
+  // 🔥 CREAR SERVICIO DERIV
+  const deriv =
+    new DerivService(derivToken);
+
+  await deriv.connect();
+
+  return {
+    deriv,
+    account
+  };
+};
+// ======================================
+// 🚀 START BOT
+// ======================================
+const start = async (req, res) => {
+
+  console.log("🚀 BOT START REQUEST");
+
+  try {
+
+    const user = req.user;
+
+    // ✅ accountId viene por params
+    const { accountId } = req.params;
+
+    // ✅ lo demás viene en body
+    const {
+      symbol,
+      stake,
+      strategy,
+      targetProfit,
+      stopLoss,
+      maxDrawdown
+    } = req.body;
+
+    console.log("ACCOUNT ID:", accountId);
+    console.log("BODY:", req.body);
+
+
+
+    // ======================================
+    // VALIDACIONES
+    // ======================================
+    if (!user?.id) {
+
+      return res.status(401).json({
+        error: "No autorizado"
+      });
+    }
+
+    if (!symbol || !stake) {
+
+      return res.status(400).json({
+        error:
+          "symbol y stake requeridos"
+      });
+    }
+
+    if (
+      isNaN(stake) ||
+      Number(stake) <= 0
+    ) {
+
+      return res.status(400).json({
+        error: "Stake inválido"
+      });
+    }
+
+    // ======================================
+    // EVITAR MULTI BOT
+    // ======================================
+    if (activeBots.has(user.id)) {
+
+      return res.status(400).json({
+        error:
+          "Ya tienes un bot activo"
+      });
+    }
+
+    // ======================================
+    // EVITAR TRADE ABIERTO
+    // ======================================
+    const openTrade =
+      await pool.query(
+        `
+        SELECT id
+        FROM trades
+        WHERE user_id = $1
+        AND status = 'open'
+        LIMIT 1
+        `,
+        [user.id]
+      );
+
+    if (openTrade.rows.length > 0) {
+
+      return res.status(400).json({
+        error:
+          "Tienes un trade abierto"
+      });
+    }
+
+    // ======================================
+    // 🔗 CONECTAR DERIV
+    // ======================================
+    const {
+      deriv,
+      account
+    } = await getDerivClient(
+      user.id,
+      accountId
+    );
+
+    console.log(
+      "✅ DERIV CONNECTED:",
+      account.account_name
+    );
+
+    // ======================================
+    // 💰 BALANCE
+    // ======================================
+    const balance =
+      await deriv.getBalance();
+
+    console.log(
+      "💰 BALANCE:",
+      balance
+    );
+
+    // SOCKET BALANCE
+    req.io
+      .to(`user_${user.id}`)
+      .emit("balance", {
+        balance:
+          balance.balance ||
+          balance
+      });
+
+    // ======================================
+    // 🤖 CREAR BOT DB
+    // ======================================
+    const botResult =
+      await pool.query(
+        `
+        INSERT INTO bots (
+          user_id,
+          name,
+          strategy,
+          symbol,
+          stake,
+          status
+        )
+        VALUES (
+          $1,$2,$3,$4,$5,$6
+        )
+        RETURNING *
+        `,
+        [
+          user.id,
+          "Bot automático",
+          strategy || "sma",
+          symbol,
+          stake,
+          "active"
+        ]
+      );
+
+    const bot =
+      botResult.rows[0];
+
+    console.log(
+      "🤖 BOT CREATED:",
+      bot.id
+    );
+
+    // ======================================
+    // 🚀 START ENGINE
+    // ======================================
+    const botInstance =
+      await startBot(
+
+        user,
+
+        {
+          id: bot.id,
+
+          symbol,
+
+          stake,
+
+          strategy,
+
+          targetProfit,
+
+          stopLoss,
+
+          maxDrawdown
+        },
+
+        deriv,
+
+        req.io
+      );
+
+    // ======================================
+    // 🧠 GUARDAR MEMORIA
+    // ======================================
+    activeBots.set(user.id, {
+
+      botId: bot.id,
+
+      bot: botInstance,
+
+      deriv,
+
+      accountId:
+        account.id,
+
+      startedAt:
+        new Date()
+    });
+
+    return res.json({
+
+      success: true,
+
+      message:
+        "Bot iniciado",
+
+      botId: bot.id,
+
+      account:
+        account.account_name
+    });
+
+  } catch (err) {
+
+  console.log("🔥 FULL ERROR:");
+  console.log(err);
+
+  return res.status(500).json({
+    error: err.message
+  });
+}
+};
+
+// ======================================
+// 🛑 STOP BOT
+// ======================================
+const stop = async (req, res) => {
+
+  try {
+
+    const user = req.user;
+
+    if (!user?.id) {
+
+      return res.status(401).json({
+        error: "No autorizado"
+      });
+    }
+
+    const botData =
+      activeBots.get(user.id);
+
+    if (!botData) {
+
+      return res.status(400).json({
+        error:
+          "No tienes bot activo"
+      });
+    }
+
+    const {
+      deriv,
+      botId
+    } = botData;
+
+    console.log(
+      "🛑 STOP BOT:",
+      botId
+    );
+
+    // ======================================
+    // STOP ENGINE
+    // ======================================
+    await stopBot(user);
+
+    // ======================================
+    // CERRAR TRADES OPEN
+    // ======================================
+    await pool.query(
+      `
+      UPDATE trades
+      SET status = 'closed',
+          profit = 0
+      WHERE user_id = $1
+      AND status = 'open'
+      `,
+      [user.id]
+    );
+
+    console.log(
+      "🧹 OPEN TRADES CLOSED"
+    );
+
+    // ======================================
+    // UPDATE BOT DB
+    // ======================================
+    await pool.query(
+      `
+      UPDATE bots
+      SET status = 'stopped'
+      WHERE id = $1
+      `,
+      [botId]
+    );
+
+    // ======================================
+    // CLOSE SOCKET
+    // ======================================
+    if (deriv?.ws) {
+
+      deriv.ws.close();
+
+      console.log(
+        "🔌 DERIV SOCKET CLOSED"
+      );
+    }
+
+    // ======================================
+    // REMOVE MEMORY
+    // ======================================
+    activeBots.delete(user.id);
+
+    return res.json({
+
+      success: true,
+
+      message:
+        "Bot detenido"
+    });
+
+  } catch (err) {
+
+    console.log(
+      "🔥 STOP ERROR:",
+      err.message
+    );
+
+    return res.status(500).json({
+      error: err.message
+    });
+  }
+};
+
+// ======================================
+// 📊 STATUS
+// ======================================
+const status = async (req, res) => {
+
+  try {
+
+    const user = req.user;
+
+    if (!user?.id) {
+
+      return res.status(401).json({
+        error: "No autorizado"
+      });
+    }
+
+    const botData =
+      activeBots.get(user.id);
+
+    return res.json({
+
+      active:
+        activeBots.has(user.id),
+
+      bot: botData
+        ? {
+            botId:
+              botData.botId,
+
+            accountId:
+              botData.accountId,
+
+            startedAt:
+              botData.startedAt
+          }
+        : null
+    });
+
+  } catch (err) {
+
+    return res.status(500).json({
+      error: err.message
+    });
+  }
+};
+
+// ======================================
+// 🎯 MANUAL TRADE
+// ======================================
+const manualTrade = async (
+  req,
+  res
+) => {
 
   try {
 
@@ -236,16 +501,22 @@ const manualTrade = async (req, res) => {
     const {
       symbol,
       contract_type,
-      amount
+      amount,
+      accountId
     } = req.body;
 
-    const deriv =
-      await getDerivClient(user.id);
-
-    await deriv.connect();
+    // ======================================
+    // DERIV
+    // ======================================
+    const {
+      deriv
+    } = await getDerivClient(
+      user.id,
+      accountId
+    );
 
     console.log(
-      "🚀 MANUAL TRADE REQUEST",
+      "🎯 MANUAL TRADE",
       {
         symbol,
         contract_type,
@@ -253,9 +524,9 @@ const manualTrade = async (req, res) => {
       }
     );
 
-    // ===============================
-    // 🛒 BUY CONTRACT
-    // ===============================
+    // ======================================
+    // BUY CONTRACT
+    // ======================================
     const contract =
       await deriv.buyContract({
 
@@ -277,26 +548,28 @@ const manualTrade = async (req, res) => {
       });
 
     console.log(
-      "✅ MANUAL TRADE RESPONSE",
+      "✅ CONTRACT:",
       contract
     );
 
     const contractId =
       contract.buy.contract_id;
 
-    // ===============================
-    // 💾 CREATE TRADE DB
-    // ===============================
+    // ======================================
+    // CREATE TRADE DB
+    // ======================================
     const trade =
       await createTrade({
 
         user_id: user.id,
 
-        contract_id: Number(contractId),
+        contract_id:
+          Number(contractId),
 
         symbol,
 
-        type: contract_type,
+        type:
+          contract_type,
 
         entry_price:
           contract.buy.buy_price,
@@ -304,35 +577,33 @@ const manualTrade = async (req, res) => {
         status: "open",
 
         start_time:
-          new Date(
-            contract.buy.start_time * 1000
-          ),
+          new Date(),
 
         expiry_time:
           new Date(
-            (contract.buy.start_time + 60) * 1000
+            Date.now() + 60000
           )
       });
 
-    // ===============================
-    // 📡 NEW TRADE FRONTEND
-    // ===============================
+    // ======================================
+    // FRONT NEW TRADE
+    // ======================================
     req.io
       .to(`user_${user.id}`)
       .emit("new_trade", trade);
 
-    // ===============================
-    // 👀 WATCH CONTRACT
-    // ===============================
+    // ======================================
+    // WATCH CONTRACT
+    // ======================================
     deriv.watchContract(
+
       contractId,
+
       async (c) => {
 
         try {
 
-          // ===============================
-          // 📡 LIVE UPDATE
-          // ===============================
+          // LIVE UPDATE
           req.io
             .to(`user_${user.id}`)
             .emit("trade_update", {
@@ -340,12 +611,11 @@ const manualTrade = async (req, res) => {
               contract_id:
                 c.contract_id,
 
-              entry_price:
-                c.entry_tick ||
-                c.buy_price,
-
               current_spot:
                 c.current_spot,
+
+              entry_price:
+                c.entry_tick,
 
               profit:
                 c.profit,
@@ -360,21 +630,17 @@ const manualTrade = async (req, res) => {
                 c.date_expiry
             });
 
-          // ===============================
-          // 🏁 CLOSE
-          // ===============================
-          const done =
+          // CLOSE?
+          const closed =
             c.is_sold ||
             c.status === "sold";
 
-          if (!done) return;
+          if (!closed) return;
 
           const profit =
             Number(c.profit || 0);
 
-          // ===============================
-          // 💾 CLOSE DB
-          // ===============================
+          // DB CLOSE
           await closeTrade(
             Number(contractId),
             {
@@ -385,9 +651,7 @@ const manualTrade = async (req, res) => {
             }
           );
 
-          // ===============================
-          // 📡 CLOSED FRONTEND
-          // ===============================
+          // FRONT CLOSE
           req.io
             .to(`user_${user.id}`)
             .emit("trade_closed", {
@@ -399,27 +663,25 @@ const manualTrade = async (req, res) => {
               profit,
 
               status:
-                profit > 0
+                profit >= 0
                   ? "won"
                   : "lost"
             });
 
-          // ===============================
-          // 🧹 FORGET
-          // ===============================
+          // FORGET
           await deriv.forgetContract(
             contractId
           );
 
           console.log(
-            "🧹 MANUAL CONTRACT CLOSED:",
+            "🧹 CONTRACT CLOSED:",
             contractId
           );
 
         } catch (err) {
 
           console.log(
-            "🔥 WATCH MANUAL ERROR:",
+            "🔥 WATCH ERROR:",
             err.message
           );
         }
@@ -427,7 +689,9 @@ const manualTrade = async (req, res) => {
     );
 
     return res.json({
+
       success: true,
+
       trade
     });
 
@@ -444,9 +708,12 @@ const manualTrade = async (req, res) => {
   }
 };
 
+// ======================================
+// EXPORTS
+// ======================================
 module.exports = {
   start,
   stop,
-  status, 
+  status,
   manualTrade
 };

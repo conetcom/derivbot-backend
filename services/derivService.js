@@ -302,12 +302,13 @@ if (!this.isConnected && !data.authorize) {
 
         const contract = poll.proposal_open_contract;
 
-        console.log(
+        /*console.log(
           "📡 POLL:",
           contract.contract_id,
           contract.status,
           contract.profit
-        );
+        );*/
+        
 
         callback(contract);
 
