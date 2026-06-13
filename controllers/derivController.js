@@ -6,16 +6,19 @@ const connectDeriv = async (req, res) => {
 
   try {
 
-    const { token, account_name } = req.body;
+    const { token, account_name, account_id} = req.body;
 
-    if (!token) {
+      if (!token) {
       return res.status(400).json({
         error: "Token requerido"
       });
     }
-
+console.log(
+  "TOKEN RECIBIDO:",
+  token, account_id, account_name
+);
     // conectar deriv
-    const deriv = new DerivService(token);
+    const deriv = new DerivService({token, account_id});
 
     await deriv.connect();
 
@@ -28,15 +31,22 @@ const connectDeriv = async (req, res) => {
     await pool.query(
       `
       INSERT INTO deriv_accounts
-      (user_id, account_name, deriv_token, balance)
-      VALUES ($1, $2, $3, $4)
+(
+ user_id,
+ account_name,
+ account_id,
+ deriv_token,
+ balance
+)
+      VALUES ($1, $2, $3, $4, $5)
       `,
       [
-        req.user.id,
-        account_name || "Cuenta Deriv",
-        encryptedToken,
-        balance.balance
-      ]
+ req.user.id,
+ account_name || "Cuenta Deriv",
+ account_id,
+ encryptedToken,
+ balance.balance
+]
     );
 
     res.json({
@@ -46,12 +56,17 @@ const connectDeriv = async (req, res) => {
 
   } catch (error) {
 
-    console.error(error);
+  console.error(
+    "🔥 CONNECT DERIV ERROR:"
+  );
 
-    res.status(500).json({
-      error: error.message
-    });
-  }
+  console.error(error);
+
+  res.status(500).json({
+    error: error.message,
+    stack: error.stack
+  });
+}
 };
 
 module.exports = {

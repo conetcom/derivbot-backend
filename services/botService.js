@@ -79,12 +79,10 @@ class TradingBot {
         this.connected = true;
 
         this.reconnectAttempts = 0;
-
-        // AUTH
-        this.send({
-          authorize:
-            this.user.deriv_token
-        });
+        console.log(
+  "TOKEN:",
+  this.token
+);
 
         // BALANCE
         this.send({

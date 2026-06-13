@@ -39,9 +39,14 @@ io.on("connection", (socket) => {
   console.log("🟢 Cliente conectado:", socket.id);
 
   socket.on("join", (userId) => {
-    socket.join(`user_${userId}`);
-    console.log(`👤 Usuario ${userId} unido a su sala`);
-  });
+  socket.join(`user_${userId}`);
+
+  console.log(
+    "👤 JOIN ROOM:",
+    userId,
+    `user_${userId}`
+  );
+});
 
   socket.on("disconnect", () => {
     console.log("🔴 Cliente desconectado:", socket.id);

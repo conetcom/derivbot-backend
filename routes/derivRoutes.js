@@ -1,9 +1,10 @@
 const express = require("express");
-const router = express.Router();
+const router = express.Router();const {
+  syncDerivAccounts
+} = require("../controllers/derivAccounts.js");
 
 const auth = require("../middleware/auth");
 const pool = require("../config/db");
-
 const {
   connectDeriv
 } = require("../controllers/derivController");
@@ -17,6 +18,11 @@ router.post(
   connectDeriv
 );
 
+router.post(
+  "/sync-accounts",
+  auth,
+  syncDerivAccounts
+);
 // ======================================
 // 📊 OBTENER CUENTAS DEL USUARIO
 // ======================================

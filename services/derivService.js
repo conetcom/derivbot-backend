@@ -1,181 +1,166 @@
 const WebSocket = require("ws");
+const axios = require("axios");
 
 class DerivService {
-  constructor(token) {
-    this.token = token;
-    this.ws = null;
+  constructor(config) {
+    this.token = config.token;
+    this.accountId = config.accountId;
 
+    console.log(
+      "CONFIG DERIV SERVICE:",
+      this.accountId,
+      this.token
+    );
+
+    // Estado de conexión
+    this.ws = null;
     this.isConnected = false;
     this.connecting = false;
 
+    // Requests
     this.requestId = 1;
-
     this.pendingRequests = new Map();
+
+    // Subscripciones
     this.subscriptions = new Map();
     this.contractSubscriptions = new Map();
-
     this.tickSubscriptions = new Map();
 
-    // ✅ FIX 1
+    // Reconexión
     this.reconnectAttempts = 0;
     this.maxReconnects = 10;
     this.reconnecting = false;
+
+    // Ping
     this.pingInterval = null;
   }
 
-  async connect() {
-    if (this.isConnected) return;
-    if (this.connecting) return;
+async connect() {
 
-    // ✅ FIX 2 (anti sockets duplicados)
-    if (this.ws) {
-      try {
-        this.ws.terminate();
-      } catch {}
+  if (this.isConnected) return;
+  if (this.connecting) return;
+
+  this.connecting = true;
+  
+  try {
+const cleanAccountId =
+  String(this.accountId).trim();
+
+    const response = await axios.post(
+      `https://api.derivws.com/trading/v1/options/accounts/${cleanAccountId}/otp`,
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${this.token}`,
+          "Deriv-App-ID": process.env.DERIV_APP_ID
+        }
+      }
+    );
+
+    const wsUrl =
+  response.data?.data?.url;
+  const WebSocket = require("ws");
+
+this.ws = new WebSocket(wsUrl);
+
+await new Promise((resolve, reject) => {
+
+  this.ws.on("open", () => {
+    console.log("✅ WebSocket conectado");
+
+    this.isConnected = true;
+    this.connecting = false;
+    this.reconnectAttempts = 0;
+
+    resolve();
+  });
+
+this.ws.on("message", (msg) => {
+  try {
+    const data = JSON.parse(msg);
+
+    // =========================
+    // RESPUESTAS req_id
+    // =========================
+    if (data.req_id) {
+      const pending = this.pendingRequests.get(data.req_id);
+
+      if (pending) {
+        this.pendingRequests.delete(data.req_id);
+        pending.resolve(data);
+      }
     }
 
-    this.connecting = true;
+    // =========================
+    // TICKS
+    // =========================
+    if (data.tick && data.subscription?.id) {
 
-    return new Promise((resolve, reject) => {
-      this.ws = new WebSocket("wss://ws.derivws.com/websockets/v3?app_id=1089");
+      const callback =
+        this.subscriptions.get(
+          data.subscription.id
+        );
 
-      const timeout = setTimeout(() => {
-        this.connecting = false;
-        reject(new Error("Timeout conectando a Deriv"));
-      }, 10000);
+      if (callback) {
+        callback(data);
+      }
+    }
 
-      this.ws.on("open", () => {
-        console.log("🟡 Conectando a Deriv...");
+    // =========================
+    // CONTRATOS
+    // =========================
+    if (
+      data.proposal_open_contract &&
+      data.subscription?.id
+    ) {
 
-        // ✅ FIX 3 (heartbeat)
-        this.pingInterval = setInterval(() => {
-          if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-            this.ws.send(JSON.stringify({ ping: 1 }));
-          }
-        }, 30000);
+      for (const [contractId, sub] of this.contractSubscriptions.entries()) {
 
-        this.send({ authorize: this.token }).catch(reject);
-      });
+        if (sub.subId === data.subscription.id) {
 
-      this.ws.on("message", (msg) => {
-        let data;
+          sub.callback(
+            data.proposal_open_contract
+          );
 
-        try {
-          data = JSON.parse(msg);
-        } catch (err) {
-          console.error("❌ Error parseando mensaje:", err);
-          return;
+          break;
         }
+      }
+    }
 
-        if (data.msg_type === "authorize") {
-          clearTimeout(timeout);
-          this.isConnected = true;
-          this.connecting = false;
-
-          console.log("✅ Autorizado en Deriv");
-          resolve();
-        }
-
-        if (data.req_id && this.pendingRequests.has(data.req_id)) {
-          const { resolve, reject } = this.pendingRequests.get(data.req_id);
-
-          if (data.error) reject(new Error(data.error.message));
-          else resolve(data);
-
-          this.pendingRequests.delete(data.req_id);
-        }
-
-        if (data.msg_type === "tick" && data.subscription) {
-          const subId = data.subscription.id;
-
-          if (this.subscriptions.has(subId)) {
-            this.subscriptions.get(subId)(data);
-          }
-        }
-
-        if (data.msg_type === "proposal_open_contract" && data.proposal_open_contract) {
-          const contract = data.proposal_open_contract;
-
-          if (!contract.contract_id) {
-            console.log("⚠️ contrato sin ID:", contract);
-            return;
-          }
-
-          const contractId = contract.contract_id;
-          const sub = this.contractSubscriptions.get(contractId);
-
-          if (!sub) {
-            console.log("⚠️ Contrato no encontrado:", contractId);
-            return;
-          }
-
-          sub.received = true;
-
-          if (data.subscription?.id && !sub.subId) {
-            sub.subId = data.subscription.id;
-          }
-
-          sub.callback(contract);
-
-          if (contract.is_sold) {
-            console.log("🏁 CERRADO:", contractId, "Profit:", contract.profit);
-          }
-        }
-      });
-
-      // ✅ FIX 4 (reconexión pro)
-      this.ws.on("close", (code, reason) => {
-        console.log("🔴 WS CLOSED:", code, reason?.toString());
-
-        this.isConnected = false;
-        this.connecting = false;
-
-        if (this.pingInterval) {
-          clearInterval(this.pingInterval);
-          this.pingInterval = null;
-        }
-
-        if (this.reconnecting) return;
-
-        if (this.reconnectAttempts >= this.maxReconnects) {
-          console.log("❌ Máximo de reconexiones alcanzado");
-          return;
-        }
-
-        this.reconnecting = true;
-        this.reconnectAttempts++;
-
-        const delay = Math.min(3000 * this.reconnectAttempts, 15000);
-
-        console.log(`🔄 Reintentando en ${delay}ms...`);
-
-        setTimeout(async () => {
-          try {
-            await this.connect();
-
-            console.log("✅ Reconectado");
-
-            this.reSubscribeAll();
-
-            this.reconnecting = false;
-            this.reconnectAttempts = 0;
-
-          } catch (err) {
-            console.error("❌ Error reconectando:", err.message);
-            this.reconnecting = false;
-          }
-        }, delay);
-      });
-
-      this.ws.on("error", (err) => {
-        clearTimeout(timeout);
-        this.connecting = false;
-
-        console.error("❌ WS ERROR:", err.message);
-        reject(err);
-      });
-    });
+  } catch (err) {
+    console.error("WS PARSE ERROR:", err);
   }
+});
+
+  this.ws.on("error", (err) => {
+    console.error("❌ WS ERROR", err);
+    reject(err);
+  });
+
+  this.ws.on("close", (code, reason) => {
+    console.log(
+      "🔴 WS CLOSED",
+      code,
+      reason?.toString()
+    );
+
+    this.isConnected = false;
+  });
+
+});
+  } catch (err) {
+  console.error("STATUS:", err.response?.status);
+
+  console.error(
+    "DATA:",
+    JSON.stringify(err.response?.data, null, 2)
+  );
+
+  console.error("MESSAGE:", err.message);
+
+  throw err;
+}
+}
 
   send(data) {
     return new Promise((resolve, reject) => {
@@ -231,22 +216,29 @@ if (!this.isConnected && !data.authorize) {
     this.subscriptions.delete(subId);
   }
 
-  async buyContract({ amount, contract_type, symbol }) {
-    return await this.send({
-      buy: 1,
-      price: amount,
-      parameters: {
-        amount,
-        basis: "stake",
-        contract_type,
-        currency: "USD",
-        duration: 1,
-        duration_unit: "m",
-        symbol
-        
-      }
-    });
-  }
+ async buyContract({ amount, contract_type, symbol }) {
+
+  const res = await this.send({
+    buy: 1,
+    price: amount,
+    parameters: {
+      amount,
+      basis: "stake",
+      contract_type,
+      currency: "USD",
+      duration: 1,
+      duration_unit: "m",
+      underlying_symbol: symbol
+    }
+  });
+
+  console.log(
+    "BUY RESPONSE:",
+    JSON.stringify(res, null, 2)
+  );
+
+  return res;
+}
 
   async watchContract(contractId, callback) {
 
@@ -302,7 +294,7 @@ if (!this.isConnected && !data.authorize) {
 
         const contract = poll.proposal_open_contract;
 
-        /*console.log(
+       /* console.log(
           "📡 POLL:",
           contract.contract_id,
           contract.status,

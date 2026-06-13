@@ -109,6 +109,12 @@ const state = {
     const price = data.tick.quote;
     const epoch = data.tick.epoch;
 
+const room = io.sockets.adapter.rooms.get(
+  `user_${user.id}`
+);
+
+
+
     io.to(`user_${user.id}`).emit("price_update", price);
    // console.log("📡 Tick recibido:", price);
 
@@ -242,7 +248,13 @@ const state = {
       });
 
       const contractId = contract?.buy?.contract_id;
-      if (!contractId) throw new Error("Contrato inválido");
+      if (contract?.error) {
+  console.error(
+    "BUY ERROR RESPONSE:",
+    JSON.stringify(contract, null, 2)
+  );
+}
+    //  if (!contractId) throw new Error("Contrato inválido");
 
       state.currentContractId = contractId;
       state.entrySaved = false;

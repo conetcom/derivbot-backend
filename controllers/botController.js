@@ -83,17 +83,28 @@ const getDerivClient = async (
   console.log(
     "🔑 TOKEN OK"
   );
+console.log(
+  "TOKEN DERIV:",
+  derivToken
+);
+console.log("ACCOUNT COMPLETO:", account);
 
+console.log(
+  "ACCOUNT ID:",
+  account.account_id
+);
   // 🔥 CREAR SERVICIO DERIV
-  const deriv =
-    new DerivService(derivToken);
+ const deriv = new DerivService({
+  token: derivToken,
+  accountId: account.account_id
+});
 
-  await deriv.connect();
+await deriv.connect();
 
-  return {
-    deriv,
-    account
-  };
+return {
+  deriv,
+  account
+};
 };
 // ======================================
 // 🚀 START BOT
@@ -214,6 +225,7 @@ const start = async (req, res) => {
     );
 
     // SOCKET BALANCE
+    
     req.io
       .to(`user_${user.id}`)
       .emit("balance", {
