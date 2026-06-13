@@ -1,5 +1,5 @@
 const pool = require("../config/db");
-const DerivService = require("../services/DerivService");
+const DerivService = require("../services/derivService.js");
 const { encrypt } = require("../utils/crypto");
 
 const connectDeriv = async (req, res) => {
