@@ -67,17 +67,31 @@ app.use("/api/trades", tradeRoutes);
 // ==========================
 app.get("/test-db", async (req, res) => {
   try {
-    const result = await pool.query("SELECT NOW()");
-    res.json({
-      message: "Conexión exitosa",
-      time: result.rows[0],
+
+    console.log("DB CONFIG:", {
+      user: process.env.DB_USER,
+      host: process.env.DB_HOST,
+      database: process.env.DB_NAME,
+      port: process.env.DB_PORT,
     });
+
+    const result = await pool.query("SELECT NOW()");
+
+    res.json({
+      success: true,
+      time: result.rows[0]
+    });
+
   } catch (error) {
+
+    console.error("POSTGRES ERROR:");
     console.error(error);
-    res.status(500).json({ error: "Error conectando a la DB" });
+
+    res.status(500).json({
+      error: error.message
+    });
   }
 });
-
 // ==========================
 // 🚀 SERVER
 // ==========================

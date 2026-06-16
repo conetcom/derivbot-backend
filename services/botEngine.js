@@ -125,7 +125,7 @@ const room = io.sockets.adapter.rooms.get(
     if (state.lastTradeTime && Date.now() - state.lastTradeTime < 10000) return;
 
     // 🛑 control global
-    if (state.pnl <= -10 || state.pnl >= 20) {
+    if (state.pnl <= -1000 || state.pnl >= 2000) {
       state.cooldown = true;
       return;
     }
@@ -509,6 +509,7 @@ contractFinished = true;
 
     console.log("✅ BOT LIBERADO");
   }
+
 }
 });
 
