@@ -303,7 +303,14 @@ const start = async (req, res) => {
       startedAt:
         new Date()
     });
+io.to(`user_${user.id}`).emit(
+  "bot_started"
+);
 
+console.log(
+  "📡 bot_started enviado a",
+  `user_${user.id}`
+);
     return res.json({
 
       success: true,
