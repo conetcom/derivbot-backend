@@ -134,27 +134,10 @@ const room = io.sockets.adapter.rooms.get(
     if (state.lastTradeTime && Date.now() - state.lastTradeTime < 10000) return;
 
     // 🛑 control global
-   if (state.pnl <= -1000 || state.pnl >= 2000) {
-
-  io.to(`user_${user.id}`).emit(
-    "bot_stopped",
-    {
-      reason:
-        state.pnl >= 2000
-          ? "take_profit"
-          : "stop_loss"
+    if (state.pnl <= -1000 || state.pnl >= 2000) {
+      state.cooldown = true;
+      return;
     }
-  );
-
-  state.running = false;
-  state.cooldown = true;
-
-  await deriv.unsubscribeTicks(state.subId);
-
-  activeBots.delete(user.id);
-
-  return;
-}
 
     // 🛑 control racha
     if (state.lossStreak >= 3) {

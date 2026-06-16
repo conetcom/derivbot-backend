@@ -6,11 +6,6 @@ class DerivService {
     this.token = config.token;
     this.accountId = config.accountId;
 
-    console.log(
-      "CONFIG DERIV SERVICE:",
-      this.accountId,
-      this.token
-    );
 
     // Estado de conexión
     this.ws = null;
