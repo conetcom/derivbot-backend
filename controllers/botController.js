@@ -422,6 +422,24 @@ const stop = async (req, res) => {
     // ======================================
     // REMOVE MEMORY
     // ======================================
+    // ======================================
+// NOTIFICAR FRONTEND
+// ======================================
+
+req.io
+  .to(`user_${user.id}`)
+  .emit("bot_stopped", {
+    reason: "manual"
+  });
+
+console.log(
+  "📡 bot_stopped enviado a",
+  `user_${user.id}`
+);
+
+// ======================================
+// REMOVE MEMORY
+// ======================================
     activeBots.delete(user.id);
 
     return res.json({
