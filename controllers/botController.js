@@ -426,17 +426,10 @@ const stop = async (req, res) => {
 // NOTIFICAR FRONTEND
 // ======================================
 
-req.io
-  .to(`user_${user.id}`)
+io.to(`user_${user.id}`)
   .emit("bot_stopped", {
     reason: "manual"
   });
-
-console.log(
-  "📡 bot_stopped enviado a",
-  `user_${user.id}`
-);
-
 // ======================================
 // REMOVE MEMORY
 // ======================================
