@@ -37,7 +37,7 @@ const createTrade = async (trade) => {
 const closeTrade = async (contract_id, data) => {
 
   const contractId = String(contract_id); // 🔥 FIX CRÍTICO
-
+console.log("🔥 CERRAR TRADE:", contractId, data);
   const query = `
     UPDATE trades
     SET 
