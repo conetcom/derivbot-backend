@@ -79,20 +79,6 @@ const getDerivClient = async (
       "Token Deriv inválido"
     );
   }
-
-  console.log(
-    "🔑 TOKEN OK"
-  );
-console.log(
-  "TOKEN DERIV:",
-  derivToken
-);
-console.log("ACCOUNT COMPLETO:", account);
-
-console.log(
-  "ACCOUNT ID:",
-  account.account_id
-);
   // 🔥 CREAR SERVICIO DERIV
  const deriv = new DerivService({
   token: derivToken,

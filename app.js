@@ -36,16 +36,10 @@ global.io = io;
 // 🔌 SOCKET CONNECTION (UNA SOLA VEZ)
 // ==========================
 io.on("connection", (socket) => {
-  console.log("🟢 Cliente conectado:", socket.id);
-
-  socket.on("join", (userId) => {
+ socket.on("join", (userId) => {
   socket.join(`user_${userId}`);
 
-  console.log(
-    "👤 JOIN ROOM:",
-    userId,
-    `user_${userId}`
-  );
+ 
 });
 
   socket.on("disconnect", () => {
