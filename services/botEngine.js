@@ -277,7 +277,15 @@ expiry_time: new Date(Date.now() + 60000),
 
       let closed = false;
       let contractFinished = false;
+console.log(
+  "WS CONNECTED:",
+  deriv.isConnected
+);
 
+console.log(
+  "CONTRACT ID:",
+  contractId
+);
      deriv.watchContract(contractId, async (c) => {
 
   try {
