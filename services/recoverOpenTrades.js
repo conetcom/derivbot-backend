@@ -5,14 +5,14 @@ async function recoverOpenTrades() {
 
   const openTrades = await pool.query(`
     SELECT
-      t.contract_id,
-      t.user_id,
-      d.token as api_token,
-      d.account_id
-    FROM trades t
-    JOIN deriv_accounts d
-      ON d.user_id = t.user_id
-    WHERE t.status = 'open'
+    t.contract_id,
+    t.user_id,
+    d.deriv_token as api_token,
+    d.account_id
+  FROM trades t
+  JOIN deriv_accounts d
+    ON d.user_id = t.user_id
+  WHERE t.status = 'open'
   `);
 
   for (const trade of openTrades.rows) {
