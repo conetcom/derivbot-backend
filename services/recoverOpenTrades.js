@@ -1,5 +1,5 @@
 const pool = require("../config/db");
-const DerivService = require("./derivService");
+const DerivService = require("./derivService.js");
 
 async function recoverOpenTrades() {
 
