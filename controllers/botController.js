@@ -272,22 +272,6 @@ const start = async (req, res) => {
 
         req.io
       );
-     const botInstance =
-  await startBot(
-    user,
-    {
-      id: bot.id,
-      symbol,
-      stake,
-      strategy,
-      targetProfit,
-      stopLoss,
-      maxDrawdown
-    },
-    deriv,
-    req.io
-  );
-
 // 🔥 Recuperar estado ya creado por startBot
 const state =  activeBots.get(user.id);
 
@@ -305,10 +289,6 @@ if (state) {
   );
 
 }
-
-    // ======================================
-    // 🧠 GUARDAR MEMORIA
-    // ======================================
 
     return res.json({
 
