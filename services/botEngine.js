@@ -99,7 +99,10 @@ const state = {
 await deriv.connect();
 
 activeBots.set(user.id, state);
-
+console.log(
+  "STATE IO:",
+  !!state.io
+);
 io.to(`user_${user.id}`).emit(
   "bot_started"
 );
@@ -633,6 +636,15 @@ console.log(
     console.log(
       "🛑 BOT ELIMINADO"
     );
+    console.log(
+  "STATE:",
+  state
+);
+
+console.log(
+  "STATE IO:",
+  state?.io
+);
 
   } catch(err) {
 
