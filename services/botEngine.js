@@ -134,25 +134,9 @@ const room = io.sockets.adapter.rooms.get(
     if (state.lastTradeTime && Date.now() - state.lastTradeTime < 10000) return;
 
     // 🛑 control global
-   if (state.pnl <= -1000) {
 
-  await stopBot(
-    user.id,
-    "stop_loss"
-  );
 
-  return;
-}
 
-if (state.pnl >= 2000) {
-
-  await stopBot(
-    user.id,
-    "take_profit"
-  );
-
-  return;
-}
 
     // 🛑 control racha
     if (state.lossStreak >= 3) {
@@ -426,6 +410,29 @@ contractFinished = true;
     }
 
     state.pnl += profit;
+    console.log(
+  "📊 PNL ACTUAL:",
+  state.pnl
+);
+
+       if (state.pnl <= -1000) {
+
+  await stopBot(
+    user,
+    "stop_loss"
+  );
+
+  return;
+}
+if (state.pnl >= 2000) {
+
+  await stopBot(
+    user,
+    "take_profit"
+  );
+
+  return;
+}
 
     const winrate = (
       (state.wins / state.trades) * 100
