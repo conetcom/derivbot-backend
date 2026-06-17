@@ -11,7 +11,7 @@ const {createTrade, closeTrade} = require("../models/tradesModel");
 // ======================================
 // 🧠 MEMORIA BOTS ACTIVOS
 // ======================================
-const activeBots = new Map();
+const activeBots =  require("..//services/activeBots");
 
 // ======================================
 // 🔗 OBTENER CLIENTE DERIV

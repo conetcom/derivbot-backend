@@ -12,7 +12,7 @@ const {
 } = require("../bot/strategy");
 const RiskManager = require("../bot/riskManager");
 
-const activeBots = new Map();
+const activeBots = require("../services/activeBots");
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 
 // ===============================
