@@ -8,6 +8,7 @@ const derivRoutes = require("./routes/derivRoutes");
 const botRoutes = require("./routes/botRoutes");
 const tradeRoutes = require("./routes/tradeRoutes");
 const pool = require("./config/db");
+const recoverOpenTrades = require("./services/recoverOpenTrades");
 
 const app = express();
 const server = http.createServer(app);
@@ -89,8 +90,14 @@ app.get("/test-db", async (req, res) => {
 // ==========================
 // 🚀 SERVER
 // ==========================
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
-server.listen(PORT, () => {
-  console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
+server.listen(PORT, async () => {
+
+  console.log(
+    `🚀 Servidor corriendo en puerto ${PORT}`
+  );
+
+  await recoverOpenTrades();
+
 });

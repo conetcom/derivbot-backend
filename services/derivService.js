@@ -377,26 +377,31 @@ if (!this.isConnected && !data.authorize) {
   }
 
   disconnect() {
-    // ✅ FIX 8
-    if (this.pingInterval) {
-      clearInterval(this.pingInterval);
-      this.pingInterval = null;
-    }
 
-    if (this.ws) {
-      try {
-        this.ws.terminate();
-      } catch {}
-    }
-
-    this.isConnected = false;
-    this.connecting = false;
-
-    this.pendingRequests.clear();
-    this.subscriptions.clear();
-    this.contractSubscriptions.clear();
-    this.tickSubscriptions.clear();
+  if (this.pingInterval) {
+    clearInterval(this.pingInterval);
+    this.pingInterval = null;
   }
+
+  if (this.ws) {
+
+    try {
+      this.ws.close();
+    } catch (err) {
+      console.log(err.message);
+    }
+
+    this.ws = null;
+  }
+
+  this.isConnected = false;
+  this.connecting = false;
+
+  this.pendingRequests.clear();
+  this.subscriptions.clear();
+  this.contractSubscriptions.clear();
+  this.tickSubscriptions.clear();
+}
  async getCandles(symbol, granularity = 60, count = 100) {
   const res = await this.send({
     ticks_history: symbol,
