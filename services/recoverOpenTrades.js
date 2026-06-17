@@ -1,5 +1,6 @@
 const pool = require("../config/db");
 const DerivService = require("./derivService.js");
+const decrypt =  require("../utils/decrypt");
 
 async function recoverOpenTrades() {
 
@@ -15,68 +16,77 @@ async function recoverOpenTrades() {
   WHERE t.status = 'open'
   `);
 
-  for (const trade of openTrades.rows) {
 
-    // 🔥 CREAR SERVICIO DERIV
-    const deriv = new DerivService({
-      token: trade.api_token,
-      accountId: trade.account_id
-    });
+for (const trade of openTrades.rows) {
 
-    try {
+  const token = decrypt(
+    trade.api_token
+  );
 
-      await deriv.connect();
+  console.log(
+    "🔓 TOKEN DESENCRIPTADO:",
+    token?.substring(0, 10) + "..."
+  );
 
-      const contract =
-        await deriv.getContract(
-          trade.contract_id
-        );
+  const deriv = new DerivService({
+    token,
+    accountId: trade.account_id
+  });
 
-      console.log(
-        "📄 CONTRACT:",
-        trade.contract_id,
-        contract.status
+  try {
+
+    await deriv.connect();
+
+    const contract =
+      await deriv.getContract(
+        trade.contract_id
       );
 
-      const finished =
-        contract.is_sold ||
-        contract.status === "sold";
+    console.log(
+      "📄 CONTRACT:",
+      trade.contract_id,
+      contract.status
+    );
 
-      if (finished) {
+    const finished =
+      contract.is_sold ||
+      contract.status === "sold";
 
-        await pool.query(`
-          UPDATE trades
-          SET
-            status='closed',
-            profit=$1,
-            exit_price=$2
-          WHERE contract_id=$3
-        `, [
-          contract.profit,
-          contract.exit_tick,
-          trade.contract_id
-        ]);
+    if (finished) {
 
-        console.log(
-          "✅ Trade recuperado:",
-          trade.contract_id
-        );
-      }
-
-    } catch (err) {
+      await pool.query(`
+        UPDATE trades
+        SET
+          status='closed',
+          profit=$1,
+          exit_price=$2
+        WHERE contract_id=$3
+      `, [
+        contract.profit,
+        contract.exit_tick,
+        trade.contract_id
+      ]);
 
       console.log(
-        "🔥 ERROR RECOVER:",
-        trade.contract_id,
-        err.message
+        "✅ Trade recuperado:",
+        trade.contract_id
       );
-
-    } finally {
-
-      deriv.disconnect();
-
     }
+
+  } catch (err) {
+
+    console.log(
+      "🔥 ERROR RECOVER:",
+      trade.contract_id,
+      err.message
+    );
+
+  } finally {
+
+    deriv.disconnect();
+
   }
+}
 }
 
 module.exports = recoverOpenTrades;
