@@ -126,7 +126,12 @@ console.log(
   log("BOT_START", "Bot iniciado", { user: user.id });
 
   const subId = await deriv.subscribeTicks(botConfig.symbol, async (data) => {
+  const currentState =
+      activeBots.get(user.id);
 
+    if (!currentState) {
+      return;
+    }
     if (!deriv.isConnected) return;
 
     const price = data.tick.quote;
@@ -594,15 +599,23 @@ const stopBot = async (
 
     if (state.subId) {
 
-      await state.deriv.forgetContract(
+      await state.deriv.unsubscribe(
         state.subId
+      );
+
+      console.log(
+        "🧹 TICKS CANCELADOS"
       );
     }
 
+    state.deriv.disconnect();
+
+    console.log(
+      "🔌 DERIV DESCONECTADO"
+    );
+
     state.running = false;
-
     state.cooldown = false;
-
     state.currentContractId = null;
 
     state.io
@@ -614,12 +627,16 @@ const stopBot = async (
 
     activeBots.delete(user.id);
 
+    console.log(
+      "🛑 BOT ELIMINADO"
+    );
+
   } catch(err) {
 
     console.log(
+      "STOP ERROR:",
       err.message
     );
   }
 };
-
 module.exports = { startBot, stopBot };

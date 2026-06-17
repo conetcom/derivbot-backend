@@ -186,7 +186,15 @@ if (!this.isConnected && !data.authorize) {
     const res = await this.send({ balance: 1 });
     return res.balance;
   }
+async getContract(contractId) {
 
+  const res = await this.send({
+    proposal_open_contract: 1,
+    contract_id: contractId
+  });
+
+  return res.proposal_open_contract;
+}
   async subscribeTicks(symbol, callback) {
     const res = await this.send({
       ticks: symbol,
