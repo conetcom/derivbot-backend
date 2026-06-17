@@ -2,26 +2,17 @@ const pool = require("../config/db");
 
 const DerivService = require("../services/derivService");
 
-const {
-  startBot,
-  stopBot
-} = require("../services/botEngine");
+const {startBot, stopBot} = require("../services/botEngine");
 
 const { decrypt } = require("../utils/crypto");
 
-const {
-  createTrade,
-  closeTrade
-} = require("../models/tradesModel");
+const {createTrade, closeTrade} = require("../models/tradesModel");
 
 // ======================================
 // 🧠 MEMORIA BOTS ACTIVOS
 // ======================================
 const activeBots = new Map();
 
-// ======================================
-// 🔗 OBTENER CLIENTE DERIV
-// ======================================
 // ======================================
 // 🔗 OBTENER CLIENTE DERIV
 // ======================================
@@ -194,10 +185,6 @@ const start = async (req, res) => {
       accountId
     );
 
-    console.log(
-      "✅ DERIV CONNECTED:",
-      account.account_name
-    );
 
     // ======================================
     // 💰 BALANCE
@@ -338,122 +325,16 @@ console.log(
 // ======================================
 // 🛑 STOP BOT
 // ======================================
-const stop = async (req, res) => {
+const stop = async (req,res) => {
 
-  try {
+  await stopBot( req.user,
+    "manual"
+  );
 
-    const user = req.user;
-
-    if (!user?.id) {
-
-      return res.status(401).json({
-        error: "No autorizado"
-      });
-    }
-
-    const botData =
-      activeBots.get(user.id);
-
-    if (!botData) {
-
-      return res.status(400).json({
-        error:
-          "No tienes bot activo"
-      });
-    }
-
-    const {
-      deriv,
-      botId
-    } = botData;
-
-    console.log(
-      "🛑 STOP BOT:",
-      botId
-    );
-
-    // ======================================
-    // STOP ENGINE
-    // ======================================
-    await stopBot(user);
-
-    // ======================================
-    // CERRAR TRADES OPEN
-    // ======================================
-    await pool.query(
-      `
-      UPDATE trades
-      SET status = 'closed',
-          profit = 0
-      WHERE user_id = $1
-      AND status = 'open'
-      `,
-      [user.id]
-    );
-
-    console.log(
-      "🧹 OPEN TRADES CLOSED"
-    );
-
-    // ======================================
-    // UPDATE BOT DB
-    // ======================================
-    await pool.query(
-      `
-      UPDATE bots
-      SET status = 'stopped'
-      WHERE id = $1
-      `,
-      [botId]
-    );
-
-    // ======================================
-    // CLOSE SOCKET
-    // ======================================
-    if (deriv?.ws) {
-
-      deriv.ws.close();
-
-      console.log(
-        "🔌 DERIV SOCKET CLOSED"
-      );
-    }
-
-    // ======================================
-    // REMOVE MEMORY
-    // ======================================
-    // ======================================
-// NOTIFICAR FRONTEND
-// ======================================
-
-io.to(`user_${user.id}`)
-  .emit("bot_stopped", {
-    reason: "manual"
+  return res.json({
+    success:true
   });
-// ======================================
-// REMOVE MEMORY
-// ======================================
-    activeBots.delete(user.id);
 
-    return res.json({
-
-      success: true,
-
-      message:
-        "Bot detenido"
-    });
-
-  } catch (err) {
-
-    console.log(
-      "🔥 STOP ERROR:",
-      err.message
-    );
-
-    return res.status(500).json({
-      error: err.message
-    });
-  }
 };
 
 // ======================================

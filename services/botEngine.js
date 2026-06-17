@@ -561,26 +561,44 @@ contractFinished = true;
 // ===============================
 const stopBot = async (
   user,
-  io
+  reason = "manual"
 ) => {
-
-  console.log(
-    "🛑 STOP BOT EJECUTADO",
-    user.id
-  );
 
   const state =
     activeBots.get(user.id);
 
-  if (!state) {
+  if (!state) return;
+
+  try {
+
+    if (state.subId) {
+
+      await state.deriv.forget(
+        state.subId
+      );
+    }
+
+    state.running = false;
+
+    state.cooldown = false;
+
+    state.currentContractId = null;
+
+    state.io
+      .to(`user_${user.id}`)
+      .emit(
+        "bot_stopped",
+        { reason }
+      );
+
+    activeBots.delete(user.id);
+
+  } catch(err) {
 
     console.log(
-      "⚠️ BOT NO ENCONTRADO"
+      err.message
     );
-
-    return;
   }
-
 };
 
 module.exports = { startBot, stopBot };
