@@ -272,32 +272,44 @@ const start = async (req, res) => {
 
         req.io
       );
+     const botInstance =
+  await startBot(
+    user,
+    {
+      id: bot.id,
+      symbol,
+      stake,
+      strategy,
+      targetProfit,
+      stopLoss,
+      maxDrawdown
+    },
+    deriv,
+    req.io
+  );
+
+// 🔥 Recuperar estado ya creado por startBot
+const state =  activeBots.get(user.id);
+
+if (state) {
+
+  state.botId = bot.id;
+
+  state.accountId = account.id;
+
+  state.startedAt = new Date();
+
+  console.log(
+    "✅ Estado actualizado:",
+    user.id
+  );
+
+}
 
     // ======================================
     // 🧠 GUARDAR MEMORIA
     // ======================================
-    activeBots.set(user.id, {
 
-      botId: bot.id,
-
-      bot: botInstance,
-
-      deriv,
-
-      accountId:
-        account.id,
-
-      startedAt:
-        new Date()
-    });
-io.to(`user_${user.id}`).emit(
-  "bot_started"
-);
-
-console.log(
-  "📡 bot_started enviado a",
-  `user_${user.id}`
-);
     return res.json({
 
       success: true,
