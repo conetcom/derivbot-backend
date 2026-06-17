@@ -624,7 +624,10 @@ const stopBot = async (
         "bot_stopped",
         { reason }
       );
-
+console.log(
+  "📡 bot_stopped enviado a",
+  `user_${user.id}`
+);
     activeBots.delete(user.id);
 
     console.log(
