@@ -69,18 +69,32 @@ const risk = new RiskManager(balanceData.balance);
 const candleBuilder = new CandleBuilder();
 
 const state = {
-    subId: null,
-    trades: 0,
-    wins: 0,
-    losses: 0,
-    pnl: 0,
-    lossStreak: 0,
-    running: false,
-    cooldown: false,
-    currentContractId: null,
-    entrySaved: false,
-    lastTradeTime: null
-  };
+  userId: user.id,
+
+  deriv,
+
+  io,
+
+  subId: null,
+
+  trades: 0,
+  wins: 0,
+  losses: 0,
+  pnl: 0,
+
+  lossStreak: 0,
+
+  running: false,
+  cooldown: false,
+
+  currentContractId: null,
+
+  entrySaved: false,
+
+  lastTradeTime: null,
+
+  startedAt: Date.now()
+};
 
 await deriv.connect();
 
@@ -580,7 +594,7 @@ const stopBot = async (
 
     if (state.subId) {
 
-      await state.deriv.forget(
+      await state.deriv.forgetContract(
         state.subId
       );
     }
