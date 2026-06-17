@@ -1,6 +1,6 @@
 const pool = require("../config/db");
 const DerivService = require("./derivService.js");
-const decrypt =  require("../utils/crypto.js");
+const { decrypt } =  require("../utils/crypto.js");
 
 async function recoverOpenTrades() {
 
