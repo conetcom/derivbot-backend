@@ -210,8 +210,7 @@ const start = async (req, res) => {
     // ======================================
     // 🤖 CREAR BOT DB
     // ======================================
-    const botResult =
-      await pool.query(
+    const botResult =      await pool.query(
         `
         INSERT INTO bots (
           user_id,
@@ -345,8 +344,7 @@ const status = async (req, res) => {
       });
     }
 
-    const botData =
-      activeBots.get(user.id);
+    const botData =activeBots.get(user.id);
 
     return res.json({
 

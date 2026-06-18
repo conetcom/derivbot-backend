@@ -11,7 +11,7 @@ const {
   syntheticProStrategy
 } = require("../bot/strategy");
 const RiskManager = require("../bot/riskManager");
-
+const { updateBotStatus} = require("../models/botsModel");
 const activeBots = require("../services/activeBots");
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 
@@ -54,26 +54,34 @@ const debugVisual = (candles, signal, sma, liquidity, pro) => {
 // ===============================
 const startBot = async (user, botConfig, deriv, io) => {
 
-  if (activeBots.has(user.id)) return;
+ if (activeBots.has(user.id)) {
+  return;
+}
 
- await deriv.connect();
+if (!deriv.isConnected) {
+  await deriv.connect();
+}
 
-// 🔥 obtener balance REAL
-const balanceData = await deriv.getBalance();
+const balanceData =
+  await deriv.getBalance();
 
-console.log("💰 BALANCE REAL:", balanceData.balance);
+const risk =
+  new RiskManager(
+    balanceData.balance
+  );
 
-// 🔥 iniciar RiskManager con balance REAL
-const risk = new RiskManager(balanceData.balance);
-
-const candleBuilder = new CandleBuilder();
+const candleBuilder =
+  new CandleBuilder();
 
 const state = {
   userId: user.id,
 
-  deriv,
+  botId: botConfig.id,
 
+  deriv,
   io,
+
+  risk,
 
   subId: null,
 
@@ -96,22 +104,36 @@ const state = {
   startedAt: Date.now()
 };
 
-await deriv.connect();
-
-activeBots.set(user.id, state);
-console.log(
-  "STATE IO:",
-  !!state.io
+activeBots.set(
+  user.id,
+  state
 );
+
+await updateBotStatus(
+  botConfig.id,
+  "running"
+);
+
 io.to(`user_${user.id}`).emit(
-  "bot_started"
+  "bot_started",
+  {
+    botId: botConfig.id,
+    status: "running",
+    startedAt: state.startedAt,
+    balance: balanceData.balance
+  }
 );
 
-console.log(
-  "📡 bot_started enviado a",
-  `user_${user.id}`
+io.to(`user_${user.id}`).emit(
+  "metrics",
+  {
+    trades: 0,
+    wins: 0,
+    losses: 0,
+    pnl: 0,
+    winrate: 0
+  }
 );
-
   // ===============================
   // 🔥 HISTÓRICO
   // ===============================
@@ -136,7 +158,7 @@ console.log(
       return;
     }
     if (!deriv.isConnected) return;
-
+ await deriv.connect();
     const price = data.tick.quote;
     const epoch = data.tick.epoch;
 
@@ -284,7 +306,7 @@ const room = io.sockets.adapter.rooms.get(
     JSON.stringify(contract, null, 2)
   );
 }
-    //  if (!contractId) throw new Error("Contrato inválido");
+    if (!contractId) throw new Error("Contrato inválido");
 
       state.currentContractId = contractId;
       state.entrySaved = false;
@@ -437,8 +459,7 @@ contractFinished = true;
   state.pnl
 );
 
-       if (state.pnl <= -1000) {
-
+       if (state.pnl <= -botConfig.stopLoss) {
   await stopBot(
     user,
     "stop_loss"
@@ -446,7 +467,7 @@ contractFinished = true;
 
   return;
 }
-if (state.pnl >= 2000) {
+if (state.pnl >=botConfig.targetProfit) {
 
   await stopBot(
     user,
@@ -593,29 +614,28 @@ const stopBot = async (
   reason = "manual"
 ) => {
 
-  const state =
-    activeBots.get(user.id);
+  const state = activeBots.get(user.id);
 
   if (!state) return;
 
   try {
 
     if (state.subId) {
+      await state.deriv.unsubscribe(state.subId);
 
-      await state.deriv.unsubscribe(
-        state.subId
-      );
-
-      console.log(
-        "🧹 TICKS CANCELADOS"
-      );
+      console.log("🧹 TICKS CANCELADOS");
     }
 
     state.deriv.disconnect();
 
-    console.log(
-      "🔌 DERIV DESCONECTADO"
-    );
+    console.log("🔌 DERIV DESCONECTADO");
+
+    // actualizar BD
+    await updateBotStatus(
+  state.botId,
+  "stopped"
+);
+
 
     state.running = false;
     state.cooldown = false;
@@ -623,30 +643,21 @@ const stopBot = async (
 
     state.io
       .to(`user_${user.id}`)
-      .emit(
-        "bot_stopped",
-        { reason }
-      );
-console.log(
-  "📡 bot_stopped enviado a",
-  `user_${user.id}`
-);
+      .emit("bot_stopped", {
+        reason,
+        status: "stopped"
+      });
+
+    console.log(
+      "📡 bot_stopped enviado a",
+      `user_${user.id}`
+    );
+
     activeBots.delete(user.id);
 
-    console.log(
-      "🛑 BOT ELIMINADO"
-    );
-    console.log(
-  "STATE:",
-  state
-);
+    console.log("🛑 BOT ELIMINADO");
 
-console.log(
-  "STATE IO:",
-  state?.io
-);
-
-  } catch(err) {
+  } catch (err) {
 
     console.log(
       "STOP ERROR:",
