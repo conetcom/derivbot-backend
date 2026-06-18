@@ -20,9 +20,7 @@ console.log(
     // conectar deriv
     const deriv = new DerivService({token, account_id});
 
-    await deriv.connect();
-
-    const balance = await deriv.getBalance();
+   const balance = await deriv.getBalance();
 
     // encriptar token
     const encryptedToken = encrypt(token);
