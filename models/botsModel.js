@@ -1,3 +1,5 @@
+const pool = require("../config/db");
+
 const updateBotStatus = async (botId, status) => {
   const query = `
     UPDATE bots
@@ -6,7 +8,7 @@ const updateBotStatus = async (botId, status) => {
     RETURNING *;
   `;
 
-  const res = await db.query(query, [
+  const res = await pool.query(query, [
     status,
     botId
   ]);
