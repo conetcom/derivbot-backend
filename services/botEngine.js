@@ -26,7 +26,15 @@ const log = (type, msg, extra = {}) => {
     ...extra
   }));
 };
-
+const {
+  emitBotStarted,
+  emitBotStopped,
+  emitNewTrade,
+  emitTradeUpdate,
+  emitBalance,
+  emitMetrics,
+  emitPriceUpdate
+} = require("../utils/socketEvents");
 // ===============================
 // 📊 DEBUG VISUAL
 // ===============================
@@ -58,9 +66,7 @@ const startBot = async (user, botConfig, deriv, io) => {
   return;
 }
 
-if (!deriv.isConnected) {
-  await deriv.connect();
-}
+if (!deriv.isConnected) return;
 
 const balanceData =
   await deriv.getBalance();
@@ -100,6 +106,7 @@ const state = {
   entrySaved: false,
 
   lastTradeTime: null,
+   tradeTimeout: null,
 
   startedAt: Date.now()
 };
@@ -109,23 +116,15 @@ activeBots.set(
   state
 );
 
-await updateBotStatus(
-  botConfig.id,
-  "running"
-);
 
-io.to(`user_${user.id}`).emit(
-  "bot_started",
-  {
-    botId: botConfig.id,
-    status: "running",
-    startedAt: state.startedAt,
-    balance: balanceData.balance
-  }
+emitBotStarted(
+  io,
+  user.id,
+  botConfig.id
 );
-
-io.to(`user_${user.id}`).emit(
-  "metrics",
+emitMetrics(
+  io,
+  user.id,
   {
     trades: 0,
     wins: 0,
@@ -158,17 +157,15 @@ io.to(`user_${user.id}`).emit(
       return;
     }
     if (!deriv.isConnected) return;
- await deriv.connect();
+ 
     const price = data.tick.quote;
     const epoch = data.tick.epoch;
 
-const room = io.sockets.adapter.rooms.get(
-  `user_${user.id}`
+emitPriceUpdate(
+  io,
+  user.id,
+  price
 );
-
-
-
-    io.to(`user_${user.id}`).emit("price_update", price);
    // console.log("📡 Tick recibido:", price);
 
     // 🛑 bloqueos
@@ -272,10 +269,18 @@ const room = io.sockets.adapter.rooms.get(
     const msToNextSecond = 1000 - (Date.now() % 1000);
     await sleep(msToNextSecond + 200);
 
-    const timeout = setTimeout(() => {
-      state.running = false;
-      state.cooldown = false;
-    }, 70000);
+  state.tradeTimeout = setTimeout(() => {
+
+  console.log(
+    "⏰ TIMEOUT LIBERANDO BOT"
+  );
+
+  state.running = false;
+  state.cooldown = false;
+
+  state.tradeTimeout = null;
+
+}, 70000);
 
     try {
 
@@ -325,7 +330,11 @@ expiry_time: new Date(Date.now() + 60000),
 });
 
       state.trades++;
-      io.to(`user_${user.id}`).emit("new_trade", trade);
+     emitNewTrade(
+  io,
+  user.id,
+  trade
+);
 
       let closed = false;
       let contractFinished = false;
@@ -373,14 +382,8 @@ if (!state.entrySaved && current) {
     // ===============================
     // 📡 UPDATE FRONTEND
     // ===============================
-   io.to(`user_${user.id}`).emit("trade_update", {
-  /*start_time: c.start_time,
+ const tradeUpdate = {
   contract_id: c.contract_id,
-  profit: c.profit,
-  status: c.status,
-  entry_price: c.entry_tick,
-  current_spot: c.current_spot*/
-   contract_id: c.contract_id,
 
   profit: c.profit,
 
@@ -393,13 +396,16 @@ if (!state.entrySaved && current) {
 
   current_spot: c.current_spot,
 
-  // 🔥 TIEMPOS
-  date_start:
-    c.date_start,
+  date_start: c.date_start,
 
-  date_expiry:
-    c.date_expiry
-});
+  date_expiry: c.date_expiry
+};
+
+emitTradeUpdate(
+  io,
+  user.id,
+  tradeUpdate
+);
 
     // ===============================
     // 🏁 VALIDAR CIERRE
@@ -414,8 +420,19 @@ if (!state.entrySaved && current) {
 
 closed = true;
 contractFinished = true;
+if (state.tradeTimeout) {
 
-    clearTimeout(timeout);
+  clearTimeout(
+    state.tradeTimeout
+  );
+
+  state.tradeTimeout = null;
+
+  console.log(
+    "🧹 TRADE TIMEOUT LIMPIADO"
+  );
+}
+
 
     // ===============================
     // 💰 RESULTADO
@@ -492,15 +509,14 @@ if (state.pnl >=botConfig.targetProfit) {
     // ===============================
     try {
 
-      const balanceData =
-        await deriv.getBalance();
+    const balanceData =
+  await deriv.getBalance();
 
-      io.to(`user_${user.id}`).emit(
-        "balance",
-        {
-          balance: balanceData.balance
-        }
-      );
+emitBalance(
+  io,
+  user.id,
+  balanceData.balance
+);
 
       risk.update(balanceData.balance);
 
@@ -540,7 +556,7 @@ if (state.pnl >=botConfig.targetProfit) {
     // 🧹 OLVIDAR CONTRATO
     // ===============================
     try {
-
+      state.currentContractId = null;
       await deriv.forgetContract(contractId);
 
       console.log(
@@ -559,16 +575,17 @@ if (state.pnl >=botConfig.targetProfit) {
     // ===============================
     // 📡 MÉTRICAS FRONTEND
     // ===============================
-    io.to(`user_${user.id}`).emit(
-      "metrics",
-      {
-        trades: state.trades,
-        wins: state.wins,
-        losses: state.losses,
-        pnl: state.pnl,
-        winrate
-      }
-    );
+emitMetrics(
+  io,
+  user.id,
+  {
+    trades: state.trades,
+    wins: state.wins,
+    losses: state.losses,
+    pnl: state.pnl,
+    winrate
+  }
+);
 
   } catch (err) {
 
@@ -583,23 +600,39 @@ if (state.pnl >=botConfig.targetProfit) {
   // 🔥 liberar SOLO si contrato terminó
   if (contractFinished) {
 
-    state.currentContractId = null;
+  state.currentContractId = null;
 
-    state.running = false;
+  state.running = false;
 
-    state.cooldown = false;
+  state.cooldown = false;
 
-    console.log("✅ BOT LIBERADO");
-  }
+  console.log("✅ BOT LIBERADO");
+}
 
 }
 });
 
-    } catch (err) {
-      log("ERROR", err.message);
-      state.running = false;
-      clearTimeout(timeout);
-    }
+    } 
+    catch(err) {
+
+  if (state.tradeTimeout) {
+
+    clearTimeout(
+      state.tradeTimeout
+    );
+
+    state.tradeTimeout = null;
+
+  }
+
+  state.running = false;
+  state.cooldown = false;
+
+  console.log(
+    "🔥 TRADE ERROR:",
+    err.message
+  );
+}
 
   });
 
@@ -626,9 +659,14 @@ const stopBot = async (
       console.log("🧹 TICKS CANCELADOS");
     }
 
-    state.deriv.disconnect();
+   state.running = false;
+state.cooldown = true;
+state.stopping = true;
 
-    console.log("🔌 DERIV DESCONECTADO");
+    if (state.deriv) {
+  state.deriv.disconnect();
+  console.log("🔌 DERIV DESCONECTADO");
+}
 
     // actualizar BD
     await updateBotStatus(
@@ -636,22 +674,22 @@ const stopBot = async (
   "stopped"
 );
 
-
+state.status = "stopped";
+  console.log(
+    "✅ BOT STATUS STOPPED:",
+    state.botId
+  );
     state.running = false;
     state.cooldown = false;
     state.currentContractId = null;
 
-    state.io
-      .to(`user_${user.id}`)
-      .emit("bot_stopped", {
-        reason,
-        status: "stopped"
-      });
+   emitBotStopped(
+  state.io,
+  user.id,
+  state.botId,
+  reason
+);
 
-    console.log(
-      "📡 bot_stopped enviado a",
-      `user_${user.id}`
-    );
 
     activeBots.delete(user.id);
 

@@ -7,7 +7,7 @@ const {startBot, stopBot} = require("../services/botEngine");
 const { decrypt } = require("../utils/crypto");
 
 const {createTrade, closeTrade} = require("../models/tradesModel");
-
+const {  emitBalance} = require("../utils/socketEvents");
 // ======================================
 // 🧠 MEMORIA BOTS ACTIVOS
 // ======================================
@@ -76,13 +76,12 @@ const getDerivClient = async (
   accountId: account.account_id
 });
 
-await deriv.connect();
-
 return {
   deriv,
   account
 };
-};
+}; 
+
 // ======================================
 // 🚀 START BOT
 // ======================================
@@ -92,10 +91,18 @@ const start = async (req, res) => {
 
   try {
 
-    const user = req.user;
+    const accountId = req.params.accountId
+  ? Number(req.params.accountId)
+  : null;
 
-    // ✅ accountId viene por params
-    const { accountId } = req.params;
+if (
+  accountId !== null &&
+  Number.isNaN(accountId)
+) {
+  return res.status(400).json({
+    error: "accountId inválido"
+  });
+}
 
     // ✅ lo demás viene en body
     const {
@@ -199,17 +206,15 @@ const start = async (req, res) => {
 
     // SOCKET BALANCE
     
-    req.io
-      .to(`user_${user.id}`)
-      .emit("balance", {
-        balance:
-          balance.balance ||
-          balance
-      });
-
+  emitBalance(
+  req.io,
+  user.id,
+  balance.balance || balance
+);
     // ======================================
     // 🤖 CREAR BOT DB
     // ======================================
+  
     const botResult =      await pool.query(
         `
         INSERT INTO bots (
@@ -231,7 +236,7 @@ const start = async (req, res) => {
           strategy || "sma",
           symbol,
           stake,
-          "active"
+          "starting"
         ]
       );
 
@@ -246,7 +251,6 @@ const start = async (req, res) => {
     // ======================================
     // 🚀 START ENGINE
     // ======================================
-    const botInstance =
       await startBot(
 
         user,
@@ -271,6 +275,19 @@ const start = async (req, res) => {
 
         req.io
       );
+      await pool.query(
+  `
+  UPDATE bots
+  SET status = 'active'
+  WHERE id = $1
+  `,
+  [bot.id]
+);
+
+console.log(
+  "✅ BOT RUNNING:",
+  bot.id
+);
 // 🔥 Recuperar estado ya creado por startBot
 const state =  activeBots.get(user.id);
 
@@ -303,7 +320,18 @@ if (state) {
     });
 
   } catch (err) {
+if (bot?.id) {
 
+  await pool.query(
+    `
+    UPDATE bots
+    SET status='error'
+    WHERE id=$1
+    `,
+    [bot.id]
+  );
+
+}
   console.log("🔥 FULL ERROR:");
   console.log(err);
 
@@ -343,27 +371,40 @@ const status = async (req, res) => {
         error: "No autorizado"
       });
     }
+const botStatus = {
 
-    const botData =activeBots.get(user.id);
+  botId: botData.botId,
 
-    return res.json({
+  accountId: botData.accountId,
 
-      active:
-        activeBots.has(user.id),
+  startedAt: botData.startedAt,
 
-      bot: botData
-        ? {
-            botId:
-              botData.botId,
+  running: botData.running,
 
-            accountId:
-              botData.accountId,
+  cooldown: botData.cooldown,
 
-            startedAt:
-              botData.startedAt
-          }
-        : null
-    });
+  currentContractId:
+    botData.currentContractId,
+
+  metrics: {
+
+    trades: botData.trades,
+
+    wins: botData.wins,
+
+    losses: botData.losses,
+
+    pnl: botData.pnl,
+
+    lossStreak:
+      botData.lossStreak
+  }
+};
+
+return res.json({
+  active: true,
+  bot: botStatus
+});
 
   } catch (err) {
 
@@ -559,6 +600,7 @@ const manualTrade = async (
           await deriv.forgetContract(
             contractId
           );
+          deriv.disconnect();
 
           console.log(
             "🧹 CONTRACT CLOSED:",

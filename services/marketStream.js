@@ -11,12 +11,24 @@ const startMarketStream = (deriv, io, userId, symbol = "R_75") => {
     lastEmit = now;
 
     // 📡 SOLO STREAM — NUNCA lógica de trading
-    io.to(`user_${userId}`).emit("price_update", {
+tickSubscription.on("tick", ({
+  price,
+  epoch,
+  symbol
+}) => {
+
+  // 📡 SOLO STREAM — NUNCA lógica de trading
+  emitPriceUpdate(
+    io,
+    userId,
+    {
       price,
       epoch,
       symbol
-    });
-  });
-};
+    }
+  );
+
+});
+
 
 module.exports = startMarketStream;
