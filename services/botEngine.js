@@ -34,7 +34,7 @@ const {
   emitBalance,
   emitMetrics,
   emitPriceUpdate
-} = require("../utils/socketEvents");
+} = require("./socketEvents");
 // ===============================
 // 📊 DEBUG VISUAL
 // ===============================
@@ -556,7 +556,7 @@ emitBalance(
     // 🧹 OLVIDAR CONTRATO
     // ===============================
     try {
-      state.currentContractId = null;
+    state.currentContractId = null;
       await deriv.forgetContract(contractId);
 
       console.log(
