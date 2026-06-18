@@ -436,29 +436,6 @@ if (state.tradeTimeout) {
   );
 }
 
- // ===============================
-    // 💾 CERRAR TRADE DB
-    // ===============================
-    try {
-
-      await closeTrade(contractId, {
-        status: "closed",
-        profit,
-        exit_price: c.exit_tick
-      });
-
-      console.log(
-        "✅ TRADE CERRADO EN DB:",
-        contractId
-      );
-
-    } catch (err) {
-
-      console.log(
-        "⚠️ ERROR DB:",
-        err.message
-      );
-    }
 
     // ===============================
     // 💰 RESULTADO
@@ -502,25 +479,7 @@ if (state.tradeTimeout) {
   state.pnl
 );
 
-       if (state.pnl <= -botConfig.stopLoss) {
-  await stopBot(
-    user,
-    "stop_loss"
-  );
-
-  return;
-}
-if (state.pnl >=botConfig.targetProfit) {
-
-  await stopBot(
-    user,
-    "take_profit"
-  );
-
-  return;
-}
-
-    const winrate = (
+      const winrate = (
       (state.wins / state.trades) * 100
     ).toFixed(2);
 
@@ -554,7 +513,30 @@ emitBalance(
       );
     }
 
-   
+    // ===============================
+    // 💾 CERRAR TRADE DB
+    // ===============================
+    try {
+
+      await closeTrade(contractId, {
+        status: "closed",
+        profit,
+        exit_price: c.exit_tick
+      });
+
+      console.log(
+        "✅ TRADE CERRADO EN DB:",
+        contractId
+      );
+
+    } catch (err) {
+
+      console.log(
+        "⚠️ ERROR DB:",
+        err.message
+      );
+    }
+
     // ===============================
     // 🧹 OLVIDAR CONTRATO
     // ===============================
@@ -574,7 +556,23 @@ emitBalance(
         err.message
       );
     }
+     if (state.pnl <= -botConfig.stopLoss) {
+  await stopBot(
+    user,
+    "stop_loss"
+  );
 
+  return;
+}
+if (state.pnl >=botConfig.targetProfit) {
+
+  await stopBot(
+    user,
+    "take_profit"
+  );
+
+  return;
+}
     // ===============================
     // 📡 MÉTRICAS FRONTEND
     // ===============================
