@@ -75,7 +75,7 @@ const getDerivClient = async (
   token: derivToken,
   accountId: account.account_id
 });
-
+await deriv.connect();
 return {
   deriv,
   account
