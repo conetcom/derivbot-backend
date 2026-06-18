@@ -88,7 +88,7 @@ return {
 const start = async (req, res) => {
 
   console.log("🚀 BOT START REQUEST");
-
+let bot = null;
   try {
 
     const accountId = req.params.accountId
@@ -243,10 +243,7 @@ if (
     const bot =
       botResult.rows[0];
 
-    console.log(
-      "🤖 BOT CREATED:",
-      bot.id
-    );
+   
 
     // ======================================
     // 🚀 START ENGINE
