@@ -32,7 +32,7 @@ const {
   emitNewTrade,
   emitTradeUpdate,
   emitBalance,
-  emitMetrics,
+  emitMetrics, emitPriceUpdate,
   emitPriceUpdate
 } = require("./socketEvents");
 // ===============================
@@ -164,7 +164,11 @@ emitMetrics(
 emitPriceUpdate(
   io,
   user.id,
-  price
+  {
+    price,
+    epoch,
+    symbol: botConfig.symbol
+  }
 );
    // console.log("📡 Tick recibido:", price);
 

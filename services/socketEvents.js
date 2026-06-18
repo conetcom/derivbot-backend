@@ -133,16 +133,18 @@ function emitMetrics(
 // ======================================
 // PRICE STREAM
 // ======================================
-
-emitPriceUpdate(
+function emitPriceUpdate(
   io,
-  user.id,
-  {
-    price,
-    epoch,
-    symbol: botConfig.symbol
-  }
-);
+  userId,
+  payload
+) {
+  emitToUser(
+    io,
+    userId,
+    "price_update",
+    payload
+  );
+}
 
 // ======================================
 // GENERIC EVENT
