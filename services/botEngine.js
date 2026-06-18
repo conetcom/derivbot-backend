@@ -32,8 +32,8 @@ const {
   emitNewTrade,
   emitTradeUpdate,
   emitBalance,
-  emitMetrics, emitPriceUpdate,
-  emitPriceUpdate
+  emitMetrics,
+   emitPriceUpdate,
 } = require("./socketEvents");
 // ===============================
 // 📊 DEBUG VISUAL
