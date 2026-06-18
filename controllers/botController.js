@@ -86,8 +86,19 @@ return {
 // 🚀 START BOT
 // ======================================
 const start = async (req, res) => {
+  const user = req.user;
 
-  console.log("🚀 BOT START REQUEST");
+  console.log(
+    "ACTIVE BOT:",
+    activeBots.get(user.id)
+  );
+
+  console.log(
+    "HAS BOT:",
+    activeBots.has(user.id)
+  );
+
+ 
 let bot = null;
   try {
 
