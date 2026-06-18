@@ -369,8 +369,7 @@ if (!state.entrySaved && current) {
 
   state.entrySaved = true;
 
-  const updatedTrade =
-    await updateTradeByContract(
+  const updatedTrade =    await updateTradeByContract(
       Number(contractId),
       {
         entry_price: Number(entryPrice)
@@ -437,6 +436,29 @@ if (state.tradeTimeout) {
   );
 }
 
+ // ===============================
+    // 💾 CERRAR TRADE DB
+    // ===============================
+    try {
+
+      await closeTrade(contractId, {
+        status: "closed",
+        profit,
+        exit_price: c.exit_tick
+      });
+
+      console.log(
+        "✅ TRADE CERRADO EN DB:",
+        contractId
+      );
+
+    } catch (err) {
+
+      console.log(
+        "⚠️ ERROR DB:",
+        err.message
+      );
+    }
 
     // ===============================
     // 💰 RESULTADO
@@ -532,30 +554,7 @@ emitBalance(
       );
     }
 
-    // ===============================
-    // 💾 CERRAR TRADE DB
-    // ===============================
-    try {
-
-      await closeTrade(contractId, {
-        status: "closed",
-        profit,
-        exit_price: c.exit_tick
-      });
-
-      console.log(
-        "✅ TRADE CERRADO EN DB:",
-        contractId
-      );
-
-    } catch (err) {
-
-      console.log(
-        "⚠️ ERROR DB:",
-        err.message
-      );
-    }
-
+   
     // ===============================
     // 🧹 OLVIDAR CONTRATO
     // ===============================
