@@ -7,7 +7,7 @@ const {startBot, stopBot} = require("../services/botEngine");
 const { decrypt } = require("../utils/crypto");
 
 const {createTrade, closeTrade} = require("../models/tradesModel");
-const {  emitBalance} = require("../utils/socketEvents");
+const {  emitBalance} = require("../services/socketEvents");
 // ======================================
 // 🧠 MEMORIA BOTS ACTIVOS
 // ======================================
