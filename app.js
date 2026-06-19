@@ -7,6 +7,8 @@ const userRoutes = require("./routes/userRoutes");
 const derivRoutes = require("./routes/derivRoutes");
 const botRoutes = require("./routes/botRoutes");
 const tradeRoutes = require("./routes/tradeRoutes");
+const botSettingsRoutes = require("./routes/botSettingsRoutes");
+
 const pool = require("./config/db");
 const recoverOpenTrades = require("./services/recoverOpenTrades");
 
@@ -56,7 +58,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/deriv", derivRoutes);
 app.use("/api/bot", botRoutes);
 app.use("/api/trades", tradeRoutes);
-
+app.use("/api/bot-settings",  botSettingsRoutes);
 // ==========================
 // 🧪 TEST DB
 // ==========================
