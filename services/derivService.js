@@ -132,12 +132,16 @@ this.ws.on("message", (msg) => {
     reject(err);
   });
 
-  this.ws.on("close", (code, reason) => {
-    console.log(
-      "🔴 WS CLOSED",
-      code,
-      reason?.toString()
-    );
+ this.ws.on("close", (code, reason) => {
+  console.log("========== WS CLOSE ==========");
+  console.log("Code:", code);
+  console.log("Reason:", reason?.toString());
+  console.log("Connected:", this.isConnected);
+  console.log("Time:", new Date().toISOString());
+  console.log("==============================");
+
+  this.isConnected = false;
+});
 
     this.isConnected = false;
   });
