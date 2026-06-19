@@ -142,10 +142,6 @@ this.ws.on("message", (msg) => {
 
   this.isConnected = false;
 });
-
-    this.isConnected = false;
-  });
-
 });
   } catch (err) {
   console.error("STATUS:", err.response?.status);
