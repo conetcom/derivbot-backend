@@ -122,7 +122,7 @@ const {
   strategy,
   stake,
   target_profit,
-  stop_lLoss,
+  stop_loss,
   max_drawdown
 } = settings;
     /*✅ lo demás viene en body
@@ -282,11 +282,11 @@ const {
 
           strategy,
 
-          targetProfit,
+          target_profit,
 
-          stopLoss,
+          stop_loss,
 
-          maxDrawdown
+          max_drawdown
         },
 
         deriv,
