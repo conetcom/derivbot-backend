@@ -8,6 +8,7 @@ const { decrypt } = require("../utils/crypto");
 
 const {createTrade, closeTrade} = require("../models/tradesModel");
 const {  emitBalance} = require("../services/socketEvents");
+const {getSettings} = require("../models/botSettingsModel")
 // ======================================
 // 🧠 MEMORIA BOTS ACTIVOS
 // ======================================
@@ -114,8 +115,17 @@ if (
     error: "accountId inválido"
   });
 }
+const settings = await getSettings(user.id);
 
-    // ✅ lo demás viene en body
+const {
+  symbol,
+  strategy,
+  stake,
+  targetProfit,
+  stopLoss,
+  maxDrawdown
+} = settings;
+    /*✅ lo demás viene en body
     const {
       symbol,
       stake,
@@ -123,7 +133,7 @@ if (
       targetProfit,
       stopLoss,
       maxDrawdown
-    } = req.body;
+    } = req.body;*/
 
     console.log("ACCOUNT ID:", accountId);
     console.log("BODY:", req.body);
