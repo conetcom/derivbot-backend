@@ -121,9 +121,9 @@ const {
   symbol,
   strategy,
   stake,
-  targetProfit,
-  stopLoss,
-  maxDrawdown
+  target_profit,
+  stop_lLoss,
+  max_drawdown
 } = settings;
     /*✅ lo demás viene en body
     const {
