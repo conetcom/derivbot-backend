@@ -282,11 +282,9 @@ const {
 
           strategy,
 
-          target_profit,
-
-          stop_loss,
-
-          max_drawdown
+          targetProfit: target_profit,
+          stopLoss: stop_loss,
+          maxDrawdown: max_drawdown
         },
 
         deriv,
