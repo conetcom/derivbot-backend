@@ -410,25 +410,112 @@ async getContract(contractId) {
   this.contractSubscriptions.clear();
   this.tickSubscriptions.clear();
 }
- async getCandles(symbol, granularity = 60, count = 100) {
+async getCandles(symbol, granularity = 60, count = 500) {
+
   const res = await this.send({
     ticks_history: symbol,
     style: "candles",
     granularity,
     count,
-    end: "latest", // 🔥 ESTE ES EL FIX
+    end: "latest",
     adjust_start_time: 1
   });
 
   if (!res.candles) return [];
 
-  return res.candles.map(c => ({
-    open: c.open,
-    high: c.high,
-    low: c.low,
-    close: c.close,
+  const candles = res.candles.map(c => ({
+    open: Number(c.open),
+    high: Number(c.high),
+    low: Number(c.low),
+    close: Number(c.close),
     time: c.epoch
   }));
+
+  // ==========================
+  // ESTADÍSTICAS
+  // ==========================
+
+  let GGG = 0;
+  let GGR = 0;
+
+  let RRR = 0;
+  let RRG = 0;
+
+  for (let i = 2; i < candles.length; i++) {
+
+    const c1 = candles[i - 2];
+    const c2 = candles[i - 1];
+    const c3 = candles[i];
+
+    const green1 = c1.close > c1.open;
+    const green2 = c2.close > c2.open;
+    const green3 = c3.close > c3.open;
+
+    // VERDE → VERDE
+    if (green1 && green2) {
+
+      if (green3) {
+        GGG++;
+      } else {
+        GGR++;
+      }
+
+    }
+
+    // ROJA → ROJA
+    if (!green1 && !green2) {
+
+      if (!green3) {
+        RRR++;
+      } else {
+        RRG++;
+      }
+
+    }
+  }
+
+  // ==========================
+  // PORCENTAJES
+  // ==========================
+
+  const totalGG = GGG + GGR;
+  const totalRR = RRR + RRG;
+
+  const pctGGG =
+    totalGG > 0
+      ? ((GGG / totalGG) * 100).toFixed(2)
+      : 0;
+
+  const pctGGR =
+    totalGG > 0
+      ? ((GGR / totalGG) * 100).toFixed(2)
+      : 0;
+
+  const pctRRR =
+    totalRR > 0
+      ? ((RRR / totalRR) * 100).toFixed(2)
+      : 0;
+
+  const pctRRG =
+    totalRR > 0
+      ? ((RRG / totalRR) * 100).toFixed(2)
+      : 0;
+
+  console.log("========== ESTADÍSTICAS ==========");
+
+  console.log(`GGG: ${GGG} (${pctGGG}%)`);
+  console.log(`GGR: ${GGR} (${pctGGR}%)`);
+
+  console.log(`RRR: ${RRR} (${pctRRR}%)`);
+  console.log(`RRG: ${RRG} (${pctRRG}%)`);
+
+  return candles;
+  stats: {
+      greenGreenGreen,
+      greenGreenRed,
+      redRedRed,
+      redRedGreen
+    }
 }
 }
 
