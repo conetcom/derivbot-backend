@@ -438,15 +438,17 @@ const green2 = last.close > last.open;
   // 🎯 DECISIÓN
   if (callScore >= 5 && callScore > putScore) {
     if (green1 && green2) {
-      console.log("estrategi call");
+     
   const pctGGG = Number(stats.pctGGG || 0);
   const pctGGR = Number(stats.pctGGR || 0);
 
   if (pctGGG > 50) {
+    console.log("estrategia tres verdes call");
      return { signal: "CALL", score: callScore };
   }
 
   if (pctGGR > 60) {
+     console.log("estrategia dos velas verdes una roja");
      return { signal: "PUT", score: callScore };
   }
   
@@ -456,14 +458,16 @@ const green2 = last.close > last.open;
 
   if (putScore >= 5 && putScore > callScore) {
     if (!green1 && !green2) {
-      console.log("estrategi call");
+      
       const pctRRR = Number(stats.pctRRR || 0);
       const pctRRG = Number(stats.pctRRG || 0);
   if (pctRRR > 50) {
+    console.log("estrategia put");
     return { signal: "PUT", score: putScore };
   }
 
   if (pctRRG >= 60) {
+    console.log("estrategia dos velas roja una verde");
     return { signal: "CALL", score: putScore };
    
   }
