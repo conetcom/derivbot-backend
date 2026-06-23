@@ -141,7 +141,9 @@ emitMetrics(
 
     if (history.length > 0) {
       candleBuilder.candles = history;
+      const stats = calculateStats(history)
       console.log("📊 Histórico cargado:", history.length);
+      console.log(stats)
     }
   } catch (err) {
     console.log("⚠️ Error histórico:", err.message);
