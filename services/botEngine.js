@@ -13,6 +13,7 @@ const {
 const RiskManager = require("../bot/riskManager");
 const { updateBotStatus} = require("../models/botsModel");
 const activeBots = require("../services/activeBots");
+
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 
 // ===============================
@@ -133,21 +134,84 @@ emitMetrics(
     winrate: 0
   }
 );
-  // ===============================
-  // 🔥 HISTÓRICO
-  // ===============================
-  try {
-    const history = await deriv.getCandles(botConfig.symbol, 60, 100);
+// ===============================
+// 🔥 CARGAR HISTÓRICO
+// ===============================
+try {
 
-    if (history.length > 0) {
-      candleBuilder.candles = history;
-      const stats = calculateStats(history)
-      console.log("📊 Histórico cargado:", history.length);
-      console.log(stats)
-    }
-  } catch (err) {
-    console.log("⚠️ Error histórico:", err.message);
+  const history = await deriv.getCandles(
+    botConfig.symbol,
+    60,
+    100
+  );
+
+  if (history.length > 0) {
+
+    // ===============================
+    // 🕯️ INICIALIZAR CANDLE BUILDER
+    // ===============================
+
+    // velas cerradas
+    candleBuilder.candles =
+      history.slice(0, -1);
+
+    // última vela (puede seguir recibiendo ticks)
+    candleBuilder.currentCandle =
+      { ...history[history.length - 1] };
+
+    // minuto de referencia
+    candleBuilder.lastTime =
+      Math.floor(
+        history[history.length - 1].time / 60
+      );
+
+    // ===============================
+    // 📊 ESTADÍSTICAS INICIALES
+    // ===============================
+
+    const stats =
+      calculateStats(history);
+
+    // guardar en el estado del bot
+    state.stats = stats;
+
+    console.log(
+      "📊 Histórico cargado:",
+      history.length
+    );
+
+    console.log(
+      "📈 Estadísticas iniciales:",
+      stats
+    );
+
+    console.log(
+      "🕯️ Velas cerradas:",
+      candleBuilder.candles.length
+    );
+
+    console.log(
+      "🕯️ Vela actual:",
+      candleBuilder.currentCandle
+    );
+
+  } else {
+
+    console.log(
+      "⚠️ No se recibió histórico"
+    );
+
   }
+
+} catch (err) {
+
+  console.log(
+    "⚠️ Error histórico:",
+    err.message
+  );
+
+}
+  
 
   log("BOT_START", "Bot iniciado", { user: user.id });
 
@@ -197,13 +261,27 @@ emitPriceUpdate(
       return;
     }
 
-    const { candles, isNewCandle } = candleBuilder.update(price, epoch);
+    const { candles, isNewCandle } =
+  candleBuilder.update(price, epoch);
 
-    if (!isNewCandle) return;
+if (!isNewCandle) return;
 
-    const closedCandles = candles.slice(0, -1);
+// ===============================
+// 📊 ACTUALIZAR ESTADÍSTICAS
+// ===============================
+const closedCandles =
+  candles.slice(0, -1);
 
-    if (closedCandles.length < 20) return;
+state.stats =
+  calculateStats(closedCandles);
+
+console.log(
+  "📊 Stats actualizadas:",
+  state.stats
+);
+
+// validar mínimo histórico
+if (closedCandles.length < 20) return;
 
     // ===============================
     // 📊 VOLATILIDAD DINÁMICA
@@ -224,7 +302,7 @@ emitPriceUpdate(
     // ===============================
     // 🚀 ESTRATEGIAS
     // ===============================
-    const pro = syntheticProStrategy(closedCandles, state);
+    const pro = syntheticProStrategy(closedCandles, state, state.stats);
 
     const smaSignal = smaStrategy(closedCandles);
     const liquiditySignal = smartMoneyLiquidityStrategy(closedCandles);

@@ -350,6 +350,7 @@ function getSignal(candles, strategy = "sma", state = {}) {
 // 🚀 ESTRATEGIA PRO SINTÉTICOS
 // ===============================
 function syntheticProStrategy(candles, state = {}) {
+  const stats = state.stats || {};
   if (!candles || candles.length < 30) return { signal: null, score: 0 };
 
   const sma = calculateSMA(candles, 12);
@@ -358,6 +359,9 @@ function syntheticProStrategy(candles, state = {}) {
   const last = candles[candles.length - 2];
   const prev = candles[candles.length - 3];
   const prev2 = candles[candles.length - 4];
+
+  const green1 = prev.close > prev.open;
+const green2 = last.close > last.open;
 
   // 📊 VOLATILIDAD
   const last5 = candles.slice(-5);
@@ -433,15 +437,47 @@ function syntheticProStrategy(candles, state = {}) {
 
   // 🎯 DECISIÓN
   if (callScore >= 5 && callScore > putScore) {
-    return { signal: "CALL", score: callScore };
+    if (green1 && green2) {
+
+  const pctGGG = Number(stats.pctGGG || 0);
+  const pctGGR = Number(stats.pctGGR || 0);
+
+  if (pctGGG >= 60) {
+     return { signal: "CALL", score: callScore };
   }
 
+  if (pctGGR >= 60) {
+     return { signal: "PUT", score: callScore };
+  }
+  
+  }
+
+}
+
+   
+  
+
   if (putScore >= 5 && putScore > callScore) {
+    if (!green1 && !green2) {
+
+      const pctRRR = Number(stats.pctRRR || 0);
+      const pctRRG = Number(stats.pctRRG || 0);
+  if (pctRRR >= 60) {
     return { signal: "PUT", score: putScore };
   }
 
-  return { signal: null, score: 0 };
+  if (pctRRG >= 60) {
+    return { signal: "CALL", score: putScore };
+   
+  }
+
 }
+   
+  }
+
+   return { signal: null, score: 0 };
+}
+
 
 // ===============================
 // 📦 EXPORTS
