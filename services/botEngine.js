@@ -602,7 +602,7 @@ emitBalance(
       await closeTrade(contractId, {
         status: "closed",
         profit,
-        exit_price: c.exit_tick
+        exit_price: c.current_spot
       });
 
       console.log(

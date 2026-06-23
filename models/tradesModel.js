@@ -50,7 +50,7 @@ console.log("🔥 CERRAR TRADE:", contractId, data);
   `;
 
   const values = [
-    data.exit_price,
+    data.exit_price ||data.current_spot,
     data.profit,
     data.status || "closed",
     contractId
