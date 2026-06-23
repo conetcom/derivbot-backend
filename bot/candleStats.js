@@ -2,6 +2,7 @@ function calculateStats(candles) {
 
   let GGG = 0;
   let GGR = 0;
+
   let RRR = 0;
   let RRG = 0;
 
@@ -24,10 +25,33 @@ function calculateStats(candles) {
     }
   }
 
+  const totalGG = GGG + GGR;
+  const totalRR = RRR + RRG;
+
   return {
     GGG,
     GGR,
     RRR,
-    RRG
+    RRG,
+
+    pctGGG: totalGG
+      ? Number(((GGG / totalGG) * 100).toFixed(2))
+      : 0,
+
+    pctGGR: totalGG
+      ? Number(((GGR / totalGG) * 100).toFixed(2))
+      : 0,
+
+    pctRRR: totalRR
+      ? Number(((RRR / totalRR) * 100).toFixed(2))
+      : 0,
+
+    pctRRG: totalRR
+      ? Number(((RRG / totalRR) * 100).toFixed(2))
+      : 0
   };
 }
+
+module.exports = {
+  calculateStats
+};

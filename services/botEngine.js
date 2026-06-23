@@ -15,6 +15,7 @@ const { updateBotStatus} = require("../models/botsModel");
 const activeBots = require("../services/activeBots");
 
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+const {  calculateStats} = require("../bot/candleStats");
 
 // ===============================
 // 🧾 LOGGER
