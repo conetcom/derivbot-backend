@@ -69,7 +69,7 @@ const getSettings = async (
         stake: 1,
         targetProfit: 10,
         stopLoss: 10,
-        deriv_account,
+        deriv_account: null,
         maxDrawdown: 20
       }
     );
