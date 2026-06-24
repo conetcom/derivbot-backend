@@ -4,7 +4,7 @@ const saveSettings = async (
   userId,
   settings
 ) => {
-
+ console.log("SETTINGS:", settings);
   const result = await pool.query(
     `
     INSERT INTO bot_settings (
@@ -27,8 +27,8 @@ const saveSettings = async (
       stake = EXCLUDED.stake,
       target_profit = EXCLUDED.target_profit,
       stop_loss = EXCLUDED.stop_loss,
-      max_drawdown = EXCLUDED.max_drawdown,
-      deriv_account = EXCLUDED.deriv_account,
+      max_drawdown = EXCLUDED.max_drawdown, 
+      deriv_account = EXCLUDED.deriv_account,     
       updated_at = NOW()
 
     RETURNING *
