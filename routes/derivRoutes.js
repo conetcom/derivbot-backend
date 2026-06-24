@@ -45,6 +45,7 @@ router.get(
           account_name,
           balance,
           currency,
+          account_id
           is_active,
           created_at
         FROM deriv_accounts
