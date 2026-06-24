@@ -14,6 +14,7 @@ const {getSettings} = require("../models/botSettingsModel")
 // ======================================
 const activeBots =  require("..//services/activeBots");
 
+
 // ======================================
 // 🔗 OBTENER CLIENTE DERIV
 // ======================================
@@ -101,20 +102,7 @@ const start = async (req, res) => {
 
  
 let bot = null;
-  try {
-
-    const accountId = req.params.accountId
-  ? Number(req.params.accountId)
-  : null;
-
-if (
-  accountId !== null &&
-  Number.isNaN(accountId)
-) {
-  return res.status(400).json({
-    error: "accountId inválido"
-  });
-}
+  try {    
 const settings = await getSettings(user.id);
 
 const {
@@ -123,6 +111,7 @@ const {
   stake,
   target_profit,
   stop_loss,
+  deriv_account,
   max_drawdown
 } = settings;
     /*✅ lo demás viene en body
@@ -134,12 +123,9 @@ const {
       stopLoss,
       maxDrawdown
     } = req.body;*/
-
-    console.log("ACCOUNT ID:", accountId);
-    console.log("BODY:", req.body);
-
-
-
+const accountId = Number(deriv_account);
+if(!accountId){ return res.status(400).json({error: "La cuenta deriv no ha sido Configurada"})}
+    
     // ======================================
     // VALIDACIONES
     // ======================================
@@ -261,8 +247,7 @@ const {
         ]
       );
 
-    const bot =
-      botResult.rows[0];
+     bot =  botResult.rows[0];
 
    
 
@@ -382,45 +367,54 @@ const status = async (req, res) => {
     const user = req.user;
 
     if (!user?.id) {
-
       return res.status(401).json({
         error: "No autorizado"
       });
     }
-const botStatus = {
 
-  botId: botData.botId,
+    const botData =
+      activeBots.get(user.id);
 
-  accountId: botData.accountId,
+    if (!botData) {
+      return res.json({
+        active: false
+      });
+    }
 
-  startedAt: botData.startedAt,
+    const botStatus = {
 
-  running: botData.running,
+      botId: botData.botId,
 
-  cooldown: botData.cooldown,
+      accountId: botData.accountId,
 
-  currentContractId:
-    botData.currentContractId,
+      startedAt: botData.startedAt,
 
-  metrics: {
+      running: botData.running,
 
-    trades: botData.trades,
+      cooldown: botData.cooldown,
 
-    wins: botData.wins,
+      currentContractId:
+        botData.currentContractId,
 
-    losses: botData.losses,
+      metrics: {
 
-    pnl: botData.pnl,
+        trades: botData.trades || 0,
 
-    lossStreak:
-      botData.lossStreak
-  }
-};
+        wins: botData.wins || 0,
 
-return res.json({
-  active: true,
-  bot: botStatus
-});
+        losses: botData.losses || 0,
+
+        pnl: botData.pnl || 0,
+
+        lossStreak:
+          botData.lossStreak || 0
+      }
+    };
+
+    return res.json({
+      active: true,
+      bot: botStatus
+    });
 
   } catch (err) {
 

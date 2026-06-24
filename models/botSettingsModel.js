@@ -14,10 +14,11 @@ const saveSettings = async (
       stake,
       target_profit,
       stop_loss,
-      max_drawdown
+      max_drawdown,
+      deriv_account
     )
     VALUES (
-      $1,$2,$3,$4,$5,$6,$7
+      $1,$2,$3,$4,$5,$6,$7,$8
     )
     ON CONFLICT (user_id)
     DO UPDATE SET
@@ -27,6 +28,7 @@ const saveSettings = async (
       target_profit = EXCLUDED.target_profit,
       stop_loss = EXCLUDED.stop_loss,
       max_drawdown = EXCLUDED.max_drawdown,
+      deriv_account = EXCLUDED.deriv_account,
       updated_at = NOW()
 
     RETURNING *
@@ -38,6 +40,7 @@ const saveSettings = async (
       settings.stake,
       settings.targetProfit,
       settings.stopLoss,
+      settings.deriv_account,
       settings.maxDrawdown
     ]
   );

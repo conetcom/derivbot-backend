@@ -17,6 +17,7 @@ const saveSettings = async (
       stake,
       targetProfit,
       stopLoss,
+      deriv_account,
       maxDrawdown
     } = req.body;
 
@@ -29,6 +30,7 @@ const saveSettings = async (
           stake,
           targetProfit,
           stopLoss,
+          deriv_account,
           maxDrawdown
         }
       );
@@ -67,6 +69,7 @@ const getSettings = async (
         stake: 1,
         targetProfit: 10,
         stopLoss: 10,
+        deriv_account,
         maxDrawdown: 20
       }
     );
