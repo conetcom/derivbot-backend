@@ -19,7 +19,7 @@ const saveSettings = async (
       martingale
     )
     VALUES (
-      $1,$2,$3,$4,$5,$6,$7,$8,$8
+      $1,$2,$3,$4,$5,$6,$7,$8,$9
     )
     ON CONFLICT (user_id)
     DO UPDATE SET
