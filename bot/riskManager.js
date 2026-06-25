@@ -1,8 +1,6 @@
 class RiskManager {
 
-  class RiskManager {
-
-  constructor(balance, params = {}) {
+    constructor(balance, params = {}) {
 
     this.balance = Number(balance) || 100;
 
