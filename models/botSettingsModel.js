@@ -40,8 +40,8 @@ const saveSettings = async (
       settings.stake,
       settings.targetProfit,
       settings.stopLoss,
-      settings.deriv_account,
-      settings.maxDrawdown
+      settings.maxDrawdown,
+      settings.deriv_account
     ]
   );
 
