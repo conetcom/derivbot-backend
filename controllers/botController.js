@@ -114,7 +114,13 @@ const {
       stopLoss,
       maxDrawdown
     } = req.body;*/
-const accountId = Number(deriv_account);
+     // Usuario de tu aplicación
+const userId = user.id;
+
+
+// Cuenta real de Deriv
+const accountId = deriv_account;
+
 if(!accountId){ return res.status(400).json({error: "La cuenta deriv no ha sido Configurada"})}
     
     // ======================================
