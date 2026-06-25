@@ -1,28 +1,22 @@
 class RiskManager {
 
-  constructor(balance) {
+  constructor(balance, params = {}) {
 
-    // 💰 balance actual
     this.balance = Number(balance) || 100;
 
-    // 📊 riesgo por trade
     this.riskPerTrade =
       this.balance > 120
         ? 0.015
         : 0.01;
 
-    // 🔥 MARTINGALE
     this.martingaleStep = 0;
-this.maxMartingale = params.martingale || 0;
+    this.maxMartingale = Number(params.martingale ?? 0);
 
-    // 💰 stake inicial
     this.baseStake = this.calculateBaseStake();
-
-    // 💰 stake actual
     this.currentStake = this.baseStake;
   }
 
-  // ===============================
+ // ===============================
   // 📊 CALCULAR STAKE BASE
   // ===============================
   calculateBaseStake() {
