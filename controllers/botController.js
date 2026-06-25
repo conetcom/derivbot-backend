@@ -90,17 +90,7 @@ return {
 const start = async (req, res) => {
   const user = req.user;
 
-  console.log(
-    "ACTIVE BOT:",
-    activeBots.get(user.id)
-  );
 
-  console.log(
-    "HAS BOT:",
-    activeBots.has(user.id)
-  );
-
- 
 let bot = null;
   try {    
 const settings = await getSettings(user.id);
