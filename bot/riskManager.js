@@ -13,7 +13,7 @@ class RiskManager {
 
     // 🔥 MARTINGALE
     this.martingaleStep = 0;
-    this.maxMartingale = 2;
+this.maxMartingale = params.martingale || 0;
 
     // 💰 stake inicial
     this.baseStake = this.calculateBaseStake();
