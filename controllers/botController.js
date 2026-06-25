@@ -94,7 +94,7 @@ const start = async (req, res) => {
 let bot = null;
   try {    
 const settings = await getSettings(user.id);
-
+console.log ("USUARIO", user.id)
 const {
   symbol,
   strategy,
