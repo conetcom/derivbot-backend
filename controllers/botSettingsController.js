@@ -18,7 +18,8 @@ const saveSettings = async (
       targetProfit,
       stopLoss,
       deriv_account,
-      maxDrawdown
+      maxDrawdown,
+      martingale
     } = req.body;
 
     const settings =
@@ -31,7 +32,8 @@ const saveSettings = async (
           targetProfit,
           stopLoss,
           deriv_account,
-          maxDrawdown
+          maxDrawdown, 
+          martingale
         }
       );
 
@@ -70,7 +72,8 @@ const getSettings = async (
         targetProfit: 10,
         stopLoss: 10,
         deriv_account: null,
-        maxDrawdown: 20
+        maxDrawdown: 20,
+        martingale
       }
     );
 
