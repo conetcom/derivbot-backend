@@ -62,7 +62,7 @@ const debugVisual = (candles, signal, sma, liquidity, pro) => {
 // ===============================
 // 🚀 START BOT
 // ===============================
-const startBot = async (user, botConfig, deriv, io) => {
+const startBot = async (user, botConfig, settings, deriv, io) => {
 
  if (activeBots.has(user.id)) {
   return;

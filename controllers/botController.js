@@ -275,7 +275,7 @@ if(!accountId){ return res.status(400).json({error: "La cuenta deriv no ha sido 
           stopLoss: stop_loss,
           maxDrawdown: max_drawdown
         },
-
+        settings,
         deriv,
 
         req.io
