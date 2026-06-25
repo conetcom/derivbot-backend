@@ -109,7 +109,8 @@ const {
   target_profit,
   stop_loss,
   deriv_account,
-  max_drawdown
+  max_drawdown,
+  martingale
 } = settings;
     /*✅ lo demás viene en body
     const {

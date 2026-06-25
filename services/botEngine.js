@@ -75,7 +75,8 @@ const balanceData =
 
 const risk =
   new RiskManager(
-    balanceData.balance
+    balanceData.balance,
+    settings
   );
 
 const candleBuilder =
