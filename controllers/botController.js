@@ -31,10 +31,10 @@ const getDerivClient = async (
 
   let params = [userId];
 
-  // cuenta específica
+  // cuenta específica Deriv
   if (accountId) {
 
-    query += ` AND id = $2`;
+    query += ` AND account_id = $2`;
 
     params.push(accountId);
 
@@ -61,7 +61,8 @@ const getDerivClient = async (
     );
   }
 
-  // 🔥 TOKEN ENCRIPTADO
+
+  // TOKEN ENCRIPTADO
   const derivToken = decrypt(
     account.deriv_token
   );
@@ -72,17 +73,22 @@ const getDerivClient = async (
       "Token Deriv inválido"
     );
   }
-  // 🔥 CREAR SERVICIO DERIV
- const deriv = new DerivService({
-  token: derivToken,
-  accountId: account.account_id
-});
-await deriv.connect();
-return {
-  deriv,
-  account
+
+
+  const deriv = new DerivService({
+    token: derivToken,
+    accountId: account.account_id
+  });
+
+
+  await deriv.connect();
+
+
+  return {
+    deriv,
+    account
+  };
 };
-}; 
 
 // ======================================
 // 🚀 START BOT
