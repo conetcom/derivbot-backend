@@ -4,7 +4,6 @@
 
 const { createTrade, closeTrade, updateTradeByContract } = require("../models/tradesModel");
 const CandleBuilder = require("../bot/candleBuilder");
-const updateBalance = require('../controllers/derivAccounts')
 const {
   calculateSMA,
   smaStrategy,
@@ -585,7 +584,7 @@ emitBalance(
   user.id,
   balanceData.balance
 );
-await updateBalance(accountId, balanceData.balance);
+
 
       risk.update(balanceData.balance);
 

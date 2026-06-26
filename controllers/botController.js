@@ -1,7 +1,7 @@
 const pool = require("../config/db");
 
 const DerivService = require("../services/derivService");
-
+const updateBalance = require('../controllers/derivAccounts');
 const {startBot, stopBot} = require("../services/botEngine");
 
 const { decrypt } = require("../utils/crypto");
@@ -214,7 +214,7 @@ if(!accountId){ return res.status(400).json({error: "La cuenta deriv no ha sido 
       "💰 BALANCE:",
       balance
     );
-
+await updateBalance(accountId, balanceData.balance);
     // SOCKET BALANCE
     
   emitBalance(
