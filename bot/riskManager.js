@@ -4,11 +4,6 @@ class RiskManager {
 
     this.balance = Number(balance) || 100;
 
-    this.riskPerTrade =
-      this.balance > 120
-        ? 0.015
-        : 0.01;
-
     this.martingaleStep = 0;
     this.maxMartingale = Number(params.martingale ?? 0);
 
@@ -19,26 +14,24 @@ class RiskManager {
  // ===============================
   // 📊 CALCULAR STAKE BASE
   // ===============================
-  calculateBaseStake() {
+ calculateBaseStake() {
 
-    if (!this.balance || isNaN(this.balance)) {
-      return 1;
-    }
-
-    const stake = this.balance * this.riskPerTrade;
-
-    // 🔥 máximo 5% balance
-   const finalStake = Math.min(
-  stake,
-  this.balance * 0.03
-);
-
-// 🔥 mínimo permitido Deriv
-return Number(
-  Math.max(finalStake, 0.35).toFixed(2)
-);
+  if (!this.balance || isNaN(this.balance)) {
+    return 0.35;
   }
 
+  const riskCapital = this.balance * 0.40;
+
+  const multiplier =
+    Math.pow(2, this.maxMartingale + 1) - 1;
+
+  const stake =
+    riskCapital / multiplier;
+
+  return Number(
+    Math.max(stake, 0.35).toFixed(2)
+  );
+}
   // ===============================
   // 💰 OBTENER STAKE
   // ===============================
@@ -79,7 +72,7 @@ return Number(
         );
 
         // 🛑 nunca más del 10% balance
-        const maxStake = this.balance * 0.10;
+       // const maxStake = this.balance * 0.10;
 
         if (this.currentStake > maxStake) {
           this.currentStake = Number(maxStake.toFixed(2));
