@@ -215,7 +215,7 @@ if(!accountId){ return res.status(400).json({error: "La cuenta deriv no ha sido 
       "💰 BALANCE:",
       balance
     );
-await updateBalance(accountId, balance);
+
     // SOCKET BALANCE
     
   emitBalance(
@@ -223,6 +223,8 @@ await updateBalance(accountId, balance);
   user.id,
   balance.balance || balance
 );
+
+await updateBalance(accountId, balance.balance);
     // ======================================
     // 🤖 CREAR BOT DB
     // ======================================
