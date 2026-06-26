@@ -15,7 +15,16 @@ const updateBotStatus = async (botId, status) => {
 
   return res.rows[0];
 };
-
+async function updateBalance(accountId, balance) {
+  return pool.query(
+    `
+    UPDATE deriv_accounts
+    SET balance = $1
+    WHERE account_id = $2
+    `,
+    [balance, accountId]
+  );
+}
 module.exports = {
-  updateBotStatus
+  updateBotStatus, updateBalance
 };
