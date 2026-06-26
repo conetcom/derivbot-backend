@@ -743,12 +743,7 @@ const stopBot = async (
 
       console.log("🧹 TICKS CANCELADOS");
     }
-
-   state.running = false;
-state.cooldown = true;
-state.stopping = true;
-try {
-  const balanceData = await state.deriv.getBalance();
+ const balanceData = await state.deriv.getBalance();
 
   await updateBalance(
     state.accountId,
@@ -759,8 +754,10 @@ try {
     "💰 Balance guardado:",
     balanceData.balance
   );
+   state.running = false;
+state.cooldown = true;
+state.stopping = true;
 
-}
 
     if (state.deriv) {
   state.deriv.disconnect();
