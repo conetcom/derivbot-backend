@@ -214,7 +214,7 @@ if(!accountId){ return res.status(400).json({error: "La cuenta deriv no ha sido 
       "💰 BALANCE:",
       balance
     );
-await updateBalance(accountId, balanceData.balance);
+await updateBalance(accountId, balance);
     // SOCKET BALANCE
     
   emitBalance(
