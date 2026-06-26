@@ -103,7 +103,17 @@ const syncDerivAccounts = async (req, res) => {
     });
   }
 };
+async function updateBalance(accountId, balance) {
+  return pool.query(
+    `
+    UPDATE deriv_accounts
+    SET balance = $1
+    WHERE account_id = $2
+    `,
+    [balance, accountId]
+  );
+}
 
 module.exports = {
-  syncDerivAccounts
+  syncDerivAccounts, updateBalance
 };
