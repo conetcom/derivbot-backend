@@ -1,7 +1,8 @@
 const pool = require("../config/db");
 
 const DerivService = require("../services/derivService");
-const updateBalance = require('../controllers/derivAccounts');
+
+const updateBalance = require('./derivAccounts');
 const {startBot, stopBot} = require("../services/botEngine");
 
 const { decrypt } = require("../utils/crypto");
