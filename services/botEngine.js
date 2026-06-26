@@ -13,6 +13,7 @@ const {
 const RiskManager = require("../bot/riskManager");
 const { updateBotStatus} = require("../models/botsModel");
 const activeBots = require("../services/activeBots");
+const {updateBalance} = require('../models/botsModel');
 
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 const {  calculateStats} = require("../bot/candleStats");
@@ -746,6 +747,20 @@ const stopBot = async (
    state.running = false;
 state.cooldown = true;
 state.stopping = true;
+try {
+  const balanceData = await state.deriv.getBalance();
+
+  await updateBalance(
+    state.accountId,
+    balanceData.balance
+  );
+
+  console.log(
+    "💰 Balance guardado:",
+    balanceData.balance
+  );
+
+}
 
     if (state.deriv) {
   state.deriv.disconnect();
