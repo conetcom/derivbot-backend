@@ -350,6 +350,7 @@ function getSignal(candles, strategy = "sma", state = {}) {
 // 🚀 ESTRATEGIA PRO SINTÉTICOS
 // ===============================
 function syntheticProStrategy(candles, state = {}) {
+  console.log("🚀 Ejecutando syntheticProStrategy");
 
   const stats = state.stats || {};
 
