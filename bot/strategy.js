@@ -145,14 +145,6 @@ function smaStrategy(candles) {
     prev.high >= sma &&
     last.close < sma;
 
-  // =========================
-  // 💪 FUERZA DE VELA
-  // =========================
-  const body = Math.abs(last.close - last.open);
-  const range = last.high - last.low;
-
-  const strongCandle =
-    range > 0 && (body / range) > 0.6;
 
   // =========================
   // ⚡ MOMENTUM
@@ -350,285 +342,269 @@ function getSignal(candles, strategy = "sma", state = {}) {
 // 🚀 ESTRATEGIA PRO SINTÉTICOS
 // ===============================
 function syntheticProStrategy(candles, state = {}) {
-  console.log("🚀 Ejecutando syntheticProStrategy");
 
-  const stats = state.stats || {};
+    const stats = state.stats || {};
 
-  if (!candles || candles.length < 30) {
-    return { signal: null, score: 0 };
-  }
+    if (!candles || candles.length < 30)
+        return { signal: null, score: 0 };
 
-  // ===============================
-  // 📊 SMA
-  // ===============================
-  const sma = calculateSMA(candles, 12);
+    const sma = calculateSMA(candles,12);
 
-  if (!sma) {
-    return { signal: null, score: 0 };
-  }
+    if (!sma)
+        return { signal:null, score:0 };
 
-  // ===============================
-  // 🕯️ VELAS
-  // ===============================
-  const last = candles[candles.length - 2];
-  const prev = candles[candles.length - 3];
-  const prev2 = candles[candles.length - 4];
+    const last  = candles.at(-2);
+    const prev  = candles.at(-3);
+    const prev2 = candles.at(-4);
 
-  const green1 = prev.close > prev.open;
-  const green2 = last.close > last.open;
+    function strength(c){
 
-  // ===============================
-  // 📊 VOLATILIDAD
-  // ===============================
-  const last5 = candles.slice(-5);
+    const body=Math.abs(c.close-c.open);
 
-  const volatility =
-    Math.max(...last5.map(c => c.high)) -
-    Math.min(...last5.map(c => c.low));
+    const range=c.high-c.low;
 
-  if (volatility < 0.2) {
-    return { signal: null, score: 0 };
-  }
+    if(range===0) return 0;
 
-  // ===============================
-  // 📈 TENDENCIA
-  // ===============================
-  const trendUp =
-    last.close > sma &&
-    prev.close > sma;
+    return body/range;
 
-  const trendDown =
-    last.close < sma &&
-    prev.close < sma;
+}
+// PATRON
+const color=c=>c.close>c.open?"G":"R";
 
-  // ===============================
-  // 🧲 PULLBACK
-  // ===============================
-  const pullbackUp =
-    prev.low <= sma &&
-    last.close > sma;
+const pattern=
 
-  const pullbackDown =
-    prev.high >= sma &&
-    last.close < sma;
+color(prev2)+
 
-  // ===============================
-  // 💥 BOS
-  // ===============================
-  const highs =
-    candles.slice(-8).map(c => c.high);
+color(prev)+
 
-  const lows =
-    candles.slice(-8).map(c => c.low);
+color(last);
 
-  const prevHigh =
-    Math.max(...highs.slice(0, -2));
+// TENDENCIA
 
-  const prevLow =
-    Math.min(...lows.slice(0, -2));
+const trendUp=
 
-  const bosUp =
-    last.close > prevHigh;
+last.close>sma&&
 
-  const bosDown =
-    last.close < prevLow;
+prev.close>sma;
 
-  // ===============================
-  // 💪 FUERZA
-  // ===============================
-  const body =
-    Math.abs(last.close - last.open);
+const trendDown=
 
-  const range =
-    last.high - last.low;
+last.close<sma&&
 
-  if (range === 0) {
-    return { signal: null, score: 0 };
-  }
+prev.close<sma;
+ //MOMENTUM
+ const momentumUp=
 
-  const strong =
-    body / range > 0.6;
+last.close>prev.close&&
 
-  // ===============================
-  // ⚡ MOMENTUM
-  // ===============================
-  const momentumUp =
-    last.close > prev.close &&
-    prev.close > prev2.close;
+prev.close>prev2.close;
 
-  const momentumDown =
-    last.close < prev.close &&
-    prev.close < prev2.close;
+const momentumDown=
 
-  // ===============================
-  // ⛔ COOLDOWN
-  // ===============================
-  const now = Date.now();
+last.close<prev.close&&
 
-  const cooldown = 60000;
+prev.close<prev2.close;
+//PULLBACK
 
-  if (
-    state.lastTradeTime &&
-    now - state.lastTradeTime < cooldown
-  ) {
-    return { signal: null, score: 0 };
-  }
+const pullbackUp=
 
-  // ===============================
-  // 🎯 SCORE BASE
-  // ===============================
-  let callScore = 0;
-  let putScore = 0;
+prev.low<=sma&&
 
-  if (trendUp) callScore += 2;
-  if (trendDown) putScore += 2;
+last.close>sma;
 
-  if (pullbackUp) callScore += 2;
-  if (pullbackDown) putScore += 2;
+const pullbackDown=
 
-  if (bosUp) callScore += 2;
-  if (bosDown) putScore += 2;
+prev.high>=sma&&
 
-  if (strong) {
-    callScore += 1;
-    putScore += 1;
-  }
+last.close<sma;
 
-  if (momentumUp) callScore += 2;
-  if (momentumDown) putScore += 2;
+//BOSS
+const prevHigh=Math.max(...candles.slice(-8,-2).map(c=>c.high));
 
-  // ===============================
-  // 📊 ESTADÍSTICAS HISTÓRICAS
-  // ===============================
+const prevLow=Math.min(...candles.slice(-8,-2).map(c=>c.low));
 
-  const pctGGG =
-    Number(stats.pctGGG || 0);
+const bosUp=last.close>prevHigh;
 
-  const pctGGR =
-    Number(stats.pctGGR || 0);
+const bosDown=last.close<prevLow;
+//AV STRENCH
+const avgStrength=(
 
-  const pctRRR =
-    Number(stats.pctRRR || 0);
+strength(prev2)+
 
-  const pctRRG =
-    Number(stats.pctRRG || 0);
+strength(prev)+
 
-  // --------------------------------
-  // DOS VERDES
-  // --------------------------------
-  if (green1 && green2) {
+strength(last)
 
-    console.log(
-      "📊 GG ->",
-      "GGG:", pctGGG,
-      "GGR:", pctGGR
-    );
+)/3;
+//SCORE
+let callScore=0;
 
-    // continuidad alcista
-    if (pctGGG > pctGGR) {
+let putScore=0;
 
-      callScore += 2;
+const reasons=[];
+// HELPERS
 
-      if (pctGGG >= 65) {
-        callScore += 1;
-      }
+function addCall(points,reason){
 
-    }
-    // reversión bajista
-    else {
+callScore+=points;
 
-      putScore += 2;
+reasons.push(`CALL +${points} ${reason}`);
 
-      if (pctGGR >= 65) {
-        putScore += 1;
-      }
+}
 
-    }
-  }
+function addPut(points,reason){
 
-  // --------------------------------
-  // DOS ROJAS
-  // --------------------------------
-  if (!green1 && !green2) {
+putScore+=points;
 
-    console.log(
-      "📊 RR ->",
-      "RRR:", pctRRR,
-      "RRG:", pctRRG
-    );
+reasons.push(`PUT +${points} ${reason}`);
 
-    // continuidad bajista
-    if (pctRRR > pctRRG) {
+}
+// TREND
+if(trendUp)
+addCall(3,"Trend");
 
-      putScore += 2;
+if(trendDown)
+addPut(3,"Trend");
 
-      if (pctRRR >= 65) {
-        putScore += 1;
-      }
+//BOSS
+if(bosUp)
+addCall(3,"BOS");
+
+if(bosDown)
+addPut(3,"BOS");
+
+//PULLBACK
+if(pullbackUp)
+addCall(2,"Pullback");
+
+if(pullbackDown)
+addPut(2,"Pullback");
+//MOMENTUM
+if(momentumUp)
+addCall(2,"Momentum");
+
+if(momentumDown)
+addPut(2,"Momentum");
+//STRENCH
+
+if(avgStrength>=0.75){
+
+if(trendUp)
+addCall(2,"Strong Candles");
+
+if(trendDown)
+addPut(2,"Strong Candles");
+
+}
+else if(avgStrength>=0.55){
+
+if(trendUp)
+addCall(1,"Medium Candles");
+
+if(trendDown)
+addPut(1,"Medium Candles");
+
+}
+//HISTORY
+const currentStats=stats[pattern];
+
+if(currentStats){
+
+    if(currentStats.total>=30){
+
+        if(currentStats.pctGreen>currentStats.pctRed){
+
+            const edge=currentStats.pctGreen-currentStats.pctRed;
+
+            if(edge>=10) addCall(1,"History");
+
+            if(edge>=20) addCall(1,"History");
+
+            if(edge>=30) addCall(1,"History");
+
+        }
+
+        else{
+
+            const edge=currentStats.pctRed-currentStats.pctGreen;
+
+            if(edge>=10) addPut(1,"History");
+
+            if(edge>=20) addPut(1,"History");
+
+            if(edge>=30) addPut(1,"History");
+
+        }
 
     }
-    // reversión alcista
-    else {
 
-      callScore += 2;
+}
+//PENALITY
+if(trendUp && putScore>0)
+putScore--;
 
-      if (pctRRG >= 65) {
-        callScore += 1;
-      }
+if(trendDown && callScore>0)
+callScore--;
+//DEBUG
+console.log("==============================");
 
-    }
-  }
+console.log("Pattern:",pattern);
 
-  // ===============================
-  // DEBUG
-  // ===============================
-  console.log(
-    "🎯 SCORES",
-    {
-      callScore,
-      putScore
-    }
-  );
+console.log("CALL:",callScore);
 
-  // ===============================
-  // DECISIÓN FINAL
-  // ===============================
-  if (
-    callScore >= 5 &&
-    callScore > putScore
-  ) {
+console.log("PUT :",putScore);
 
-    console.log(
-      "🟢 CALL",
-      callScore
-    );
+console.table(reasons);
 
-    return {
-      signal: "CALL",
-      score: callScore
-    };
-  }
+console.log("==============================");
+//DESCICION
+const MIN_SCORE=9;
 
-  if (
-    putScore >= 5 &&
-    putScore > callScore
-  ) {
+const MIN_DIFF=3;
 
-    console.log(
-      "🔴 PUT",
-      putScore
-    );
+if(
 
-    return {
-      signal: "PUT",
-      score: putScore
-    };
-  }
+callScore>=MIN_SCORE &&
 
-  return {
-    signal: null,
-    score: 0
-  };
+(callScore-putScore)>=MIN_DIFF
+
+){
+
+return{
+
+signal:"CALL",
+
+score:callScore
+
+};
+
+}
+
+if(
+
+putScore>=MIN_SCORE &&
+
+(putScore-callScore)>=MIN_DIFF
+
+){
+
+return{
+
+signal:"PUT",
+
+score:putScore
+
+};
+
+}
+
+return{
+
+signal:null,
+
+score:0
+
+};
 }
 
 

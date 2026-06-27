@@ -272,11 +272,9 @@ if (!isNewCandle) return;
 // ===============================
 // 📊 ACTUALIZAR ESTADÍSTICAS
 // ===============================
-const closedCandles =
-  candles.slice(0, -1);
+const closedCandles =  candles.slice(0, -1);
 
-state.stats =
-  calculateStats(closedCandles);
+state.stats = calculateStats(closedCandles);
 
 console.log(
   "📊 Stats actualizadas:",

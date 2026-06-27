@@ -1,55 +1,83 @@
 function calculateStats(candles) {
 
-  let GGG = 0;
-  let GGR = 0;
+  const patterns = {
+    GGG: { G: 0, R: 0 },
+    GGR: { G: 0, R: 0 },
+    GRG: { G: 0, R: 0 },
+    GRR: { G: 0, R: 0 },
+    RGG: { G: 0, R: 0 },
+    RGR: { G: 0, R: 0 },
+    RRG: { G: 0, R: 0 },
+    RRR: { G: 0, R: 0 }
+  };
 
-  let RRR = 0;
-  let RRG = 0;
+  // necesitamos 4 velas:
+  // patrón = 3 velas
+  // resultado = cuarta vela
 
-  for (let i = 2; i < candles.length; i++) {
+  for (let i = 3; i < candles.length; i++) {
 
-    const c1 = candles[i - 2];
-    const c2 = candles[i - 1];
-    const c3 = candles[i];
+    const c1 = candles[i - 3];
+    const c2 = candles[i - 2];
+    const c3 = candles[i - 1];
+    const c4 = candles[i];
 
-    const green1 = c1.close > c1.open;
-    const green2 = c2.close > c2.open;
-    const green3 = c3.close > c3.open;
+    const pattern =
+      (c1.close > c1.open ? "G" : "R") +
+      (c2.close > c2.open ? "G" : "R") +
+      (c3.close > c3.open ? "G" : "R");
 
-    if (green1 && green2) {
-      green3 ? GGG++ : GGR++;
-    }
+    const next =
+      c4.close > c4.open ? "G" : "R";
 
-    if (!green1 && !green2) {
-      green3 ? RRG++ : RRR++;
-    }
+    patterns[pattern][next]++;
+
   }
 
-  const totalGG = GGG + GGR;
-  const totalRR = RRR + RRG;
+  const stats = {};
 
-  return {
-    GGG,
-    GGR,
-    RRR,
-    RRG,
+  for (const p in patterns) {
 
-    pctGGG: totalGG
-      ? Number(((GGG / totalGG) * 100).toFixed(2))
-      : 0,
+    const total =
+      patterns[p].G +
+      patterns[p].R;
 
-    pctGGR: totalGG
-      ? Number(((GGR / totalGG) * 100).toFixed(2))
-      : 0,
+    stats[p] = {
 
-    pctRRR: totalRR
-      ? Number(((RRR / totalRR) * 100).toFixed(2))
-      : 0,
+      green: patterns[p].G,
 
-    pctRRG: totalRR
-      ? Number(((RRG / totalRR) * 100).toFixed(2))
-      : 0
-  };
+      red: patterns[p].R,
+
+      pctGreen:
+        total
+          ? Number(
+              (
+                patterns[p].G /
+                total *
+                100
+              ).toFixed(2)
+            )
+          : 0,
+
+      pctRed:
+        total
+          ? Number(
+              (
+                patterns[p].R /
+                total *
+                100
+              ).toFixed(2)
+            )
+          : 0,
+
+      total
+
+    };
+
+  }
+
+  return stats;
+
 }
 
 module.exports = {
