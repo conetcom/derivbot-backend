@@ -145,7 +145,15 @@ function smaStrategy(candles) {
     prev.high >= sma &&
     last.close < sma;
 
+// =========================
+// 💪 FUERZA DE LA VELA
+// =========================
+const body = Math.abs(last.close - last.open);
+const range = last.high - last.low;
 
+if (range === 0) return null;
+
+const strongCandle = body / range >= 0.65;
   // =========================
   // ⚡ MOMENTUM
   // =========================

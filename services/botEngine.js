@@ -543,6 +543,7 @@ if (state.tradeTimeout) {
     // ===============================
     // 📊 MÉTRICAS
     // ===============================
+    console.log("RESULTADO:", result);
     if (result === "win") {
 
       state.wins++;
