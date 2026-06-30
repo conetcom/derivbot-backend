@@ -543,17 +543,22 @@ if (state.tradeTimeout) {
     // ===============================
     // 📊 MÉTRICAS
     // ===============================
-    console.log("RESULTADO:", result);
-    if (result === "win") {
+  if (result === "win") {
 
-      state.wins++;
-      state.lossStreak = 0;
+    console.log("✅ WIN");
 
-    } else {
+    state.wins++;
+    state.lossStreak = 0;
 
-      state.losses++;
-      state.lossStreak++;
-    }
+} else {
+
+    console.log("❌ LOSS");
+
+    state.losses++;
+    state.lossStreak++;
+
+    console.log("PÉRDIDAS:", state.losses);
+}
 
     state.pnl += profit;
     console.log(
