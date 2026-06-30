@@ -1,6 +1,6 @@
 class RiskManager {
 
-  constructor(balance, params = {}) {
+ constructor(balance, params = {}) {
 
     this.balance = Number(balance) || 100;
 
@@ -9,28 +9,37 @@ class RiskManager {
 
     this.baseStake = this.calculateBaseStake();
     this.currentStake = this.baseStake;
-  }
-
+}
  // ===============================
   // 📊 CALCULAR STAKE BASE
   // ===============================
- calculateBaseStake() {
+calculateBaseStake() {
 
-  if (!this.balance || isNaN(this.balance)) {
+    if (!this.balance || isNaN(this.balance)) {
+        return 0.35;
+    }
+
+    const riskCapital = this.balance * 0.40;
+
+    while (this.maxMartingale > 0) {
+
+        const multiplier = Math.pow(2, this.maxMartingale + 1) - 1;
+
+        const stake = riskCapital / multiplier;
+
+        if (stake >= 0.35) {
+            return Number(stake.toFixed(2));
+        }
+
+        console.log(
+            `⚠️ Balance insuficiente para MG ${this.maxMartingale}, reduciendo...`
+        );
+
+        this.maxMartingale--;
+    }
+    
+
     return 0.35;
-  }
-
-  const riskCapital = this.balance * 0.40;
-
-  const multiplier =
-    Math.pow(2, this.maxMartingale + 1) - 1;
-
-  const stake =
-    riskCapital / multiplier;
-
-  return Number(
-    Math.max(stake, 0.35).toFixed(2)
-  );
 }
   // ===============================
   // 💰 OBTENER STAKE
@@ -61,40 +70,29 @@ class RiskManager {
     // ❌ LOSS
     if (result === "loss") {
 
-      // 🔥 todavía puede hacer MG
-      if (this.martingaleStep < this.maxMartingale) {
+    if (this.martingaleStep < this.maxMartingale) {
 
         this.martingaleStep++;
 
-        // 🔥 multiplicador
         this.currentStake = Number(
-          (this.currentStake * 2).toFixed(2)
+            (this.currentStake * 2).toFixed(2)
         );
-
-        // 🛑 nunca más del 10% balance
-       // const maxStake = this.balance * 0.10;
-
-        if (this.currentStake > maxStake) {
-          this.currentStake = Number(maxStake.toFixed(2));
-        }
 
         console.log(
-          `🔥 MARTINGALE ${this.martingaleStep}:`,
-          this.currentStake
+            `🔥 MARTINGALE ${this.martingaleStep}:`,
+            this.currentStake
         );
 
-      } else {
+    } else {
 
-        // 🛑 límite alcanzado
         console.log("🛑 MAX MARTINGALE → RESET");
 
         this.martingaleStep = 0;
 
         this.baseStake = this.calculateBaseStake();
-
         this.currentStake = this.baseStake;
-      }
     }
+}
 
     return this.currentStake;
   }
@@ -102,37 +100,22 @@ class RiskManager {
   // ===============================
   // 🔄 ACTUALIZAR BALANCE
   // ===============================
- update(balance) {
+update(balance) {
 
-  if (!balance || isNaN(balance)) {
-    return;
-  }
+    if (!balance || isNaN(balance)) return;
 
-  this.balance = Number(balance);
+    this.balance = Number(balance);
 
-  this.riskPerTrade =
-    this.balance > 120
-      ? 0.015
-      : 0.01;
+    this.baseStake = this.calculateBaseStake();
 
-  // 🔥 recalcular SOLO base
-  this.baseStake = this.calculateBaseStake();
-
-  // 🔥 IMPORTANTE:
-  // NO tocar currentStake
-  // mientras exista martingale activo
-
-  if (this.martingaleStep === 0) {
-
-    this.currentStake = this.baseStake;
-
-  } else {
-
-    console.log(
-      "🔥 MG ACTIVO - manteniendo stake:",
-      this.currentStake
-    );
-  }
+    if (this.martingaleStep === 0) {
+        this.currentStake = this.baseStake;
+    } else {
+        console.log(
+            "🔥 MG ACTIVO - manteniendo stake:",
+            this.currentStake
+        );
+    }
 }
 }
 
