@@ -566,9 +566,9 @@ console.table(reasons);
 
 console.log("==============================");
 //DESCICION
-const MIN_SCORE=9;
+const MIN_SCORE=6;
 
-const MIN_DIFF=3;
+const MIN_DIFF=2;
 
 if(
 
