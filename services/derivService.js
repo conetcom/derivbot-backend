@@ -17,9 +17,9 @@ class DerivService {
     this.pendingRequests = new Map();
 
     // Subscripciones
-    this.subscriptions = new Map();
-    this.contractSubscriptions = new Map();
-    this.tickSubscriptions = new Map();
+    this.subscriptions = new Map();                   // ticks
+    this.contractSubscriptions = new Map();  // contractId -> { callback, subId }
+    this.subscriptionMap = new Map();        // subId -> contractId
 
     // Reconexión
     this.reconnectAttempts = 0;
@@ -224,15 +224,19 @@ this.contractSubscriptions.set(contractId,{
     return subId;
   }
 
-  async unsubscribe(subId) {
-    try {
-      await this.send({ forget: subId });
-    } catch (err) {
-      console.warn("⚠️ Error al desuscribir:", err.message);
-    }
+  async subscribeTicks(symbol, callback) {
 
-    this.subscriptions.delete(subId);
-  }
+    const res = await this.send({
+        ticks: symbol,
+        subscribe: 1
+    });
+
+    const subId = res.subscription.id;
+
+    this.subscriptions.set(subId, callback);
+
+    return subId;
+}
 
  async buyContract({ amount, contract_type, symbol }) {
 
@@ -257,20 +261,13 @@ this.contractSubscriptions.set(contractId,{
 
   return res;
 }
-
 async watchContract(contractId, callback) {
 
     if (!this.isConnected) {
         throw new Error("WebSocket no conectado");
     }
 
-    console.log(
-        "👀 Watch:",
-        contractId
-    );
-
-    this.contractSubscriptions = new Map();   // contractId -> datos
-    this.subscriptionMap = new Map();         // subId -> contractId
+    console.log("👀 Watch:", contractId);
 
     const res = await this.send({
         proposal_open_contract: 1,
@@ -278,13 +275,27 @@ async watchContract(contractId, callback) {
         subscribe: 1
     });
 
-    if (res.subscription?.id) {
-
-        this.contractSubscriptions.get(contractId).subId =
-            res.subscription.id;
-
+    if (!res.subscription?.id) {
+        throw new Error("No se recibió subscription.id");
     }
 
+    const subId = res.subscription.id;
+
+    this.subscriptionMap.set(subId, contractId);
+
+    this.contractSubscriptions.set(contractId, {
+        callback,
+        subId
+    });
+
+    console.log(
+        "✅ Contrato suscrito:",
+        contractId,
+        "Sub:",
+        subId
+    );
+
+    return subId;
 }
 
   reSubscribeAll() {
@@ -305,26 +316,38 @@ async watchContract(contractId, callback) {
       );
     }
   }
+async forgetContract(contractId) {
 
-  async forgetContract(contractId) {
-    const sub = this.contractSubscriptions.get(contractId);
+    const sub =
+        this.contractSubscriptions.get(contractId);
 
-    if (sub?.subId) {
-      try {
+    if (!sub) return;
+
+    try {
+
         await this.send({
-          forget: sub.subId
+            forget: sub.subId
         });
 
-        console.log("🧹 Cancelada suscripción:", contractId);
+    } catch (err) {
 
-      } catch (err) {
-        console.warn("⚠️ Error olvidando contrato:", err.message);
-      }
+        console.warn(
+            "⚠️ Error forget:",
+            err.message
+        );
+
+    } finally {
+
+        this.subscriptionMap.delete(sub.subId);
+
+        this.contractSubscriptions.delete(contractId);
+
+        console.log(
+            "🧹 Suscripción eliminada:",
+            contractId
+        );
     }
-
-    this.contractSubscriptions.delete(contractId);
-  }
-
+}
   disconnect() {
 
   if (this.pingInterval) {
