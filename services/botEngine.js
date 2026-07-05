@@ -218,27 +218,17 @@ try {
 
   log("BOT_START", "Bot iniciado", { user: user.id });
 
-  const subId = await deriv.subscribeTicks(botConfig.symbol, async (data) => {
-  const currentState =
-      activeBots.get(user.id);
+ const subId = await deriv.subscribeTicks(
+    botConfig.symbol,
+    async ({ price, epoch }) => {
 
-    if (!currentState) {
-      return;
-    }
-    if (!deriv.isConnected) return;
- 
-    const price = data.tick.quote;
-    const epoch = data.tick.epoch;
+        emitPriceUpdate(io, user.id, {
+            price,
+            epoch,
+            symbol: botConfig.symbol
+        });
 
-emitPriceUpdate(
-  io,
-  user.id,
-  {
-    price,
-    epoch,
-    symbol: botConfig.symbol
-  }
-);
+  
    // console.log("📡 Tick recibido:", price);
 
     // 🛑 bloqueos
@@ -439,11 +429,9 @@ console.log(
     // ===============================
     // 💾 GUARDAR ENTRY
     // ===============================
-   const current=
-  c.entry_tick ||
-  c.entry_spot ||
-  c.buy_price ||
-  c.current_spot;
+   const current =
+    c.entryPrice ||
+    c.currentSpot;
   const entryPrice = current;
 
 if (!state.entrySaved && current) {
@@ -466,23 +454,20 @@ if (!state.entrySaved && current) {
     // ===============================
     // 📡 UPDATE FRONTEND
     // ===============================
- const tradeUpdate = {
-  contract_id: c.contract_id,
+const tradeUpdate = {
+    contract_id: c.contractId,
 
-  profit: c.profit,
+    profit: c.profit,
 
-  status: c.status,
+    status: c.status,
 
-  entry_price:
-    c.entry_tick ||
-    c.entry_spot ||
-    c.buy_price,
+    entry_price: c.entryPrice,
 
-  current_spot: c.current_spot,
+    current_spot: c.currentSpot,
 
-  date_start: c.date_start,
+    date_start: c.dateStart,
 
-  date_expiry: c.date_expiry
+    date_expiry: c.dateExpiry
 };
 
 emitTradeUpdate(
@@ -495,8 +480,8 @@ emitTradeUpdate(
     // 🏁 VALIDAR CIERRE
     // ===============================
     const done =
-      c.is_sold ||
-      c.status === "sold";
+    c.isSold ||
+    c.status === "sold";
 
   if (!done || closed || contractFinished) {
   return;
@@ -606,11 +591,11 @@ emitBalance(
     // ===============================
     try {
 
-      await closeTrade(contractId, {
-        status: "closed",
-        profit,
-        exit_price: c.current_spot
-      });
+      await closeTrade(contractId,{
+    status:"closed",
+    profit,
+    exit_price:c.currentSpot
+});
 
       console.log(
         "✅ TRADE CERRADO EN DB:",
