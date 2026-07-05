@@ -2,33 +2,34 @@ const WebSocket = require("ws");
 const axios = require("axios");
 
 class DerivService {
-  constructor(config) {
+ constructor(config) {
+
     this.token = config.token;
     this.accountId = config.accountId;
 
-
-    // Estado de conexión
     this.ws = null;
+
     this.isConnected = false;
     this.connecting = false;
 
-    // Requests
     this.requestId = 1;
+
     this.pendingRequests = new Map();
 
-    // Subscripciones
-    this.subscriptions = new Map();                   // ticks
-    this.contractSubscriptions = new Map();  // contractId -> { callback, subId }
-    this.subscriptionMap = new Map();        // subId -> contractId
+    // ticks
+    this.subscriptions = new Map();
 
-    // Reconexión
+    // contratos
+    this.contractSubscriptions = new Map();
+
+    // subId -> contractId
+    this.subscriptionMap = new Map();
+
     this.reconnectAttempts = 0;
     this.maxReconnects = 10;
-    this.reconnecting = false;
 
-    // Ping
     this.pingInterval = null;
-  }
+}
 
 async connect() {
 
@@ -52,10 +53,7 @@ const cleanAccountId =
       }
     );
 
-    const wsUrl =
-  response.data?.data?.url;
-  const WebSocket = require("ws");
-
+    const wsUrl =  response.data?.data?.url;
 this.ws = new WebSocket(wsUrl);
 
 await new Promise((resolve, reject) => {
@@ -105,8 +103,14 @@ this.ws.on("message", (msg) => {
         );
 
       if (callback) {
-        callback(data.tick);
-      }
+
+    const { quote: price, epoch } = data.tick;
+
+    callback({
+        price,
+        epoch
+    });
+}
 
       return;
     }
@@ -126,11 +130,36 @@ this.ws.on("message", (msg) => {
 
     if (!sub) return;
 
-    sub.callback(data.proposal_open_contract);
+   const c = data.proposal_open_contract;
+
+sub.callback({
+
+    contractId: c.contract_id,
+
+    profit: Number(c.profit),
+
+    status: c.status,
+
+    isSold: Boolean(c.is_sold),
+
+    entryPrice:
+        c.entry_tick ??
+        c.entry_spot ??
+        c.buy_price,
+
+    currentSpot: c.current_spot,
+
+    exitSpot: c.exit_tick,
+
+    dateStart: c.date_start,
+
+    dateExpiry: c.date_expiry
+
+});
 }
 
   } catch (err) {
-
+   
     console.error(
       "❌ WS PARSE ERROR:",
       err.message
@@ -151,11 +180,22 @@ this.ws.on("message", (msg) => {
   console.log("Connected:", this.isConnected);
   console.log("Time:", new Date().toISOString());
   console.log("==============================");
+for(const pending of this.pendingRequests.values()){
 
+    pending.reject(
+        new Error("WebSocket cerrado")
+    );
+
+}
+
+this.pendingRequests.clear();
   this.isConnected = false;
+  this.connecting = false;
 });
 });
   } catch (err) {
+    this.connecting = false;
+    this.isConnected = false;
   console.error("STATUS:", err.response?.status);
 
   console.error(
@@ -169,30 +209,7 @@ this.ws.on("message", (msg) => {
 }
 }
 
-  send(data) {
-    return new Promise((resolve, reject) => {
-      // ✅ FIX 5
-     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-  return reject(new Error("WebSocket no conectado"));
-}
-
-// 🔥 permitir authorize sin isConnected
-if (!this.isConnected && !data.authorize) {
-  return reject(new Error("No autorizado aún"));
-}
-
-      const req_id = this.requestId++;
-
-      this.pendingRequests.set(req_id, { resolve, reject });
-
-      try {
-        this.ws.send(JSON.stringify({ ...data, req_id }));
-      } catch (err) {
-        this.pendingRequests.delete(req_id);
-        reject(err);
-      }
-    });
-  }
+ 
 
   async getBalance() {
     const res = await this.send({ balance: 1 });
@@ -208,28 +225,19 @@ async getContract(contractId) {
   return res.proposal_open_contract;
 }
   async subscribeTicks(symbol, callback) {
-    const res = await this.send({
-      ticks: symbol,
-      subscribe: 1
-    });
 
-   const subId = res.subscription.id;
-
-this.subscriptionMap.set(subId, contractId);
-
-this.contractSubscriptions.set(contractId,{
-    callback,
-    subId
-});
-    return subId;
-  }
-
-  async subscribeTicks(symbol, callback) {
+    if (!this.isConnected) {
+        throw new Error("WebSocket no conectado");
+    }
 
     const res = await this.send({
         ticks: symbol,
         subscribe: 1
     });
+
+    if (!res.subscription?.id) {
+        throw new Error("No se recibió subscription.id");
+    }
 
     const subId = res.subscription.id;
 
@@ -254,10 +262,10 @@ this.contractSubscriptions.set(contractId,{
     }
   });
 
-  console.log(
-    "BUY RESPONSE:",
-    JSON.stringify(res, null, 2)
-  );
+  console.log("🟢 BUY:", {
+    contractId: res.buy?.contract_id,
+    transactionId: res.buy?.transaction_id
+});
 
   return res;
 }
@@ -298,24 +306,99 @@ async watchContract(contractId, callback) {
     return subId;
 }
 
-  reSubscribeAll() {
-    console.log("🔁 Re-suscribiendo TODO...");
+async reSubscribeAll() {
 
-    for (const [contractId] of this.contractSubscriptions.entries()) {
-      // ✅ FIX 7
-      if (!this.isConnected) break;
+    console.log("🔁 Re-suscribiendo contratos...");
 
-      console.log("📉 Re-subscribiendo contrato:", contractId);
+    for (const [contractId, sub] of this.contractSubscriptions.entries()) {
 
-      this.send({
-        proposal_open_contract: 1,
-        contract_id: contractId,
-        subscribe: 1
-      }).catch(err =>
-        console.error("❌ Error re-subscribiendo contrato:", err.message)
-      );
+        try {
+
+            const res = await this.send({
+                proposal_open_contract:1,
+                contract_id:contractId,
+                subscribe:1
+            });
+
+            if(res.subscription?.id){
+
+                this.subscriptionMap.delete(sub.subId);
+
+                sub.subId = res.subscription.id;
+
+                this.subscriptionMap.set(
+                    res.subscription.id,
+                    contractId
+                );
+            }
+
+        } catch(err){
+
+            console.error(err.message);
+
+        }
+
     }
-  }
+
+}
+send(data) {
+
+    return new Promise((resolve, reject) => {
+
+        if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+            return reject(new Error("WebSocket no conectado"));
+        }
+
+        const req_id = this.requestId++;
+
+        const timeout = setTimeout(() => {
+
+            this.pendingRequests.delete(req_id);
+
+            reject(new Error("Request timeout"));
+
+        }, 10000);
+
+        this.pendingRequests.set(req_id, {
+
+            resolve: (res) => {
+
+                clearTimeout(timeout);
+
+                resolve(res);
+
+            },
+
+            reject: (err) => {
+
+                clearTimeout(timeout);
+
+                reject(err);
+
+            }
+
+        });
+
+       try {
+
+    this.ws.send(JSON.stringify({
+        ...data,
+        req_id
+    }));
+
+} catch (err) {
+
+    clearTimeout(timeout);
+
+    this.pendingRequests.delete(req_id);
+
+    reject(err);
+
+}
+
+    });
+
+}
 async forgetContract(contractId) {
 
     const sub =
@@ -325,18 +408,20 @@ async forgetContract(contractId) {
 
     try {
 
-        await this.send({
-            forget: sub.subId
-        });
+    await this.send({
+        forget: sub.subId
+    });
 
-    } catch (err) {
+} catch (err) {
 
-        console.warn(
-            "⚠️ Error forget:",
-            err.message
-        );
+    console.warn(
+        "⚠️ Error forget:",
+        err.message
+    );
 
-    } finally {
+}
+
+     finally {
 
         this.subscriptionMap.delete(sub.subId);
 
@@ -348,31 +433,32 @@ async forgetContract(contractId) {
         );
     }
 }
-  disconnect() {
+disconnect() {
 
-  if (this.pingInterval) {
-    clearInterval(this.pingInterval);
-    this.pingInterval = null;
-  }
-
-  if (this.ws) {
-
-    try {
-      this.ws.close();
-    } catch (err) {
-      console.log(err.message);
+    if (this.pingInterval) {
+        clearInterval(this.pingInterval);
+        this.pingInterval = null;
     }
 
-    this.ws = null;
-  }
+    if (this.ws) {
+        try {
+          this.ws.removeAllListeners();
+            this.ws.close();
+        } catch (err) {
+            console.error(err);
+        }
 
-  this.isConnected = false;
-  this.connecting = false;
+        this.ws = null;
+    }
 
-  this.pendingRequests.clear();
-  this.subscriptions.clear();
-  this.contractSubscriptions.clear();
-  this.tickSubscriptions.clear();
+    this.isConnected = false;
+    this.connecting = false;
+
+    this.pendingRequests.clear();
+
+    this.subscriptions.clear();
+    this.contractSubscriptions.clear();
+    this.subscriptionMap.clear();
 }
  async getCandles(symbol, granularity = 60, count = 100) {
   const res = await this.send({

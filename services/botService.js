@@ -101,77 +101,121 @@ class TradingBot {
     // ===================================
     // MESSAGE
     // ===================================
-    this.ws.on(
-      "message",
-      async (data) => {
+    this.ws.on("message", (raw) => {
 
-        try {
+    let msg;
 
-          const msg =
-            JSON.parse(data);
+    try {
 
-          // ERROR
-          if (msg.error) {
+        msg = JSON.parse(raw);
 
-            console.log(
-              "🔥 DERIV ERROR:",
-              msg.error.message
-            );
+    } catch (err) {
 
-            return;
-          }
+        console.error("❌ JSON inválido");
 
-          // AUTH
-          if (msg.authorize) {
+        return;
+    }
 
-            console.log(
-              "✅ AUTH OK"
-            );
-          }
+    // ==========================
+    // ERROR
+    // ==========================
 
-          // BALANCE
-          if (msg.balance) {
+    if (msg.error) {
 
-            this.handleBalance(
-              msg.balance
-            );
-          }
+        console.error(
+            "🔥 DERIV:",
+            msg.error.message
+        );
 
-          // TICK
-          if (msg.tick) {
+        if (msg.req_id) {
 
-            this.handleTick(
-              msg.tick.quote
-            );
-          }
+            const pending =
+                this.pendingRequests.get(msg.req_id);
 
-          // BUY
-          if (msg.buy) {
+            if (pending) {
 
-            this.handleBuy(
-              msg.buy
-            );
-          }
+                this.pendingRequests.delete(msg.req_id);
 
-          // CONTRACT UPDATE
-          if (
-            msg.proposal_open_contract
-          ) {
-
-            await this.handleResult(
-              msg.proposal_open_contract
-            );
-          }
-
-        } catch (err) {
-
-          console.log(
-            "🔥 MESSAGE ERROR:",
-            err.message
-          );
+                pending.reject(
+                    new Error(msg.error.message)
+                );
+            }
         }
-      }
-    );
+
+        return;
+    }
+
+    // ==========================
+    // RESPUESTAS A send()
+    // ==========================
+
+    if (msg.req_id) {
+
+        const pending =
+            this.pendingRequests.get(msg.req_id);
+
+        if (pending) {
+
+            this.pendingRequests.delete(msg.req_id);
+
+            pending.resolve(msg);
+        }
+    }
+
+    // ==========================
+    // TICKS
+    // ==========================
+
+    if (
+        msg.tick &&
+        msg.subscription?.id
+    ) {
+
+        const callback =
+            this.subscriptions.get(
+                msg.subscription.id
+            );
+
+        if (callback) {
+
+            callback(msg);
+
+        }
+
+        return;
+    }
+
+    // ==========================
+    // CONTRATOS
+    // ==========================
+
+    if (
+        msg.proposal_open_contract &&
+        msg.subscription?.id
+    ) {
+
+        const contractId =
+            this.subscriptionMap.get(
+                msg.subscription.id
+            );
+
+        if (!contractId) return;
+
+        const sub =
+            this.contractSubscriptions.get(
+                contractId
+            );
+
+        if (!sub) return;
+
+        sub.callback(
+            msg.proposal_open_contract
+        );
+
+        return;
+    }
+
+});
 
     // ===================================
     // CLOSE
