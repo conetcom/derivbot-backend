@@ -433,6 +433,39 @@ async forgetContract(contractId) {
         );
     }
 }
+async unsubscribe(subId) {
+
+    const sub = this.subscriptions.get(subId);
+
+    try {
+
+        if (this.isConnected) {
+
+            await this.send({
+                forget: subId
+            });
+
+        }
+
+    } catch (err) {
+
+        console.warn(
+            "⚠️ Error unsubscribe:",
+            err.message
+        );
+
+    } finally {
+
+        this.subscriptions.delete(subId);
+
+        console.log(
+            "🧹 Tick eliminado:",
+            sub?.symbol
+        );
+
+    }
+
+}
 disconnect() {
 
     if (this.pingInterval) {
