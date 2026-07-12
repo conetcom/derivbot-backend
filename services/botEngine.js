@@ -292,13 +292,6 @@ if (closedCandles.length < 20) return;
 // ===============================
 // 🚀 ESTRATEGIA SELECCIONADA
 // ===============================
-
-const result = getSignal(
-    closedCandles,
-    botConfig.strategy,
-    state
-);
-
 const result = getSignal(
     closedCandles,
     botConfig.strategy,
