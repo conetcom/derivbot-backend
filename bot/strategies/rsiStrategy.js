@@ -23,5 +23,5 @@ strategy:"rsi"
     signal: null,
     score: 0,
     strategy: "rsi"
-};
+};}
 module.exports = rsiStrategy;
