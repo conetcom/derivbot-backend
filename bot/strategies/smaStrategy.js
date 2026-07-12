@@ -121,5 +121,5 @@ const strongCandle = body / range >= CONFIG.STRONG_CANDLE;
     score: 0,
     strategy: "sma"
 };
-
+}
 module.exports = smaStrategy;
