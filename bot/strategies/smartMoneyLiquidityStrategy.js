@@ -54,7 +54,7 @@ strategy: "liquidity"
   }
 
   return {
-      signal:"null",
+      signal:null,
       score:0,
       strategy: "liquidity"
     };
