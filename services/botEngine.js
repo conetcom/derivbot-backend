@@ -4,12 +4,8 @@
 
 const { createTrade, closeTrade, updateTradeByContract } = require("../models/tradesModel");
 const CandleBuilder = require("../bot/candleBuilder");
-const {
-  calculateSMA,
-  smaStrategy,
-  smartMoneyLiquidityStrategy,
-  syntheticProStrategy
-} = require("../bot/strategy");
+const { getSignal } = require("../bot/strategy");
+const { calculateSMA } = require("../bot/indicators");
 const RiskManager = require("../bot/riskManager");
 const { updateBotStatus} = require("../models/botsModel");
 const activeBots = require("../services/activeBots");
@@ -293,12 +289,25 @@ if (closedCandles.length < 20) return;
     // ===============================
     // 🚀 ESTRATEGIAS
     // ===============================
-    const pro = syntheticProStrategy(closedCandles, state, state.stats);
+// ===============================
+// 🚀 ESTRATEGIA SELECCIONADA
+// ===============================
 
-    const smaSignal = smaStrategy(closedCandles);
-    const liquiditySignal = smartMoneyLiquidityStrategy(closedCandles);
+const result = getSignal(
+    closedCandles,
+    botConfig.strategy,
+    state
+);
 
-    let finalSignal = null;
+if (!result) {
+    return;
+}
+
+console.log(
+    `📈 Estrategia: ${result.strategy} | Señal: ${result.signal} | Score: ${result.score}`
+);
+
+const finalSignal = result.signal;
 
     // 🔥 PRIORIDAD PRO
     if (pro && pro.signal && pro.score >= 5) {
@@ -316,7 +325,7 @@ if (closedCandles.length < 20) return;
       console.log("⚡ SMA FALLBACK");
     }
 
-    const smaValue = calculateSMA(closedCandles, 20);
+    //const smaValue = calculateSMA(closedCandles, 20);
 
     // 📊 DEBUG
     debugVisual(closedCandles, finalSignal, smaValue, liquiditySignal, pro);
