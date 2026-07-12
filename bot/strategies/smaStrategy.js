@@ -116,7 +116,10 @@ const strongCandle = body / range >= CONFIG.STRONG_CANDLE;
     return  buildSignal("PUT");
   }
 
-  return null;
-}
+  return {
+    signal: null,
+    score: 0,
+    strategy: "sma"
+};
 
 module.exports = smaStrategy;

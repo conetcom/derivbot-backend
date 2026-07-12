@@ -299,7 +299,13 @@ const result = getSignal(
     state
 );
 
-if (!result) {
+const result = getSignal(
+    closedCandles,
+    botConfig.strategy,
+    state
+);
+
+if (!result || !result.signal) {
     return;
 }
 
@@ -309,41 +315,29 @@ console.log(
 
 const finalSignal = result.signal;
 
-    // 🔥 PRIORIDAD PRO
-    if (pro && pro.signal && pro.score >= 5) {
-      finalSignal = pro.signal;
-      console.log("🚀 PRO SIGNAL:", pro);
-    }
-    // ⚡ fallback liquidez
-    else if (liquiditySignal) {
-      finalSignal = liquiditySignal;
-      console.log("💧 LIQUIDITY FALLBACK");
-    }
-    // ⚡ fallback SMA
-    else if (smaSignal) {
-      finalSignal = smaSignal;
-      console.log("⚡ SMA FALLBACK");
-    }
+// Mantener la SMA para el filtro de tendencia
+const smaValue = calculateSMA(closedCandles, 20);
 
-    //const smaValue = calculateSMA(closedCandles, 20);
+// Debug
+debugVisual(
+    closedCandles,
+    finalSignal,
+    smaValue,
+    result
+);
 
-    // 📊 DEBUG
-    debugVisual(closedCandles, finalSignal, smaValue, liquiditySignal, pro);
+// ===============================
+// 🔥 FILTRO DE TENDENCIA
+// ===============================
+const lastCandle = closedCandles.at(-1);
 
-    if (!finalSignal) return;
+const trendUp = lastCandle.close > smaValue;
+const trendDown = lastCandle.close < smaValue;
 
-    // ===============================
-    // 🔥 FILTRO DE TENDENCIA
-    // ===============================
-    const lastCandle = closedCandles.at(-1);
+if (finalSignal === "CALL" && !trendUp) return;
+if (finalSignal === "PUT" && !trendDown) return;
 
-    const trendUp = lastCandle.close > smaValue;
-    const trendDown = lastCandle.close < smaValue;
-
-    if (finalSignal === "CALL" && !trendUp) return;
-    if (finalSignal === "PUT" && !trendDown) return;
-
-    const contract_type = finalSignal;
+const contract_type = finalSignal;
 
     state.running = true;
     state.lastTradeTime = Date.now();

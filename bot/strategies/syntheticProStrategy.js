@@ -24,7 +24,7 @@ function buildSignal(signal) {
     return {
         signal,
         score: CONFIG.MIN_SCORE,
-        strategy: "sma"
+        strategy: "synthetic_pro"
     };
 }
 function syntheticProStrategy(candles, state = {}) {
@@ -277,12 +277,10 @@ buildSignal("PUT");
 
 }
 
-return{
-
-signal:null,
-
-score:0
-
+return {
+    signal: null,
+    score: 0,
+    strategy: "synthetic_pro"
 };
 }
 module.exports = syntheticProStrategy;

@@ -38,8 +38,8 @@ function forexStrategy(candles) {
     return{
 
 signal:"CALL",
-
-score:0
+score:6,
+strategy: "forex"
 
 };;
   }
@@ -48,12 +48,18 @@ score:0
     return{
 
 signal:"PUT",
-
-score:0
+score:6,
+strategy: "forex"
 
 };
   }
 
-  return null;
+  return {
+
+signal:"null",
+score:0,
+strategy: "forex"
+
+};;
 }
 module.exports = forexStrategy;

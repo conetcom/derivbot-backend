@@ -39,8 +39,8 @@ function smartMoneyLiquidityStrategy(candles) {
     return{
 
 signal:"CALL",
-
-score:0
+score:0,
+strategy: "liquidity"
 
 };
   }
@@ -48,10 +48,15 @@ score:0
   if (sweepLow && rejectionBuy && bullishConfirm) {
     return{
       signal:"PUT",
-      score:0
+      score:0,
+      strategy: "liquidity"
     };
   }
 
-  return null;
+  return {
+      signal:"null",
+      score:0,
+      strategy: "liquidity"
+    };
 }
 module.exports = smartMoneyLiquidityStrategy;
