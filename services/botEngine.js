@@ -297,7 +297,7 @@ const result = getSignal(
     botConfig.strategy,
     state
 );
-
+console.log("🎯 Resultado estrategia:", result);
 if (!result || !result.signal) {
     return;
 }
