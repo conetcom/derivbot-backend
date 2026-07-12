@@ -32,12 +32,20 @@ function syntheticProStrategy(candles, state = {}) {
     const stats = state.stats || {};
 
     if (!candles || candles.length < 30)
-        return { signal: null, score: 0 };
+        return {
+    signal: null,
+    score: 0,
+    strategy: "synthetic_pro"
+};
 
     const sma = calculateSMA(candles,12);
 
     if (!sma)
-        return { signal:null, score:0 };
+        return {
+    signal: null,
+    score: 0,
+    strategy: "synthetic_pro"
+};
 
     const last  = candles.at(-2);
     const prev  = candles.at(-3);
@@ -244,37 +252,20 @@ console.table(reasons);
 
 console.log("==============================");
 //DESCICION
-const MIN_SCORE=6;
 
-const MIN_DIFF=2;
 
-if(
-
-callScore>=MIN_SCORE &&
-
-(callScore-putScore)>=MIN_DIFF
-
-){
-
-return
-
-buildSignal("CALL");
-
+if (
+    callScore >= CONFIG.MIN_SCORE &&
+    (callScore - putScore) >= CONFIG.MIN_DIFF
+) {
+    return buildSignal("CALL");
 }
 
-if(
-
-putScore>=MIN_SCORE &&
-
-(putScore-callScore)>=MIN_DIFF
-
-){
-
-return
-
-buildSignal("PUT");
-
-
+if (
+    putScore >= CONFIG.MIN_SCORE &&
+    (putScore - callScore) >= CONFIG.MIN_DIFF
+) {
+    return buildSignal("PUT");
 }
 
 return {
