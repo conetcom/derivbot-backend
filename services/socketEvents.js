@@ -14,11 +14,6 @@ function emitToUser(
       `user_${userId}`
     );
 
-  console.log(
-    `📡 ${event} -> user_${userId}`,
-    `clients: ${room?.size || 0}`
-  );
-
   io.to(
     `user_${userId}`
   ).emit(
