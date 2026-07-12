@@ -1,62 +1,248 @@
-function smartMoneyLiquidityStrategy(candles) {
-  if (candles.length < 8) return null;
+const CONFIG = {
+    MIN_CANDLES: 12,
 
-  const last = candles[candles.length - 1];
-  const prev = candles[candles.length - 2];
+    SWEEP_POINTS: 4,
+    REJECTION_POINTS: 2,
+    CONFIRMATION_POINTS: 2,
+    TREND_POINTS: 2,
+    VOLATILITY_POINTS: 1,
 
-  const highs = candles.slice(-10).map(c => c.high);
-  const lows = candles.slice(-10).map(c => c.low);
+    MIN_SCORE: 8,
+    MIN_DIFF: 2,
 
-  const liquidityHigh = Math.max(...highs.slice(0, -2));
-  const liquidityLow = Math.min(...lows.slice(0, -2));
-
-  const sweepHigh =
-    last.high > liquidityHigh && last.close < liquidityHigh;
-
-  const sweepLow =
-    last.low < liquidityLow && last.close > liquidityLow;
-
-  const upperWick =
-    last.high - Math.max(last.open, last.close);
-
-  const lowerWick =
-    Math.min(last.open, last.close) - last.low;
-
-  const body = Math.abs(last.close - last.open);
-
-  const rejectionSell = upperWick > body * 1.5;
-  const rejectionBuy = lowerWick > body * 1.5;
-
-  const bearishConfirm =
-    last.close < last.open &&
-    prev.close < prev.open;
-
-  const bullishConfirm =
-    last.close > last.open &&
-    prev.close > prev.open;
-
-  if (sweepHigh && rejectionSell && bearishConfirm) {
-    return{
-
-signal:"CALL",
-score:6,
-strategy: "liquidity"
-
+    REJECTION_RATIO: 1.5,
+    MIN_VOLATILITY: 0.10
 };
-  }
 
-  if (sweepLow && rejectionBuy && bullishConfirm) {
-    return{
-      signal:"PUT",
-      score:6,
-      strategy: "liquidity"
-    };
-  }
-
-  return {
-      signal:null,
-      score:0,
-      strategy: "liquidity"
+function buildSignal(signal, score) {
+    return {
+        signal,
+        score,
+        strategy: "liquidity"
     };
 }
+
+function smartMoneyLiquidityStrategy(candles) {
+
+    if (!candles || candles.length < CONFIG.MIN_CANDLES) {
+        return {
+            signal: null,
+            score: 0,
+            strategy: "liquidity"
+        };
+    }
+
+    // ===============================
+    // Velas cerradas
+    // ===============================
+
+    const last = candles.at(-2);
+    const prev = candles.at(-3);
+
+    // ===============================
+    // Liquidez
+    // ===============================
+
+    const highs = candles.slice(-10, -2).map(c => c.high);
+    const lows = candles.slice(-10, -2).map(c => c.low);
+
+    const liquidityHigh = Math.max(...highs);
+    const liquidityLow = Math.min(...lows);
+
+    const sweepHigh =
+        last.high > liquidityHigh &&
+        last.close < liquidityHigh;
+
+    const sweepLow =
+        last.low < liquidityLow &&
+        last.close > liquidityLow;
+
+    // ===============================
+    // Mechas
+    // ===============================
+
+    const upperWick =
+        last.high - Math.max(last.open, last.close);
+
+    const lowerWick =
+        Math.min(last.open, last.close) - last.low;
+
+    const body =
+        Math.abs(last.close - last.open);
+
+    if (body === 0) {
+        return {
+            signal: null,
+            score: 0,
+            strategy: "liquidity"
+        };
+    }
+
+    const rejectionSell =
+        upperWick >= body * CONFIG.REJECTION_RATIO;
+
+    const rejectionBuy =
+        lowerWick >= body * CONFIG.REJECTION_RATIO;
+
+    // ===============================
+    // Confirmación
+    // ===============================
+
+    const bearishConfirm =
+        last.close < last.open &&
+        prev.close < prev.open;
+
+    const bullishConfirm =
+        last.close > last.open &&
+        prev.close > prev.open;
+
+    // ===============================
+    // Tendencia simple
+    // ===============================
+
+    const trendUp =
+        last.close > prev.close;
+
+    const trendDown =
+        last.close < prev.close;
+
+    // ===============================
+    // Volatilidad
+    // ===============================
+
+    const recent = candles.slice(-5);
+
+    const volatility =
+        Math.max(...recent.map(c => c.high)) -
+        Math.min(...recent.map(c => c.low));
+
+    // ===============================
+    // Score
+    // ===============================
+
+    let callScore = 0;
+    let putScore = 0;
+
+    const reasons = [];
+
+    function addCall(points, reason) {
+        callScore += points;
+        reasons.push(`CALL +${points} ${reason}`);
+    }
+
+    function addPut(points, reason) {
+        putScore += points;
+        reasons.push(`PUT +${points} ${reason}`);
+    }
+
+    // ===============================
+    // Sweep
+    // ===============================
+
+    if (sweepLow)
+        addCall(CONFIG.SWEEP_POINTS, "Liquidity Sweep");
+
+    if (sweepHigh)
+        addPut(CONFIG.SWEEP_POINTS, "Liquidity Sweep");
+
+    // ===============================
+    // Rechazo
+    // ===============================
+
+    if (rejectionBuy)
+        addCall(CONFIG.REJECTION_POINTS, "Rejection");
+
+    if (rejectionSell)
+        addPut(CONFIG.REJECTION_POINTS, "Rejection");
+
+    // ===============================
+    // Confirmación
+    // ===============================
+
+    if (bullishConfirm)
+        addCall(CONFIG.CONFIRMATION_POINTS, "Confirmation");
+
+    if (bearishConfirm)
+        addPut(CONFIG.CONFIRMATION_POINTS, "Confirmation");
+
+    // ===============================
+    // Tendencia
+    // ===============================
+
+    if (trendUp)
+        addCall(CONFIG.TREND_POINTS, "Trend");
+
+    if (trendDown)
+        addPut(CONFIG.TREND_POINTS, "Trend");
+
+    // ===============================
+    // Volatilidad
+    // ===============================
+
+    if (volatility >= CONFIG.MIN_VOLATILITY * 2) {
+
+        if (trendUp)
+            addCall(CONFIG.VOLATILITY_POINTS, "Volatility");
+
+        if (trendDown)
+            addPut(CONFIG.VOLATILITY_POINTS, "Volatility");
+    }
+
+    // ===============================
+    // Penalización
+    // ===============================
+
+    if (trendUp && putScore > 0)
+        putScore--;
+
+    if (trendDown && callScore > 0)
+        callScore--;
+
+    // ===============================
+    // Debug
+    // ===============================
+
+    console.log("==============================");
+    console.log("💧 LIQUIDITY STRATEGY");
+    console.log("CALL:", callScore);
+    console.log("PUT :", putScore);
+    console.table(reasons);
+    console.log("==============================");
+
+    // ===============================
+    // Decisión
+    // ===============================
+
+    if (
+        callScore >= CONFIG.MIN_SCORE &&
+        (callScore - putScore) >= CONFIG.MIN_DIFF
+    ) {
+
+        return buildSignal(
+            "CALL",
+            callScore
+        );
+
+    }
+
+    if (
+        putScore >= CONFIG.MIN_SCORE &&
+        (putScore - callScore) >= CONFIG.MIN_DIFF
+    ) {
+
+        return buildSignal(
+            "PUT",
+            putScore
+        );
+
+    }
+
+    return {
+        signal: null,
+        score: 0,
+        strategy: "liquidity"
+    };
+
+}
+
 module.exports = smartMoneyLiquidityStrategy;
