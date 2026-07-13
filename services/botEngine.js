@@ -75,15 +75,13 @@ const risk =
     balanceData.balance,
     settings
   );
-
+state.risk = risk;
 const candleBuilder =
   new CandleBuilder();
 
 const state = {
   userId: user.id,
-  martingaleStep: risk.martingaleStep,
-  balance: risk.balance,
-  botId: botConfig.id,
+   botId: botConfig.id,
 
   deriv,
   io,
@@ -396,8 +394,6 @@ expiry_time: new Date(Date.now() + 60000),
   status: "open"
   
 });
-const rm = state.riskManager;
-
 await saveTradeStatistics({
 
     tradeId: trade.id,
@@ -414,9 +410,9 @@ await saveTradeStatistics({
 
     stake: state.currentStake,
 
-    martingale: rm.martingaleStep,
+    martingale: state.risk.martingaleStep,
 
-    balanceBefore: rm.balance
+    balanceBefore: state.risk.balance
 
 });
 
