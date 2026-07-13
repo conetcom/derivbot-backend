@@ -326,10 +326,6 @@ debugVisual(
 
 //const trendUp = lastCandle.close > smaValue;
 //const trendDown = lastCandle.close < smaValue;
-
-if (finalSignal === "CALL" ) return;
-if (finalSignal === "PUT" ) return;
-
 const contract_type = finalSignal;
 
     state.running = true;
