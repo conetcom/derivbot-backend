@@ -81,7 +81,8 @@ const candleBuilder =
 
 const state = {
   userId: user.id,
-
+  martingaleStep: risk.martingaleStep,
+  balance: risk.balance,
   botId: botConfig.id,
 
   deriv,
