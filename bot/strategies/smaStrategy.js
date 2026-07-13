@@ -342,10 +342,6 @@ function smaStrategy(candles) {
 
     volatility,
 
-    pctGreen: currentStats?.pctGreen,
-
-    pctRed: currentStats?.pctRed,
-
     callScore,
 
     putScore,
