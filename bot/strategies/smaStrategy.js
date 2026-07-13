@@ -274,13 +274,7 @@ function smaStrategy(candles) {
 
     volatility,
     
-    pctGreen: currentStats?.pctGreen,
 
-    pctRed: currentStats?.pctRed,
-
-    callScore,
-
-    putScore,
 
     sma
 
@@ -311,14 +305,6 @@ function smaStrategy(candles) {
 
     volatility,
 
-    pctGreen: currentStats?.pctGreen,
-
-    pctRed: currentStats?.pctRed,
-
-    callScore,
-
-    putScore,
-
     sma
 
 });
@@ -341,11 +327,7 @@ function smaStrategy(candles) {
     momentum: momentumUp || momentumDown,
 
     volatility,
-
-    callScore,
-
-    putScore,
-
+    
     sma
 
 });
