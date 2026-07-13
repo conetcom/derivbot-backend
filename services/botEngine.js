@@ -395,6 +395,8 @@ expiry_time: new Date(Date.now() + 60000),
   status: "open"
   
 });
+const rm = state.riskManager;
+
 await saveTradeStatistics({
 
     tradeId: trade.id,
@@ -411,9 +413,9 @@ await saveTradeStatistics({
 
     stake: state.currentStake,
 
-    martingale: state.riskManager.martingaleStep,
+    martingale: rm.martingaleStep,
 
-    balanceBefore: state.riskManager.balance
+    balanceBefore: rm.balance
 
 });
 
