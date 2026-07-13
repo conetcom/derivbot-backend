@@ -411,9 +411,9 @@ await saveTradeStatistics({
 
     stake: state.currentStake,
 
-    martingale: riskManager.martingaleStep,
+    martingale: state.riskManager.martingaleStep,
 
-    balanceBefore: riskManager.balance
+    balanceBefore: state.riskManager.balance
 
 });
 
