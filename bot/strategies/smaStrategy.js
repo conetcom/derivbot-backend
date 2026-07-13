@@ -273,9 +273,7 @@ function smaStrategy(candles) {
     momentum: momentumUp || momentumDown,
 
     volatility,
-
-    pattern,
-
+    
     pctGreen: currentStats?.pctGreen,
 
     pctRed: currentStats?.pctRed,
@@ -313,8 +311,6 @@ function smaStrategy(candles) {
 
     volatility,
 
-    pattern,
-
     pctGreen: currentStats?.pctGreen,
 
     pctRed: currentStats?.pctRed,
@@ -345,8 +341,6 @@ function smaStrategy(candles) {
     momentum: momentumUp || momentumDown,
 
     volatility,
-
-    pattern,
 
     pctGreen: currentStats?.pctGreen,
 
