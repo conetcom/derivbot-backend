@@ -388,6 +388,7 @@ expiry_time: new Date(Date.now() + 60000),
   status: "open"
   
 });
+console.log("estadisticas", trade.id);
 await saveTradeStatistics({
 
     tradeId: trade.id,
