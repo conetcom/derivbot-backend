@@ -1,5 +1,5 @@
 const { calculateSMA } = require("../indicators");
-
+const buildSignal = require("../helpers/buildSignal");
 const CONFIG = {
     SMA_PERIOD: 8,
     MIN_CANDLES: 30,
@@ -21,13 +21,7 @@ const CONFIG = {
     MIN_DIFF: 2
 };
 
-function buildSignal(signal, score) {
-    return {
-        signal,
-        score,
-        strategy: "sma"
-    };
-}
+
 
 function smaStrategy(candles) {
 
@@ -262,10 +256,39 @@ function smaStrategy(candles) {
         (callScore - putScore) >= CONFIG.MIN_DIFF
     ) {
 
-        return buildSignal(
-            "CALL",
-            callScore
-        );
+      return buildSignal({
+
+    strategy:"synthetic_pro",
+
+    signal:"CALL",
+
+    score:CONFIG.MIN_SCORE,
+
+    trend: trendUp ? "UP" : trendDown ? "DOWN" : "SIDE",
+
+    bos: bosUp || bosDown,
+
+    pullback: pullbackUp || pullbackDown,
+
+    momentum: momentumUp || momentumDown,
+
+    strength: avgStrength,
+
+    volatility,
+
+    pattern,
+
+    pctGreen: currentStats?.pctGreen,
+
+    pctRed: currentStats?.pctRed,
+
+    callScore,
+
+    putScore,
+
+    sma
+
+});
 
     }
 
@@ -274,18 +297,74 @@ function smaStrategy(candles) {
         (putScore - callScore) >= CONFIG.MIN_DIFF
     ) {
 
-        return buildSignal(
-            "PUT",
-            putScore
-        );
+        return buildSignal({
 
+    strategy:"synthetic_pro",
+
+    signal:"PUT",
+
+    score:CONFIG.MIN_SCORE,
+
+    trend: trendUp ? "UP" : trendDown ? "DOWN" : "SIDE",
+
+    bos: bosUp || bosDown,
+
+    pullback: pullbackUp || pullbackDown,
+
+    momentum: momentumUp || momentumDown,
+
+    strength: avgStrength,
+
+    volatility,
+
+    pattern,
+
+    pctGreen: currentStats?.pctGreen,
+
+    pctRed: currentStats?.pctRed,
+
+    callScore,
+
+    putScore,
+
+    sma
+
+});
     }
 
-    return {
-        signal: null,
-        score: 0,
-        strategy: "sma"
-    };
+    return buildSignal({
+
+    strategy:"synthetic_pro",
+
+    signal:null,
+
+    score:0,
+
+    trend: trendUp ? "UP" : trendDown ? "DOWN" : "SIDE",
+
+    bos: bosUp || bosDown,
+
+    pullback: pullbackUp || pullbackDown,
+
+    momentum: momentumUp || momentumDown,
+
+    strength: avgStrength,
+
+    volatility,
+
+    pattern,
+
+    pctGreen: currentStats?.pctGreen,
+
+    pctRed: currentStats?.pctRed,
+
+    callScore,
+
+    putScore,
+
+    sma
+
+});
 
 }
 

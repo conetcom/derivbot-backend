@@ -1,3 +1,5 @@
+const calculateSMA = require('../indicators/sma');
+const buildSignal = require("../helpers/buildSignal");
 function forexStrategy(candles) {
   if (candles.length < 25) return null;
 
@@ -35,31 +37,109 @@ function forexStrategy(candles) {
 
   // 🎯 ENTRADAS
   if (trendUp && rsi < 60 && last.close > prev.close) {
-    return{
+   return buildSignal({
 
-signal:"CALL",
-score:6,
-strategy: "forex"
+    strategy:"synthetic_pro",
 
-};;
+    signal:"CALL",
+
+    score:8,
+
+    trend: trendUp ? "UP" : trendDown ? "DOWN" : "SIDE",
+
+    bos: bosUp || bosDown,
+
+    pullback: pullbackUp || pullbackDown,
+
+    momentum: momentumUp || momentumDown,
+
+    strength: avgStrength,
+
+    volatility,
+
+    pattern,
+
+    pctGreen: currentStats?.pctGreen,
+
+    pctRed: currentStats?.pctRed,
+
+    callScore,
+
+    putScore,
+
+    sma
+
+});
   }
 
   if (trendDown && rsi > 40 && last.close < prev.close) {
-    return{
+   return buildSignal({
 
-signal:"PUT",
-score:6,
-strategy: "forex"
+    strategy:"synthetic_pro",
 
-};
+    signal:"PUT",
+
+    score:8,
+
+    trend: trendUp ? "UP" : trendDown ? "DOWN" : "SIDE",
+
+    bos: bosUp || bosDown,
+
+    pullback: pullbackUp || pullbackDown,
+
+    momentum: momentumUp || momentumDown,
+
+    strength: avgStrength,
+
+    volatility,
+
+    pattern,
+
+    pctGreen: currentStats?.pctGreen,
+
+    pctRed: currentStats?.pctRed,
+
+    callScore,
+
+    putScore,
+
+    sma
+
+});
   }
 
-  return {
+  return buildSignal({
 
-signal:"null",
-score:0,
-strategy: "forex"
+    strategy:"synthetic_pro",
 
-};;
+    signal:null,
+
+    score:0,
+
+    trend: trendUp ? "UP" : trendDown ? "DOWN" : "SIDE",
+
+    bos: bosUp || bosDown,
+
+    pullback: pullbackUp || pullbackDown,
+
+    momentum: momentumUp || momentumDown,
+
+    strength: avgStrength,
+
+    volatility,
+
+    pattern,
+
+    pctGreen: currentStats?.pctGreen,
+
+    pctRed: currentStats?.pctRed,
+
+    callScore,
+
+    putScore,
+
+    sma
+
+});
 }
 module.exports = forexStrategy;

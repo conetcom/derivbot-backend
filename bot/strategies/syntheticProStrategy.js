@@ -1,4 +1,5 @@
 const calculateSMA = require('../indicators/sma');
+const buildSignal = require("../helpers/buildSignal");
 const CONFIG = {
 
     TREND_POINTS:3,
@@ -20,13 +21,7 @@ const CONFIG = {
     HISTORY_MIN:30
 
 };
-function buildSignal(signal) {
-    return {
-        signal,
-        score: CONFIG.MIN_SCORE,
-        strategy: "synthetic_pro"
-    };
-}
+
 function syntheticProStrategy(candles, state = {}) {
 
     const stats = state.stats || {};
@@ -258,20 +253,113 @@ if (
     callScore >= CONFIG.MIN_SCORE &&
     (callScore - putScore) >= CONFIG.MIN_DIFF
 ) {
-    return buildSignal("CALL");
+   return buildSignal({
+
+    strategy: "synthetic_pro",
+
+    signal: "CALL",
+
+    score: callScore,
+
+    trend: trendUp,
+
+    bos: bosUp,
+
+    pullback: pullbackUp,
+
+    momentum: momentumUp,
+
+    strength: avgStrength,
+
+    volatility,
+
+    pattern,
+
+    pctGreen: currentStats?.pctGreen,
+
+    pctRed: currentStats?.pctRed,
+
+    callScore,
+
+    putScore,
+
+    sma
+
+});
 }
 
 if (
     putScore >= CONFIG.MIN_SCORE &&
     (putScore - callScore) >= CONFIG.MIN_DIFF
 ) {
-    return buildSignal("PUT");
+    return buildSignal({
+
+    strategy: "synthetic_pro",
+
+    signal: "PUT",
+
+    score: putScore,
+
+    trend: trendDown,
+
+    bos: bosDown,
+
+    pullback: pullbackDown,
+
+    momentum: momentumDown,
+
+    strength: avgStrength,
+
+    volatility,
+
+    pattern,
+
+    pctGreen: currentStats?.pctGreen,
+
+    pctRed: currentStats?.pctRed,
+
+    callScore,
+
+    putScore,
+
+    sma
+
+});
+    
 }
 
-return {
-    signal: null,
-    score: 0,
-    strategy: "synthetic_pro"
-};
+return buildSignal({
+
+    strategy:"synthetic_pro",
+
+    signal:null,
+
+    score:0,
+
+    trend: trendUp ? "UP" : trendDown ? "DOWN" : "SIDE",
+
+    bos: bosUp || bosDown,
+
+    pullback: pullbackUp || pullbackDown,
+
+    momentum: momentumUp || momentumDown,
+
+    strength: avgStrength,
+
+    volatility,
+
+    pattern,
+
+    pctGreen: currentStats?.pctGreen,
+
+    pctRed: currentStats?.pctRed,
+
+    callScore,
+
+    putScore,
+
+    sma
+
+});
 }
 module.exports = syntheticProStrategy;

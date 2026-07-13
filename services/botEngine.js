@@ -10,7 +10,7 @@ const RiskManager = require("../bot/riskManager");
 const { updateBotStatus} = require("../models/botsModel");
 const activeBots = require("../services/activeBots");
 const {updateBalance} = require('../models/botsModel');
-
+const { saveTradeStatistics } = require("../models/tradeStatisticsModel");
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 const {  calculateStats} = require("../bot/candleStats");
 
@@ -322,13 +322,13 @@ debugVisual(
 // ===============================
 // 🔥 FILTRO DE TENDENCIA
 // ===============================
-const lastCandle = closedCandles.at(-1);
+//const lastCandle = closedCandles.at(-1);
 
-const trendUp = lastCandle.close > smaValue;
-const trendDown = lastCandle.close < smaValue;
+//const trendUp = lastCandle.close > smaValue;
+//const trendDown = lastCandle.close < smaValue;
 
-if (finalSignal === "CALL" && !trendUp) return;
-if (finalSignal === "PUT" && !trendDown) return;
+if (finalSignal === "CALL" ) return;
+if (finalSignal === "PUT" ) return;
 
 const contract_type = finalSignal;
 
@@ -398,6 +398,27 @@ expiry_time: new Date(Date.now() + 60000),
   entry_price: null,
   status: "open"
   
+});
+await saveTradeStatistics({
+
+    tradeId: trade.id,
+
+    strategy: result.strategy,
+
+    symbol: botConfig.symbol,
+
+    signal: result.signal,
+
+    score: result.score,
+
+    analysis: result.analysis,
+
+    stake: state.currentStake,
+
+    martingale: riskManager.martingaleStep,
+
+    balanceBefore: riskManager.balance
+
 });
 
       state.trades++;
@@ -592,6 +613,19 @@ emitBalance(
     profit,
     exit_price:c.currentSpot
 });
+await updateTradeStatistics(
+
+    trade.id,
+
+    {
+
+        balanceAfter: riskManager.balance,
+
+        result: tradeResult
+
+    }
+
+);
 
       console.log(
         "✅ TRADE CERRADO EN DB:",
