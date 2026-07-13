@@ -70,23 +70,21 @@ if (!deriv.isConnected) return;
 const balanceData =
   await deriv.getBalance();
 
-const risk =
-  new RiskManager(
-    balanceData.balance,
-    settings
-  );
-state.risk = risk;
-const candleBuilder =
-  new CandleBuilder();
+const risk = new RiskManager(
+  balanceData.balance,
+  settings
+);
+
+const candleBuilder = new CandleBuilder();
 
 const state = {
   userId: user.id,
-   botId: botConfig.id,
+  botId: botConfig.id,
 
   deriv,
   io,
 
-  risk,
+  risk, // ← aquí ya guardas el RiskManager
 
   subId: null,
 
@@ -105,16 +103,12 @@ const state = {
   entrySaved: false,
 
   lastTradeTime: null,
-   tradeTimeout: null,
+  tradeTimeout: null,
 
   startedAt: Date.now()
 };
 
-activeBots.set(
-  user.id,
-  state
-);
-
+activeBots.set(user.id, state);
 
 emitBotStarted(
   io,
