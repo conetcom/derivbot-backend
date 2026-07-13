@@ -1,4 +1,12 @@
 const pool = require("../config/db");
+const info = await pool.query(`
+SELECT
+    current_database(),
+    current_user,
+    current_schema();
+`);
+
+console.log("DB INFO:", info.rows[0]);
 
 async function saveTradeStatistics(data) {
 
