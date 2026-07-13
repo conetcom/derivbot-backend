@@ -272,8 +272,6 @@ function smaStrategy(candles) {
 
     momentum: momentumUp || momentumDown,
 
-    strength: avgStrength,
-
     volatility,
 
     pattern,
@@ -313,8 +311,6 @@ function smaStrategy(candles) {
 
     momentum: momentumUp || momentumDown,
 
-    strength: avgStrength,
-
     volatility,
 
     pattern,
@@ -347,8 +343,6 @@ function smaStrategy(candles) {
     pullback: pullbackUp || pullbackDown,
 
     momentum: momentumUp || momentumDown,
-
-    strength: avgStrength,
 
     volatility,
 

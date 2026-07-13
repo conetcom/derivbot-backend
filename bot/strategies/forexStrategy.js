@@ -1,5 +1,6 @@
 const calculateSMA = require('../indicators/sma');
 const buildSignal = require("../helpers/buildSignal");
+const smaStrategy = require('./smaStrategy');
 function forexStrategy(candles) {
   if (candles.length < 25) return null;
 
@@ -47,28 +48,9 @@ function forexStrategy(candles) {
 
     trend: trendUp ? "UP" : trendDown ? "DOWN" : "SIDE",
 
-    bos: bosUp || bosDown,
-
-    pullback: pullbackUp || pullbackDown,
-
-    momentum: momentumUp || momentumDown,
-
-    strength: avgStrength,
-
-    volatility,
-
-    pattern,
-
-    pctGreen: currentStats?.pctGreen,
-
-    pctRed: currentStats?.pctRed,
-
-    callScore,
-
-    putScore,
-
-    sma
-
+   volatility,
+sma
+    
 });
   }
 
@@ -89,22 +71,8 @@ function forexStrategy(candles) {
 
     momentum: momentumUp || momentumDown,
 
-    strength: avgStrength,
-
     volatility,
-
-    pattern,
-
-    pctGreen: currentStats?.pctGreen,
-
-    pctRed: currentStats?.pctRed,
-
-    callScore,
-
-    putScore,
-
-    sma
-
+sma
 });
   }
 
@@ -118,27 +86,7 @@ function forexStrategy(candles) {
 
     trend: trendUp ? "UP" : trendDown ? "DOWN" : "SIDE",
 
-    bos: bosUp || bosDown,
-
-    pullback: pullbackUp || pullbackDown,
-
-    momentum: momentumUp || momentumDown,
-
-    strength: avgStrength,
-
     volatility,
-
-    pattern,
-
-    pctGreen: currentStats?.pctGreen,
-
-    pctRed: currentStats?.pctRed,
-
-    callScore,
-
-    putScore,
-
-    sma
 
 });
 }
