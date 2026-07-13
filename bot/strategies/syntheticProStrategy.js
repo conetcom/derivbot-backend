@@ -271,8 +271,6 @@ if (
 
     strength: avgStrength,
 
-    volatility,
-
     pattern,
 
     pctGreen: currentStats?.pctGreen,
@@ -310,8 +308,6 @@ if (
 
     strength: avgStrength,
 
-    volatility,
-
     pattern,
 
     pctGreen: currentStats?.pctGreen,
@@ -345,8 +341,6 @@ return buildSignal({
     momentum: momentumUp || momentumDown,
 
     strength: avgStrength,
-
-    volatility,
 
     pattern,
 
