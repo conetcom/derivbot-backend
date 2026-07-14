@@ -224,7 +224,7 @@ function smartMoneyLiquidityStrategy(candles) {
     
     volatility,
 
-
+callScore,
 
 });
 
@@ -247,7 +247,7 @@ function smartMoneyLiquidityStrategy(candles) {
 
     
     volatility,
-
+putScore,
 
 
 });
