@@ -10,7 +10,7 @@ const RiskManager = require("../bot/riskManager");
 const { updateBotStatus} = require("../models/botsModel");
 const activeBots = require("../services/activeBots");
 const {updateBalance} = require('../models/botsModel');
-const { saveTradeStatistics } = require("../models/tradeStatisticsModel");
+const { saveTradeStatistics, updateTradeStatistics} = require("../models/tradeStatisticsModel");
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 const {  calculateStats} = require("../bot/candleStats");
 

@@ -112,9 +112,27 @@ async function saveTradeStatistics(data) {
     );
 
 }
+async function updateTradeStatistics(tradeId, data) {
 
+    await pool.query(
+        `
+        UPDATE trade_statistics
+        SET
+            balance_after = $1,
+            result = $2
+        WHERE trade_id = $3
+        `,
+        [
+            data.balanceAfter,
+            data.result,
+            tradeId
+        ]
+    );
+
+}
 module.exports = {
 
-    saveTradeStatistics
+    saveTradeStatistics,
+    updateTradeStatistics
 
 };
