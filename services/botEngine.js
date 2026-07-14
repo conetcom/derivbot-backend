@@ -388,7 +388,7 @@ expiry_time: new Date(Date.now() + 60000),
   status: "open"
   
 });
-console.log("estadisticas", trade.id);
+
 await saveTradeStatistics({
 
     tradeId: trade.id,
@@ -603,19 +603,10 @@ emitBalance(
     profit,
     exit_price:c.currentSpot
 });
-await updateTradeStatistics(
-
-    trade.id,
-
-    {
-
-        balanceAfter: riskManager.balance,
-
-        result: tradeResult
-
-    }
-
-);
+await updateTradeStatistics(trade.id, {
+    balanceAfter: risk.balance,
+    result
+});
 
       console.log(
         "✅ TRADE CERRADO EN DB:",
