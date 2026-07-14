@@ -78,7 +78,7 @@ sma
 
   return buildSignal({
 
-    strategy:"synthetic_pro",
+    strategy:"forex",
 
     signal:null,
 

@@ -8,7 +8,7 @@ const CONFIG = {
     TREND_POINTS: 2,
     VOLATILITY_POINTS: 1,
 
-    MIN_SCORE: 8,
+    MIN_SCORE: 6,
     MIN_DIFF: 2,
 
     REJECTION_RATIO: 1.5,
@@ -213,7 +213,7 @@ function smartMoneyLiquidityStrategy(candles) {
 
        return buildSignal({
 
-    strategy:"synthetic_pro",
+    strategy:"liquidity",
 
     signal:"CALL",
 

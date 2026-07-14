@@ -312,7 +312,7 @@ function smaStrategy(candles) {
 
     return buildSignal({
 
-    strategy:"synthetic_pro",
+    strategy:"sma",
 
     signal:null,
 
@@ -327,7 +327,7 @@ function smaStrategy(candles) {
     momentum: momentumUp || momentumDown,
 
     volatility,
-    
+
     sma
 
 });
