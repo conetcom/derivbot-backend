@@ -221,27 +221,10 @@ function smartMoneyLiquidityStrategy(candles) {
 
     trend: trendUp ? "UP" : trendDown ? "DOWN" : "SIDE",
 
-    bos: bosUp || bosDown,
-
-    pullback: pullbackUp || pullbackDown,
-
-    momentum: momentumUp || momentumDown,
-
-    strength: avgStrength,
-
+    
     volatility,
 
-    pattern,
 
-    pctGreen: currentStats?.pctGreen,
-
-    pctRed: currentStats?.pctRed,
-
-    callScore,
-
-    putScore,
-
-    sma
 
 });
 
@@ -262,27 +245,10 @@ function smartMoneyLiquidityStrategy(candles) {
 
     trend: trendUp ? "UP" : trendDown ? "DOWN" : "SIDE",
 
-    bos: bosUp || bosDown,
-
-    pullback: pullbackUp || pullbackDown,
-
-    momentum: momentumUp || momentumDown,
-
-    strength: avgStrength,
-
+    
     volatility,
 
-    pattern,
 
-    pctGreen: currentStats?.pctGreen,
-
-    pctRed: currentStats?.pctRed,
-
-    callScore,
-
-    putScore,
-
-    sma
 
 });
 
@@ -298,27 +264,12 @@ function smartMoneyLiquidityStrategy(candles) {
 
     trend: trendUp ? "UP" : trendDown ? "DOWN" : "SIDE",
 
-    bos: bosUp || bosDown,
-
-    pullback: pullbackUp || pullbackDown,
-
-    momentum: momentumUp || momentumDown,
-
-    strength: avgStrength,
+   
 
     volatility,
 
-    pattern,
 
-    pctGreen: currentStats?.pctGreen,
 
-    pctRed: currentStats?.pctRed,
-
-    callScore,
-
-    putScore,
-
-    sma
 
 });
 
