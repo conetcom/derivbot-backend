@@ -219,7 +219,7 @@ function smartMoneyLiquidityStrategy(candles) {
 
     score:CONFIG.MIN_SCORE,
 
-    trend: trendUp ? "UP" : trendDown ? "DOWN" : "SIDE",
+    trend: trendUp ? "true" : "SIDE",
 
     
     volatility,
@@ -237,13 +237,13 @@ function smartMoneyLiquidityStrategy(candles) {
 
        return buildSignal({
 
-    strategy:"synthetic_pro",
+    strategy:"liquidity",
 
     signal:"PUT",
 
     score:CONFIG.MIN_SCORE,
 
-    trend: trendUp ? "UP" : trendDown ? "DOWN" : "SIDE",
+    trend: trendDown ? "true" : "SIDE",
 
     
     volatility,
@@ -256,13 +256,13 @@ function smartMoneyLiquidityStrategy(candles) {
 
     return buildSignal({
 
-    strategy:"synthetic_pro",
+    strategy:"liquidity",
 
     signal:null,
 
     score:0,
 
-    trend: trendUp ? "UP" : trendDown ? "DOWN" : "SIDE",
+    trend: trendUp ? "false" : trendDown ? "false" : "SIDE",
 
    
 
