@@ -345,7 +345,7 @@ if (
     });
 }
     
-}
+
 
 return buildSignal({
 
