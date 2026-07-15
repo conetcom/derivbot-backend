@@ -253,74 +253,97 @@ if (
     callScore >= CONFIG.MIN_SCORE &&
     (callScore - putScore) >= CONFIG.MIN_DIFF
 ) {
-   return buildSignal({
 
-    strategy: "synthetic_pro",
+    // Reversión: mercado demasiado alcista
+    if (
+        callScore >= 10 &&
+        avgStrength >= 0.90 &&
+        pattern === "GGG" &&
+        currentStats?.pctGreen >= 75
+    ) {
+        return buildSignal({
+            strategy: "synthetic_pro",
+            signal: "PUT",
+            score: callScore,
+            trend: trendUp,
+            bos: bosUp,
+            pullback: pullbackUp,
+            momentum: momentumUp,
+            strength: avgStrength,
+            pattern,
+            pctGreen: currentStats?.pctGreen,
+            pctRed: currentStats?.pctRed,
+            callScore,
+            putScore,
+            sma
+        });
+    }
 
-    signal: "CALL",
-
-    score: callScore,
-
-    trend: trendUp,
-
-    bos: bosUp,
-
-    pullback: pullbackUp,
-
-    momentum: momentumUp,
-
-    strength: avgStrength,
-
-    pattern,
-
-    pctGreen: currentStats?.pctGreen,
-
-    pctRed: currentStats?.pctRed,
-
-    callScore,
-
-    putScore,
-
-    sma
-
-});
+    // Tendencia normal
+    return buildSignal({
+        strategy: "synthetic_pro",
+        signal: "CALL",
+        score: callScore,
+        trend: trendUp,
+        bos: bosUp,
+        pullback: pullbackUp,
+        momentum: momentumUp,
+        strength: avgStrength,
+        pattern,
+        pctGreen: currentStats?.pctGreen,
+        pctRed: currentStats?.pctRed,
+        callScore,
+        putScore,
+        sma
+    });
 }
-
 if (
     putScore >= CONFIG.MIN_SCORE &&
     (putScore - callScore) >= CONFIG.MIN_DIFF
 ) {
+
+    // Reversión: mercado demasiado bajista
+    if (
+        putScore >= 10 &&
+        avgStrength >= 0.90 &&
+        pattern === "RRR" &&
+        currentStats?.pctRed >= 75
+    ) {
+        return buildSignal({
+            strategy: "synthetic_pro",
+            signal: "CALL",
+            score: putScore,
+            trend: trendDown,
+            bos: bosDown,
+            pullback: pullbackDown,
+            momentum: momentumDown,
+            strength: avgStrength,
+            pattern,
+            pctGreen: currentStats?.pctGreen,
+            pctRed: currentStats?.pctRed,
+            callScore,
+            putScore,
+            sma
+        });
+    }
+
     return buildSignal({
-
-    strategy: "synthetic_pro",
-
-    signal: "PUT",
-
-    score: putScore,
-
-    trend: trendDown,
-
-    bos: bosDown,
-
-    pullback: pullbackDown,
-
-    momentum: momentumDown,
-
-    strength: avgStrength,
-
-    pattern,
-
-    pctGreen: currentStats?.pctGreen,
-
-    pctRed: currentStats?.pctRed,
-
-    callScore,
-
-    putScore,
-
-    sma
-
-});
+        strategy: "synthetic_pro",
+        signal: "PUT",
+        score: putScore,
+        trend: trendDown,
+        bos: bosDown,
+        pullback: pullbackDown,
+        momentum: momentumDown,
+        strength: avgStrength,
+        pattern,
+        pctGreen: currentStats?.pctGreen,
+        pctRed: currentStats?.pctRed,
+        callScore,
+        putScore,
+        sma
+    });
+}
     
 }
 
