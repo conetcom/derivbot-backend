@@ -102,10 +102,14 @@ const state = {
 
   entrySaved: false,
 
-  lastTradeTime: null,
-  tradeTimeout: null,
+nextTradeTime: 0,
 
-  startedAt: Date.now()
+// Última dirección ejecutada
+lastExecutedSignal: null,
+
+startedAt: Date.now(),
+    
+  
 };
 
 activeBots.set(user.id, state);
@@ -224,7 +228,9 @@ try {
     if (state.running || state.cooldown || state.currentContractId) return;
 
     // 🛑 evitar overtrading
-    if (state.lastTradeTime && Date.now() - state.lastTradeTime < 10000) return;
+   if (Date.now() < state.nextTradeTime) {
+    return;
+}
 
     // 🛑 control global
 
@@ -282,6 +288,7 @@ if (closedCandles.length < 20) return;
     // ===============================
     // 🚀 ESTRATEGIAS
     // ===============================
+    
 // ===============================
 // 🚀 ESTRATEGIA SELECCIONADA
 // ===============================
@@ -290,11 +297,50 @@ const result = getSignal(
     botConfig.strategy,
     state
 );
-console.log("🎯 Resultado estrategia:", result);
+
 if (!result || !result.signal) {
     return;
 }
 
+// ===================================
+// LIBERAR CUANDO CAMBIA EL MERCADO
+// ===================================
+
+if (
+    state.lastExecutedSignal === "CALL" &&
+    result.putScore > result.callScore
+) {
+
+    console.log("🔄 Mercado cambió a PUT");
+
+    state.lastExecutedSignal = null;
+}
+
+if (
+    state.lastExecutedSignal === "PUT" &&
+    result.callScore > result.putScore
+) {
+
+    console.log("🔄 Mercado cambió a CALL");
+
+    state.lastExecutedSignal = null;
+}
+
+// ===================================
+// EVITAR REPETIR LA MISMA DIRECCIÓN
+// ===================================
+
+if (
+    state.lastExecutedSignal &&
+    state.lastExecutedSignal === result.signal
+) {
+
+    console.log(
+        "⛔ Misma dirección que la última operación."
+    );
+
+    return;
+}
 console.log(
     `📈 Estrategia: ${result.strategy} | Señal: ${result.signal} | Score: ${result.score}`
 );
@@ -320,28 +366,8 @@ debugVisual(
 //const trendUp = lastCandle.close > smaValue;
 //const trendDown = lastCandle.close < smaValue;
 const contract_type = finalSignal;
-
-    state.running = true;
-    state.lastTradeTime = Date.now();
-
-    log("SIGNAL", "Trade detectado", { contract_type });
-
-    const msToNextSecond = 1000 - (Date.now() % 1000);
-    await sleep(msToNextSecond + 200);
-
-  state.tradeTimeout = setTimeout(() => {
-
-  console.log(
-    "⏰ TIMEOUT LIBERANDO BOT"
-  );
-
-  state.running = false;
-  state.cooldown = false;
-
-  state.tradeTimeout = null;
-
-}, 70000);
-
+   
+      
     try {
 
      let stake = risk.getStake();
@@ -357,13 +383,19 @@ const contract_type = finalSignal;
         contract_type
       });
 
-      const contract = await deriv.buyContract({
-        amount: formattedStake,
-        price: formattedStake,
-        contract_type,
-        symbol: botConfig.symbol
-      });
+    state.running = true;
 
+const msToNextSecond =
+    1000 - (Date.now() % 1000);
+
+await sleep(msToNextSecond + 200);
+
+const contract = await deriv.buyContract({
+    amount: formattedStake,
+    price: formattedStake,
+    contract_type,
+    symbol: botConfig.symbol
+});
       const contractId = contract?.buy?.contract_id;
       if (contract?.error) {
   console.error(
@@ -374,6 +406,7 @@ const contract_type = finalSignal;
     if (!contractId) throw new Error("Contrato inválido");
 
       state.currentContractId = contractId;
+      state.lastExecutedSignal = contract_type;
       state.entrySaved = false;
 
       const trade = await createTrade({
@@ -680,19 +713,35 @@ emitMetrics(
     );
 
   } 
-  finally {
+finally {
 
-  // 🔥 liberar SOLO si contrato terminó
-  if (contractFinished) {
+    if (contractFinished) {
 
-  state.currentContractId = null;
+        state.currentContractId = null;
 
-  state.running = false;
+        state.running = false;
 
-  state.cooldown = false;
+        state.cooldown = false;
 
-  console.log("✅ BOT LIBERADO");
-}
+        if (result === "win") {
+
+            //state.nextTradeTime = Date.now() + 60 * 1000;
+
+        } else {
+
+            state.nextTradeTime =
+                Date.now() + 3 * 60 * 1000;
+
+        }
+
+        console.log(
+            "⏳ Próxima operación:",
+            new Date(
+                state.nextTradeTime
+            ).toLocaleTimeString()
+        );
+
+    }
 
 }
 });
@@ -700,17 +749,7 @@ emitMetrics(
     } 
     catch(err) {
 
-  if (state.tradeTimeout) {
-
-    clearTimeout(
-      state.tradeTimeout
-    );
-
-    state.tradeTimeout = null;
-
-  }
-
-  state.running = false;
+   state.running = false;
   state.cooldown = false;
 
   console.log(
