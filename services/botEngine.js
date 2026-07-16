@@ -305,7 +305,7 @@ if (!result || !result.signal) {
 // ===================================
 // LIBERAR CUANDO CAMBIA EL MERCADO
 // ===================================
-
+/*
 if (
     state.lastExecutedSignal === "CALL" &&
     result.putScore > result.callScore
@@ -340,7 +340,7 @@ if (
     );
 
     return;
-}
+}*/
 console.log(
     `📈 Estrategia: ${result.strategy} | Señal: ${result.signal} | Score: ${result.score}`
 );
