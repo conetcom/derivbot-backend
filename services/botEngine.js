@@ -723,19 +723,20 @@ finally {
 
         state.cooldown = false;
 
-        if (result === "win") {
+        if (result === "loss") {
 
-            //state.nextTradeTime = Date.now() + 60 * 1000;
+            state.nextTradeTime = Date.now() + 60 * 1000;
 
-        } else {
+        } 
+        /*else {
 
             state.nextTradeTime =
                 Date.now() + 3 * 60 * 1000;
 
-        }
+        }*/
 
         console.log(
-            "⏳ Próxima operación:",
+            "⏳ Próxima operación:", result,
             new Date(
                 state.nextTradeTime
             ).toLocaleTimeString()
