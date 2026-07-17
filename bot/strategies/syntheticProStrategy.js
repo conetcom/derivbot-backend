@@ -264,7 +264,7 @@ if (
         lastStrength < 0.65
     ) {
 
-        console.log("❌ CALL descartado: última vela débil");
+        console.log("❌ CALL descartado: última vela débil", callScore);
 
         return buildSignal({
             strategy: "synthetic_pro",
@@ -291,7 +291,7 @@ if (
         pattern === "GGG" &&
         currentStats?.pctGreen >= 75
     ) {
-
+  console.log("❌ CALL descartado REVERSION: última vela FUERTE AL ALZA ", callScore);
         return buildSignal({
             strategy: "synthetic_pro",
             signal: "PUT",
@@ -310,6 +310,7 @@ if (
         });
 
     }
+      console.log("❌ CALL NORMAL CALL MAYOR A 6", callScore);
      return buildSignal({
         strategy: "synthetic_pro",
         signal: "CALL",
@@ -343,7 +344,7 @@ if (
         lastStrength < 0.65
     ) {
 
-        console.log("❌ PUT descartado: última vela débil");
+        console.log("❌ PUT descartado: última vela débil COMPRA AL ALZA", putScore);
 
        return buildSignal({
             strategy: "synthetic_pro",
@@ -369,11 +370,11 @@ if (
         pattern === "RRR" &&
         currentStats?.pctRed >= 75
     ) {
-
+console.log("CALL REVERSION PUT SCORE MAYOY A 10", putScore);
         return buildSignal({
             strategy: "synthetic_pro",
             signal: "CALL",
-            score: callScore,
+            score: putScore,
             trend: trendDown,
             bos: bosDown,
             pullback: pullbackDown,
@@ -388,7 +389,7 @@ if (
         });
 
     }
-
+  console.log("❌ PUT NORMAL PUT SCORE MAYOR A 6", putScore);
     return buildSignal({
         strategy: "synthetic_pro",
         signal: "PUT",
