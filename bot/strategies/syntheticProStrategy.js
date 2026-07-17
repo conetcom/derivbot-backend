@@ -408,7 +408,7 @@ if (
 }
     return buildSignal({
         strategy: "synthetic_pro",
-        signal: "PUT",
+        signal: null,
         score: putScore,
         trend: trendDown,
         bos: bosDown,
