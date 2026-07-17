@@ -285,8 +285,6 @@ if (
 
 
     }
-
-    // Reversión
     if (
         callScore >= 10 &&
         avgStrength >= 0.90 &&
@@ -312,6 +310,24 @@ if (
         });
 
     }
+     return buildSignal({
+        strategy: "synthetic_pro",
+        signal: "CALL",
+        score: callScore,
+        trend: trendUp,
+        bos: bosUp,
+        pullback: pullbackUp,
+        momentum: momentumUp,
+        strength: avgStrength,
+        pattern,
+        pctGreen: currentStats?.pctGreen,
+        pctRed: currentStats?.pctRed,
+        callScore,
+        putScore,
+        sma
+    });
+}
+
 // ===============================
 // DECISIÓN PUT
 // ===============================
@@ -345,7 +361,7 @@ if (
             putScore,
             sma
         });
-
+    }
     // Reversión
     if (
         putScore >= 10 &&
@@ -357,7 +373,7 @@ if (
         return buildSignal({
             strategy: "synthetic_pro",
             signal: "CALL",
-            score: putScore,
+            score: callScore,
             trend: trendDown,
             bos: bosDown,
             pullback: pullbackDown,
@@ -389,27 +405,7 @@ if (
         putScore,
         sma
     });
-
 }
-    return buildSignal({
-        strategy: "synthetic_pro",
-        signal: "CALL",
-        score: callScore,
-        trend: trendUp,
-        bos: bosUp,
-        pullback: pullbackUp,
-        momentum: momentumUp,
-        strength: avgStrength,
-        pattern,
-        pctGreen: currentStats?.pctGreen,
-        pctRed: currentStats?.pctRed,
-        callScore,
-        putScore,
-        sma
-    });
-
-}
-
     return buildSignal({
         strategy: "synthetic_pro",
         signal: "PUT",
@@ -426,10 +422,8 @@ if (
         putScore,
         sma
     });
-}
+
     
-
-
 
 }
 module.exports = syntheticProStrategy;
