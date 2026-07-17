@@ -14,7 +14,7 @@ const CONFIG = {
 
     MEDIUM_CANDLE:1,
 
-    MIN_SCORE:5,
+    MIN_SCORE:8,
 
     MIN_DIFF:2,
 
