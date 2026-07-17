@@ -268,7 +268,7 @@ if (
 
         return buildSignal({
             strategy: "synthetic_pro",
-            signal: "PUT",
+            signal: "CALL",
             score: putScore,
             trend: trendUp,
             bos: bosUp,
@@ -294,7 +294,7 @@ if (
   console.log("❌ CALL descartado REVERSION: última vela FUERTE AL ALZA ", callScore);
         return buildSignal({
             strategy: "synthetic_pro",
-            signal: "PUT",
+            signal: "CALL",
             score: putScore,
             trend: trendUp,
             bos: bosUp,
@@ -348,7 +348,7 @@ if (
 
        return buildSignal({
             strategy: "synthetic_pro",
-            signal: "CALL",
+            signal: "PUT",
             score: callScore,
             trend: trendUp,
             bos: bosUp,
@@ -373,7 +373,7 @@ if (
 console.log("CALL REVERSION PUT SCORE MAYOY A 10", putScore);
         return buildSignal({
             strategy: "synthetic_pro",
-            signal: "CALL",
+            signal: "PUT",
             score: putScore,
             trend: trendDown,
             bos: bosDown,
