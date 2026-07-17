@@ -736,7 +736,7 @@ finally {
         }
 
         console.log(
-            "⏳ Próxima operación:", result,
+            "⏳ Próxima operación:",
             new Date(
                 state.nextTradeTime
             ).toLocaleTimeString()

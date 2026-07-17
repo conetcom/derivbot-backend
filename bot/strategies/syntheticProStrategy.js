@@ -263,7 +263,7 @@ if (
     ) {
         return buildSignal({
             strategy: "synthetic_pro",
-            signal: "PUT",
+            signal: "CALL",
             score: callScore,
             trend: trendUp,
             bos: bosUp,
@@ -282,7 +282,7 @@ if (
     // Tendencia normal
     return buildSignal({
         strategy: "synthetic_pro",
-        signal: "CALL",
+        signal: "PUT",
         score: callScore,
         trend: trendUp,
         bos: bosUp,
@@ -311,7 +311,7 @@ if (
     ) {
         return buildSignal({
             strategy: "synthetic_pro",
-            signal: "CALL",
+            signal: "PUT",
             score: putScore,
             trend: trendDown,
             bos: bosDown,
@@ -329,7 +329,7 @@ if (
 
     return buildSignal({
         strategy: "synthetic_pro",
-        signal: "PUT",
+        signal: "CALL",
         score: putScore,
         trend: trendDown,
         bos: bosDown,
