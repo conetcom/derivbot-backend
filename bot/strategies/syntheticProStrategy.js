@@ -267,36 +267,22 @@ if (
         console.log("❌ CALL descartado: última vela débil");
 
         return buildSignal({
+            strategy: "synthetic_pro",
+            signal: "PUT",
+            score: putScore,
+            trend: trendUp,
+            bos: bosUp,
+            pullback: pullbackUp,
+            momentum: momentumUp,
+            strength: avgStrength,
+            pattern,
+            pctGreen: currentStats?.pctGreen,
+            pctRed: currentStats?.pctRed,
+            callScore,
+            putScore,
+            sma
+        });
 
-    strategy:"synthetic_pro",
-
-    signal:null,
-
-    score:0,
-
-    trend: trendUp ? "UP" : trendDown ? "DOWN" : "SIDE",
-
-    bos: bosUp || bosDown,
-
-    pullback: pullbackUp || pullbackDown,
-
-    momentum: momentumUp || momentumDown,
-
-    strength: avgStrength,
-
-    pattern,
-
-    pctGreen: currentStats?.pctGreen,
-
-    pctRed: currentStats?.pctRed,
-
-    callScore,
-
-    putScore,
-
-    sma
-
-});
 
     }
 
@@ -311,7 +297,7 @@ if (
         return buildSignal({
             strategy: "synthetic_pro",
             signal: "PUT",
-            score: callScore,
+            score: putScore,
             trend: trendUp,
             bos: bosUp,
             pullback: pullbackUp,
@@ -344,36 +330,21 @@ if (
         console.log("❌ PUT descartado: última vela débil");
 
        return buildSignal({
-
-    strategy:"synthetic_pro",
-
-    signal:null,
-
-    score:0,
-
-    trend: trendUp ? "UP" : trendDown ? "DOWN" : "SIDE",
-
-    bos: bosUp || bosDown,
-
-    pullback: pullbackUp || pullbackDown,
-
-    momentum: momentumUp || momentumDown,
-
-    strength: avgStrength,
-
-    pattern,
-
-    pctGreen: currentStats?.pctGreen,
-
-    pctRed: currentStats?.pctRed,
-
-    callScore,
-
-    putScore,
-
-    sma
-
-});
+            strategy: "synthetic_pro",
+            signal: "CALL",
+            score: callScore,
+            trend: trendUp,
+            bos: bosUp,
+            pullback: pullbackUp,
+            momentum: momentumUp,
+            strength: avgStrength,
+            pattern,
+            pctGreen: currentStats?.pctGreen,
+            pctRed: currentStats?.pctRed,
+            callScore,
+            putScore,
+            sma
+        });
 
     // Reversión
     if (
