@@ -42,9 +42,9 @@ function syntheticProStrategy(candles, state = {}) {
     strategy: "synthetic_pro"
 };
 
-    const last  = candles.at(-2);
-    const prev  = candles.at(-3);
-    const prev2 = candles.at(-4);
+    const last  = candles.at(-1);
+    const prev  = candles.at(-2);
+    const prev2 = candles.at(-3);
 
     function strength(c){
 
@@ -247,7 +247,13 @@ console.table(reasons);
 
 console.log("==============================");
 //DESCICION
-
+if (
+    result.signal === "CALL" &&
+    (
+        last.close <= last.open ||
+        lastStrength < 0.65
+    )
+) {
 
 if (
     callScore >= CONFIG.MIN_SCORE &&
@@ -263,7 +269,7 @@ if (
     ) {
         return buildSignal({
             strategy: "synthetic_pro",
-            signal: "CALL",
+            signal: "PUT",
             score: callScore,
             trend: trendUp,
             bos: bosUp,
@@ -282,7 +288,7 @@ if (
     // Tendencia normal
     return buildSignal({
         strategy: "synthetic_pro",
-        signal: "PUT",
+        signal: "CALL",
         score: callScore,
         trend: trendUp,
         bos: bosUp,
@@ -298,6 +304,13 @@ if (
     });
 }
 if (
+    result.signal === "PUT" &&
+    (
+        last.close >= last.open ||
+        lastStrength < 0.65
+    )
+) {
+if (
     putScore >= CONFIG.MIN_SCORE &&
     (putScore - callScore) >= CONFIG.MIN_DIFF
 ) {
@@ -311,7 +324,7 @@ if (
     ) {
         return buildSignal({
             strategy: "synthetic_pro",
-            signal: "PUT",
+            signal: "CALL",
             score: putScore,
             trend: trendDown,
             bos: bosDown,
@@ -329,7 +342,7 @@ if (
 
     return buildSignal({
         strategy: "synthetic_pro",
-        signal: "CALL",
+        signal: "PUT",
         score: putScore,
         trend: trendDown,
         bos: bosDown,
