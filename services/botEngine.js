@@ -643,7 +643,7 @@ await updateTradeStatistics(trade.id, {
 
       console.log(
         "✅ TRADE CERRADO EN DB:",
-        contractId
+        result,
       );
 
     } catch (err) {
@@ -725,13 +725,17 @@ finally {
 
         if (result === "loss") {
 
-            state.nextTradeTime = Date.now() + 3*60 * 1000;
+            const now = Date.now();
+            const msToNextMinute =    60000 - (now % 60000);
+            state.nextTradeTime =    now +    msToNextMinute +    (2 * 60000);
 
         } 
         else {
 
-            state.nextTradeTime =
-                Date.now() +  60 * 1000;
+            const now = Date.now();
+            const msToNextMinute = 60000 - (now % 60000);
+
+          state.nextTradeTime = now + msToNextMinute;
 
         }
 
