@@ -1249,7 +1249,7 @@ function rsiStrategy(candles, state = {}) {
 
         return buildSignal({
             ...signalData,
-            signal: "CALL",
+            signal: "PUT",
             score: callScore
         });
 
@@ -1374,7 +1374,7 @@ function rsiStrategy(candles, state = {}) {
 
         return buildSignal({
             ...signalData,
-            signal: "PUT",
+            signal: "CALL",
             score: putScore
         });
 
