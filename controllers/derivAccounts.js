@@ -48,9 +48,37 @@ const syncDerivAccounts = async (req, res) => {
         ]
       );
 
-      if (exists.rows.length > 0) {
-        continue;
-      }
+     if (exists.rows.length > 0) {
+
+  await pool.query(
+    `
+    UPDATE deriv_accounts
+    SET
+      deriv_token = $1,
+      account_name = $2,
+      balance = $3,
+      currency = $4,
+      is_active = true
+    WHERE user_id = $5
+    AND account_id = $6
+    `,
+    [
+      encryptedToken,
+      account_name || "Cuenta Deriv",
+      account.balance,
+      account.currency,
+      req.user.id,
+      account.account_id
+    ]
+  );
+
+  console.log(
+    "🔄 Token Deriv actualizado:",
+    account.account_id
+  );
+
+  continue;
+}
 
       await pool.query(
         `

@@ -42,16 +42,37 @@ async connect() {
 const cleanAccountId =
   String(this.accountId).trim();
 
-    const response = await axios.post(
-      `https://api.derivws.com/trading/v1/options/accounts/${cleanAccountId}/otp`,
-      {},
-      {
-        headers: {
-          Authorization: `Bearer ${this.token}`,
-          "Deriv-App-ID": process.env.DERIV_APP_ID
-        }
+  let response;
+
+try {
+
+  response = await axios.post(
+    `https://api.derivws.com/trading/v1/options/accounts/${cleanAccountId}/otp`,
+    {},
+    {
+      headers: {
+        Authorization: `Bearer ${this.token}`,
+        "Deriv-App-ID": process.env.DERIV_APP_ID
       }
+    }
+  );
+
+} catch (err) {
+
+  if (err.response?.status === 401) {
+
+    const tokenError = new Error(
+      "El token de Deriv no es válido o ha expirado"
     );
+
+    tokenError.code = "DERIV_TOKEN_INVALID";
+    tokenError.status = 401;
+
+    throw tokenError;
+  }
+
+  throw err;
+}
 
     const wsUrl =  response.data?.data?.url;
 this.ws = new WebSocket(wsUrl);
