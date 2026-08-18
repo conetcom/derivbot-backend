@@ -4,7 +4,7 @@
 
 const { createTrade, closeTrade, updateTradeByContract } = require("../models/tradesModel");
 const CandleBuilder = require("../bot/candleBuilder");
-const { getSignal } = require("../bot/strategy");
+const { getSignal } = require("../bot/strategies");
 const { calculateSMA } = require("../bot/indicators");
 const RiskManager = require("../bot/riskManager");
 const { updateBotStatus} = require("../models/botsModel");
