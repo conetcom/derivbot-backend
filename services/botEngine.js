@@ -1027,7 +1027,7 @@ const startBot = async (
       await deriv.getCandles(
         botConfig.symbol,
         60,
-        100
+        300
       );
 
 
@@ -1538,7 +1538,7 @@ const startBot = async (
               );
 
 
-            if (
+            /*if (
               statsTotal <
               ENGINE_CONFIG.HISTORY_MIN
             ) {
@@ -1558,7 +1558,7 @@ const startBot = async (
 
               return;
 
-            }
+          }*/
 
 
             const historyDirection =
@@ -1601,7 +1601,7 @@ const startBot = async (
             // EDGE MÍNIMO
             // ==================================================
 
-            if (
+            /*if (
               historyEdge <
               ENGINE_CONFIG.HISTORY_MIN_EDGE
             ) {
@@ -1615,7 +1615,7 @@ const startBot = async (
                 }
               );
 
-              return;
+              return;*/
 
             }
 

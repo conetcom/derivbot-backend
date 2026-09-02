@@ -31,6 +31,7 @@ const CONFIG = {
     // 60/40  -> NO TRADE
     // 65/35  -> permitido
     HISTORY_MIN_EDGE: 15,
+     PATTERN_MIN: 10,
 
     // Edge fuerte
     HISTORY_STRONG_EDGE: 30,
@@ -560,18 +561,57 @@ function syntheticProStrategy(candles, state = {}) {
 
     if (currentStats) {
 
-        pctGreen =
-            Number(currentStats.pctGreen ?? 0);
-
-        pctRed =
-            Number(currentStats.pctRed ?? 0);
-
+    if (currentStats.total >= CONFIG.PATTERN_MIN) {
 
         if (
-            Number(currentStats.total || 0)
-            >= CONFIG.HISTORY_MIN
+            currentStats.pctGreen >
+            currentStats.pctRed
         ) {
 
+            const edge =
+                currentStats.pctGreen -
+                currentStats.pctRed;
+
+            if (edge >= 10)
+                addCall(1, "History");
+
+            if (edge >= 20)
+                addCall(1, "History");
+
+            if (edge >= 30)
+                addCall(1, "History");
+
+        } else {
+
+            const edge =
+                currentStats.pctRed -
+                currentStats.pctGreen;
+
+            if (edge >= 10)
+                addPut(1, "History");
+
+            if (edge >= 20)
+                addPut(1, "History");
+
+            if (edge >= 30)
+                addPut(1, "History");
+
+        }
+
+    } else {
+
+        console.log(
+            "⚠️ HISTORIAL DEL PATRÓN INSUFICIENTE:",
+            {
+                pattern,
+                total: currentStats.total,
+                minimo: CONFIG.PATTERN_MIN
+            }
+        );
+
+    }
+
+}
             historyValid = true;
 
 
