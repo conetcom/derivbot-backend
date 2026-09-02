@@ -611,7 +611,7 @@ function syntheticProStrategy(candles, state = {}) {
 
     }
 
-}
+
             historyValid = true;
 
 
@@ -725,7 +725,7 @@ function syntheticProStrategy(candles, state = {}) {
 
         }
 
-    }
+    
 
 
     // =========================================================
