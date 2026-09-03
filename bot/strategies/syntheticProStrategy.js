@@ -1,44 +1,73 @@
 const calculateSMA = require('../indicators/sma');
 const buildSignal = require("../helpers/buildSignal");
 
+
+// ============================================================
+// ⚙️ CONFIGURACIÓN SYNTHETIC PRO
+// ============================================================
+
 const CONFIG = {
 
-    // ===============================
+    // ========================================================
     // SCORE
-    // ===============================
+    // ========================================================
 
     TREND_POINTS: 3,
+
     BOS_POINTS: 3,
+
     PULLBACK_POINTS: 2,
+
     MOMENTUM_POINTS: 2,
 
     STRONG_CANDLE: 2,
+
     MEDIUM_CANDLE: 1,
 
+
+    // ========================================================
+    // SCORE MÍNIMO
+    // ========================================================
+
     MIN_SCORE: 8,
+
     MIN_DIFF: 2,
 
-    // ===============================
-    // HISTORIAL
-    // ===============================
 
+    // ========================================================
+    // HISTORIAL
+    // ========================================================
+
+    // Cantidad mínima GLOBAL de velas
     HISTORY_MIN: 30,
 
-    // Diferencia mínima entre CALL y PUT
+    // Cantidad mínima de apariciones del patrón
+    //
     // Ejemplo:
-    // 50/50  -> NO TRADE
-    // 55/45  -> NO TRADE
-    // 60/40  -> NO TRADE
-    // 65/35  -> permitido
+    // RRG total = 12
+    //
+    // 12 >= 10 → se puede utilizar.
+    //
+    PATTERN_MIN: 10,
+
+
+    // Diferencia mínima histórica
+    //
+    // 50 / 50  → NO TRADE
+    // 55 / 45  → NO TRADE
+    // 60 / 40  → NO TRADE
+    // 65 / 35  → TRADE
+    //
     HISTORY_MIN_EDGE: 15,
-     PATTERN_MIN: 10,
+
 
     // Edge fuerte
     HISTORY_STRONG_EDGE: 30,
 
-    // ===============================
-    // CONTROL DE RIESGO
-    // ===============================
+
+    // ========================================================
+    // RIESGO
+    // ========================================================
 
     MAX_MARTINGALE: 3,
 
@@ -46,227 +75,459 @@ const CONFIG = {
 
     COOLDOWN_MS: 5 * 60 * 1000,
 
-    // Exigir estadísticas históricas
+
+    // ========================================================
+    // HISTORIAL OBLIGATORIO
+    // ========================================================
+
     REQUIRE_HISTORY: true,
 
-    // ===============================
+
+    // ========================================================
     // VELA
-    // ===============================
+    // ========================================================
 
     MIN_LAST_STRENGTH: 0.65,
 
-    // ===============================
+
+    // ========================================================
     // REVERSIÓN
-    // ===============================
+    // ========================================================
 
     ENABLE_REVERSAL: false
 
 };
 
 
-/**
- * ============================================================
- * SYNTHETIC PRO STRATEGY
- * ============================================================
- */
-function syntheticProStrategy(candles, state = {}) {
+// ============================================================
+// 🧠 SYNTHETIC PRO STRATEGY
+// ============================================================
 
-    const stats = state.stats || {};
+function syntheticProStrategy(
+    candles,
+    state = {}
+) {
 
 
-    // =========================================================
+    // ========================================================
+    // STATS
+    // ========================================================
+
+    const stats =
+        state?.stats || {};
+
+
+    // ========================================================
     // RESULTADO NEUTRAL
-    // =========================================================
+    // ========================================================
 
-    const neutralSignal = (extra = {}) => {
+    const neutralSignal = (
+        extra = {}
+    ) => {
 
         return buildSignal({
-            strategy: "synthetic_pro",
-            signal: null,
-            score: 0,
 
-            trend: false,
-            bos: false,
-            pullback: false,
-            momentum: false,
+            strategy:
+                "synthetic_pro",
 
-            strength: 0,
+            signal:
+                null,
 
-            pattern: null,
+            score:
+                0,
 
-            pctGreen: undefined,
-            pctRed: undefined,
 
-            callScore: 0,
-            putScore: 0,
+            // ----------------------------------------------
+            // Indicadores
+            // ----------------------------------------------
 
-            sma: undefined,
+            trend:
+                false,
+
+            bos:
+                false,
+
+            pullback:
+                false,
+
+            momentum:
+                false,
+
+
+            // ----------------------------------------------
+            // Fuerza
+            // ----------------------------------------------
+
+            strength:
+                0,
+
+
+            // ----------------------------------------------
+            // Histórico
+            // ----------------------------------------------
+
+            pattern:
+                null,
+
+            pctGreen:
+                null,
+
+            pctRed:
+                null,
+
+            total:
+                0,
+
+            historyEdge:
+                0,
+
+            historyDirection:
+                null,
+
+
+            // ----------------------------------------------
+            // Scores
+            // ----------------------------------------------
+
+            callScore:
+                0,
+
+            putScore:
+                0,
+
+
+            // ----------------------------------------------
+            // SMA
+            // ----------------------------------------------
+
+            sma:
+                null,
+
 
             ...extra
+
         });
 
     };
 
 
-    // =========================================================
-    // VALIDACIÓN DE VELAS
-    // =========================================================
+    // ========================================================
+    // VALIDAR CANDLES
+    // ========================================================
 
-    if (!candles || candles.length < CONFIG.HISTORY_MIN) {
+    if (
+        !Array.isArray(candles) ||
+        candles.length < CONFIG.HISTORY_MIN
+    ) {
 
         console.log(
-            "⛔ SYNTHETIC PRO: historial de velas insuficiente",
-            candles?.length
+            "⛔ SYNTHETIC PRO: historial global insuficiente",
+            {
+                actual:
+                    candles?.length || 0,
+
+                minimo:
+                    CONFIG.HISTORY_MIN
+            }
         );
 
-        return neutralSignal();
+
+        return neutralSignal({
+
+            total:
+                candles?.length || 0
+
+        });
 
     }
 
 
-    // =========================================================
+    // ========================================================
     // SMA
-    // =========================================================
+    // ========================================================
 
-    const sma = calculateSMA(candles, 12);
+    const sma =
+        calculateSMA(
+            candles,
+            12
+        );
 
-    if (!sma) {
+
+    if (
+        sma === null ||
+        sma === undefined ||
+        !Number.isFinite(
+            Number(sma)
+        )
+    ) {
 
         console.log(
             "⛔ SYNTHETIC PRO: SMA no disponible"
         );
 
+
         return neutralSignal();
 
     }
 
 
-    // =========================================================
-    // CONTROL DE COOLDOWN
-    // =========================================================
+    // ========================================================
+    // COOLDOWN
+    // ========================================================
 
-    const now = Date.now();
+    const now =
+        Date.now();
+
+
+    const cooldownUntil =
+        Number(
+            state?.cooldownUntil || 0
+        );
+
 
     if (
-        state.cooldownUntil &&
-        now < Number(state.cooldownUntil)
+        cooldownUntil > 0 &&
+        now < cooldownUntil
     ) {
 
         const remaining =
             Math.ceil(
-                (Number(state.cooldownUntil) - now) / 1000
+                (
+                    cooldownUntil -
+                    now
+                ) / 1000
             );
+
 
         console.log(
             `⏸️ SYNTHETIC PRO: COOLDOWN ACTIVO (${remaining}s)`
         );
 
-        return neutralSignal();
+
+        return neutralSignal({
+
+            sma
+
+        });
 
     }
 
 
-    // =========================================================
-    // CONTROL DE PÉRDIDAS CONSECUTIVAS
-    // =========================================================
+    // ========================================================
+    // PÉRDIDAS CONSECUTIVAS
+    // ========================================================
 
     const consecutiveLosses =
-        Number(state.consecutiveLosses || 0);
+        Number(
+            state?.consecutiveLosses || 0
+        );
+
 
     if (
-        consecutiveLosses >= CONFIG.MAX_CONSECUTIVE_LOSSES
+        consecutiveLosses >=
+        CONFIG.MAX_CONSECUTIVE_LOSSES
     ) {
 
         console.log(
             "🛑 SYNTHETIC PRO: demasiadas pérdidas consecutivas",
-            consecutiveLosses
+            {
+                consecutiveLosses
+            }
         );
 
-        return neutralSignal();
+
+        return neutralSignal({
+
+            sma
+
+        });
 
     }
 
 
-    // =========================================================
-    // CONTROL DE MARTINGALE
-    // =========================================================
+    // ========================================================
+    // MARTINGALE
+    //
+    // IMPORTANTE:
+    //
+    // botEngine utiliza:
+    //
+    // state.risk.martingaleStep
+    //
+    // No:
+    //
+    // state.martingale
+    //
+    // ========================================================
 
     const martingale =
-        Number(state.martingale ?? 0);
+        Number(
+            state?.risk?.martingaleStep ?? 0
+        );
+
 
     if (
-        martingale > CONFIG.MAX_MARTINGALE
+        martingale >
+        CONFIG.MAX_MARTINGALE
     ) {
 
         console.log(
             "🛑 SYNTHETIC PRO: martingale máximo alcanzado",
-            martingale
+            {
+                martingale,
+                max:
+                    CONFIG.MAX_MARTINGALE
+            }
         );
 
-        return neutralSignal();
+
+        return neutralSignal({
+
+            sma
+
+        });
 
     }
 
 
-    // =========================================================
+    // ========================================================
     // ÚLTIMAS VELAS
-    // =========================================================
+    // ========================================================
 
-    const last = candles.at(-1);
-    const prev = candles.at(-2);
-    const prev2 = candles.at(-3);
+    const last =
+        candles.at(-1);
+
+    const prev =
+        candles.at(-2);
+
+    const prev2 =
+        candles.at(-3);
 
 
-    if (!last || !prev || !prev2) {
+    if (
+        !last ||
+        !prev ||
+        !prev2
+    ) {
 
-        return neutralSignal();
+        console.log(
+            "⛔ SYNTHETIC PRO: faltan velas"
+        );
+
+
+        return neutralSignal({
+
+            sma
+
+        });
 
     }
 
 
-    // =========================================================
+    // ========================================================
     // FUERZA DE VELA
-    // =========================================================
+    // ========================================================
 
     function strength(c) {
 
-        const body =
-            Math.abs(c.close - c.open);
-
-        const range =
-            c.high - c.low;
-
-        if (range <= 0) {
+        if (!c) {
             return 0;
         }
 
-        return body / range;
+
+        const open =
+            Number(c.open);
+
+        const close =
+            Number(c.close);
+
+        const high =
+            Number(c.high);
+
+        const low =
+            Number(c.low);
+
+
+        if (
+            !Number.isFinite(open) ||
+            !Number.isFinite(close) ||
+            !Number.isFinite(high) ||
+            !Number.isFinite(low)
+        ) {
+
+            return 0;
+
+        }
+
+
+        const body =
+            Math.abs(
+                close -
+                open
+            );
+
+
+        const range =
+            high -
+            low;
+
+
+        if (
+            range <= 0
+        ) {
+
+            return 0;
+
+        }
+
+
+        return (
+            body /
+            range
+        );
 
     }
 
 
-    // =========================================================
+    // ========================================================
     // COLOR
-    // =========================================================
+    // ========================================================
 
     const color = c => {
 
-        if (c.close > c.open) {
+        const open =
+            Number(c.open);
+
+        const close =
+            Number(c.close);
+
+
+        if (
+            close > open
+        ) {
+
             return "G";
+
         }
 
-        if (c.close < c.open) {
+
+        if (
+            close < open
+        ) {
+
             return "R";
+
         }
+
 
         return "N";
 
     };
 
 
-    // =========================================================
+    // ========================================================
     // PATRÓN
-    // =========================================================
+    // ========================================================
 
     const pattern =
         color(prev2) +
@@ -274,114 +535,189 @@ function syntheticProStrategy(candles, state = {}) {
         color(last);
 
 
-    // Si hay vela neutra no usamos patrón
-    if (pattern.includes("N")) {
+    // ========================================================
+    // PATRÓN INVÁLIDO
+    // ========================================================
+
+    if (
+        pattern.includes("N")
+    ) {
 
         console.log(
             "⛔ SYNTHETIC PRO: patrón inválido",
             pattern
         );
 
+
         return neutralSignal({
+
             pattern,
+
             sma
+
         });
 
     }
 
 
-    // =========================================================
+    // ========================================================
     // TENDENCIA
-    // =========================================================
+    // ========================================================
 
     const trendUp =
-        last.close > sma &&
-        prev.close > sma;
+        Number(last.close) > Number(sma) &&
+        Number(prev.close) > Number(sma);
+
 
     const trendDown =
-        last.close < sma &&
-        prev.close < sma;
+        Number(last.close) < Number(sma) &&
+        Number(prev.close) < Number(sma);
 
 
-    // =========================================================
+    // ========================================================
     // MOMENTUM
-    // =========================================================
+    // ========================================================
 
     const momentumUp =
-        last.close > prev.close &&
-        prev.close > prev2.close;
+        Number(last.close) >
+        Number(prev.close) &&
+
+        Number(prev.close) >
+        Number(prev2.close);
+
 
     const momentumDown =
-        last.close < prev.close &&
-        prev.close < prev2.close;
+        Number(last.close) <
+        Number(prev.close) &&
+
+        Number(prev.close) <
+        Number(prev2.close);
 
 
-    // =========================================================
+    // ========================================================
     // PULLBACK
-    // =========================================================
+    // ========================================================
 
     const pullbackUp =
-        prev.low <= sma &&
-        last.close > sma;
+        Number(prev.low) <=
+        Number(sma) &&
+
+        Number(last.close) >
+        Number(sma);
+
 
     const pullbackDown =
-        prev.high >= sma &&
-        last.close < sma;
+        Number(prev.high) >=
+        Number(sma) &&
+
+        Number(last.close) <
+        Number(sma);
 
 
-    // =========================================================
+    // ========================================================
     // BOS
-    // =========================================================
+    // ========================================================
 
     const previousCandles =
-        candles.slice(-8, -2);
-
-    const prevHigh =
-        Math.max(
-            ...previousCandles.map(c => c.high)
+        candles.slice(
+            -8,
+            -2
         );
 
-    const prevLow =
-        Math.min(
-            ...previousCandles.map(c => c.low)
-        );
+
+    let prevHigh =
+        null;
+
+    let prevLow =
+        null;
+
+
+    if (
+        previousCandles.length > 0
+    ) {
+
+        prevHigh =
+            Math.max(
+                ...previousCandles.map(
+                    c => Number(c.high)
+                )
+            );
+
+
+        prevLow =
+            Math.min(
+                ...previousCandles.map(
+                    c => Number(c.low)
+                )
+            );
+
+    }
+
 
     const bosUp =
-        last.close > prevHigh;
+        Number.isFinite(prevHigh) &&
+        Number(last.close) >
+        prevHigh;
+
 
     const bosDown =
-        last.close < prevLow;
+        Number.isFinite(prevLow) &&
+        Number(last.close) <
+        prevLow;
 
 
-    // =========================================================
-    // FUERZA PROMEDIO
-    // =========================================================
+    // ========================================================
+    // FUERZA
+    // ========================================================
 
-    const avgStrength =
-        (
-            strength(prev2) +
-            strength(prev) +
-            strength(last)
-        ) / 3;
+    const strengthPrev2 =
+        strength(prev2);
 
 
-    const lastStrength =
+    const strengthPrev =
+        strength(prev);
+
+
+    const strengthLast =
         strength(last);
 
 
-    // =========================================================
+    const avgStrength =
+        (
+            strengthPrev2 +
+            strengthPrev +
+            strengthLast
+        ) / 3;
+
+
+    // ========================================================
     // SCORE
-    // =========================================================
+    // ========================================================
 
-    let callScore = 0;
-    let putScore = 0;
-
-    const reasons = [];
+    let callScore =
+        0;
 
 
-    function addCall(points, reason) {
+    let putScore =
+        0;
 
-        callScore += points;
+
+    const reasons =
+        [];
+
+
+    // ========================================================
+    // ADD CALL
+    // ========================================================
+
+    function addCall(
+        points,
+        reason
+    ) {
+
+        callScore +=
+            Number(points);
+
 
         reasons.push(
             `CALL +${points} ${reason}`
@@ -390,9 +726,18 @@ function syntheticProStrategy(candles, state = {}) {
     }
 
 
-    function addPut(points, reason) {
+    // ========================================================
+    // ADD PUT
+    // ========================================================
 
-        putScore += points;
+    function addPut(
+        points,
+        reason
+    ) {
+
+        putScore +=
+            Number(points);
+
 
         reasons.push(
             `PUT +${points} ${reason}`
@@ -401,11 +746,13 @@ function syntheticProStrategy(candles, state = {}) {
     }
 
 
-    // =========================================================
+    // ========================================================
     // TREND
-    // =========================================================
+    // ========================================================
 
-    if (trendUp) {
+    if (
+        trendUp
+    ) {
 
         addCall(
             CONFIG.TREND_POINTS,
@@ -414,7 +761,10 @@ function syntheticProStrategy(candles, state = {}) {
 
     }
 
-    if (trendDown) {
+
+    if (
+        trendDown
+    ) {
 
         addPut(
             CONFIG.TREND_POINTS,
@@ -424,11 +774,13 @@ function syntheticProStrategy(candles, state = {}) {
     }
 
 
-    // =========================================================
+    // ========================================================
     // BOS
-    // =========================================================
+    // ========================================================
 
-    if (bosUp) {
+    if (
+        bosUp
+    ) {
 
         addCall(
             CONFIG.BOS_POINTS,
@@ -437,7 +789,10 @@ function syntheticProStrategy(candles, state = {}) {
 
     }
 
-    if (bosDown) {
+
+    if (
+        bosDown
+    ) {
 
         addPut(
             CONFIG.BOS_POINTS,
@@ -447,11 +802,13 @@ function syntheticProStrategy(candles, state = {}) {
     }
 
 
-    // =========================================================
+    // ========================================================
     // PULLBACK
-    // =========================================================
+    // ========================================================
 
-    if (pullbackUp) {
+    if (
+        pullbackUp
+    ) {
 
         addCall(
             CONFIG.PULLBACK_POINTS,
@@ -460,7 +817,10 @@ function syntheticProStrategy(candles, state = {}) {
 
     }
 
-    if (pullbackDown) {
+
+    if (
+        pullbackDown
+    ) {
 
         addPut(
             CONFIG.PULLBACK_POINTS,
@@ -470,11 +830,13 @@ function syntheticProStrategy(candles, state = {}) {
     }
 
 
-    // =========================================================
+    // ========================================================
     // MOMENTUM
-    // =========================================================
+    // ========================================================
 
-    if (momentumUp) {
+    if (
+        momentumUp
+    ) {
 
         addCall(
             CONFIG.MOMENTUM_POINTS,
@@ -483,7 +845,10 @@ function syntheticProStrategy(candles, state = {}) {
 
     }
 
-    if (momentumDown) {
+
+    if (
+        momentumDown
+    ) {
 
         addPut(
             CONFIG.MOMENTUM_POINTS,
@@ -493,165 +858,329 @@ function syntheticProStrategy(candles, state = {}) {
     }
 
 
-    // =========================================================
+    // ========================================================
     // FUERZA DE VELAS
-    // =========================================================
+    // ========================================================
 
-    if (avgStrength >= 0.75) {
-
-        if (trendUp) {
-
-            addCall(
-                CONFIG.STRONG_CANDLE,
-                "Strong Candles"
-            );
-
-        }
-
-        if (trendDown) {
-
-            addPut(
-                CONFIG.STRONG_CANDLE,
-                "Strong Candles"
-            );
-
-        }
-
-    }
-
-    else if (avgStrength >= 0.55) {
-
-        if (trendUp) {
-
-            addCall(
-                CONFIG.MEDIUM_CANDLE,
-                "Medium Candles"
-            );
-
-        }
-
-        if (trendDown) {
-
-            addPut(
-                CONFIG.MEDIUM_CANDLE,
-                "Medium Candles"
-            );
-
-        }
-
-    }
-
-
-    // =========================================================
-    // ESTADÍSTICA HISTÓRICA
-    // =========================================================
-
-    const currentStats =
-        stats[pattern];
-
-
-    let historyEdge = 0;
-    let historyDirection = null;
-
-    let pctGreen;
-    let pctRed;
-
-    let historyValid = false;
-
-
-    if (currentStats) {
-
-    if (currentStats.total >= CONFIG.PATTERN_MIN) {
+    if (
+        avgStrength >= 0.75
+    ) {
 
         if (
-            currentStats.pctGreen >
-            currentStats.pctRed
+            trendUp
         ) {
 
-            const edge =
-                currentStats.pctGreen -
-                currentStats.pctRed;
-
-            if (edge >= 10)
-                addCall(1, "History");
-
-            if (edge >= 20)
-                addCall(1, "History");
-
-            if (edge >= 30)
-                addCall(1, "History");
-
-        } else {
-
-            const edge =
-                currentStats.pctRed -
-                currentStats.pctGreen;
-
-            if (edge >= 10)
-                addPut(1, "History");
-
-            if (edge >= 20)
-                addPut(1, "History");
-
-            if (edge >= 30)
-                addPut(1, "History");
+            addCall(
+                CONFIG.STRONG_CANDLE,
+                "Strong Candles"
+            );
 
         }
 
-    } else {
 
-        console.log(
-            "⚠️ HISTORIAL DEL PATRÓN INSUFICIENTE:",
-            {
-                pattern,
-                total: currentStats.total,
-                minimo: CONFIG.PATTERN_MIN
-            }
-        );
+        if (
+            trendDown
+        ) {
+
+            addPut(
+                CONFIG.STRONG_CANDLE,
+                "Strong Candles"
+            );
+
+        }
+
+    }
+
+    else if (
+        avgStrength >= 0.55
+    ) {
+
+        if (
+            trendUp
+        ) {
+
+            addCall(
+                CONFIG.MEDIUM_CANDLE,
+                "Medium Candles"
+            );
+
+        }
+
+
+        if (
+            trendDown
+        ) {
+
+            addPut(
+                CONFIG.MEDIUM_CANDLE,
+                "Medium Candles"
+            );
+
+        }
 
     }
 
 
-            historyValid = true;
+    // ========================================================
+    // 📊 HISTORIAL DEL PATRÓN
+    // ========================================================
+
+    const currentStats =
+        stats?.[pattern];
 
 
-            // ==============================================
-            // DIRECCIÓN HISTÓRICA
-            // ==============================================
+    let pctGreen =
+        null;
 
-            if (pctGreen > pctRed) {
 
-                historyDirection = "CALL";
+    let pctRed =
+        null;
 
-                historyEdge =
-                    pctGreen - pctRed;
+
+    let historyTotal =
+        0;
+
+
+    let historyEdge =
+        0;
+
+
+    let historyDirection =
+        null;
+
+
+    let historyValid =
+        false;
+
+
+    // ========================================================
+    // EXISTE ESTADÍSTICA
+    // ========================================================
+
+    if (
+        currentStats
+    ) {
+
+        historyTotal =
+            Number(
+                currentStats.total || 0
+            );
+
+
+        // ====================================================
+        // PORCENTAJES DIRECTOS
+        // ====================================================
+
+        pctGreen =
+            Number(
+                currentStats.pctGreen
+            );
+
+
+        pctRed =
+            Number(
+                currentStats.pctRed
+            );
+
+
+        // ====================================================
+        // FALLBACK
+        //
+        // Si calculateStats devuelve:
+        //
+        // green
+        // red
+        // total
+        //
+        // calculamos los porcentajes.
+        // ====================================================
+
+        if (
+            !Number.isFinite(
+                pctGreen
+            ) ||
+            !Number.isFinite(
+                pctRed
+            )
+        ) {
+
+            const green =
+                Number(
+                    currentStats.green || 0
+                );
+
+
+            const red =
+                Number(
+                    currentStats.red || 0
+                );
+
+
+            const calculatedTotal =
+                green +
+                red;
+
+
+            if (
+                calculatedTotal > 0
+            ) {
+
+                pctGreen =
+                    Number(
+                        (
+                            green /
+                            calculatedTotal *
+                            100
+                        ).toFixed(2)
+                    );
+
+
+                pctRed =
+                    Number(
+                        (
+                            red /
+                            calculatedTotal *
+                            100
+                        ).toFixed(2)
+                    );
+
+
+                // Si total no vino correctamente
+                if (
+                    historyTotal <= 0
+                ) {
+
+                    historyTotal =
+                        calculatedTotal;
+
+                }
 
             }
 
-            else if (pctRed > pctGreen) {
+        }
 
-                historyDirection = "PUT";
+
+        // ====================================================
+        // VALIDAR PORCENTAJES
+        // ====================================================
+
+        if (
+            Number.isFinite(
+                pctGreen
+            ) &&
+            Number.isFinite(
+                pctRed
+            ) &&
+            historyTotal >=
+            CONFIG.PATTERN_MIN
+        ) {
+
+            historyValid =
+                true;
+
+
+            // ================================================
+            // DIRECCIÓN HISTÓRICA
+            // ================================================
+
+            if (
+                pctGreen >
+                pctRed
+            ) {
+
+                historyDirection =
+                    "CALL";
+
 
                 historyEdge =
-                    pctRed - pctGreen;
+                    pctGreen -
+                    pctRed;
+
+            }
+
+            else if (
+                pctRed >
+                pctGreen
+            ) {
+
+                historyDirection =
+                    "PUT";
+
+
+                historyEdge =
+                    pctRed -
+                    pctGreen;
 
             }
 
             else {
 
-                historyDirection = null;
+                historyDirection =
+                    null;
 
-                historyEdge = 0;
+
+                historyEdge =
+                    0;
 
             }
 
 
-            // ==============================================
-            // SCORE HISTÓRICO
-            // ==============================================
+        }
+
+        else {
+
+            console.log(
+                "⚠️ HISTORIAL DEL PATRÓN INSUFICIENTE:",
+                {
+
+                    pattern,
+
+                    total:
+                        historyTotal,
+
+                    minimo:
+                        CONFIG.PATTERN_MIN,
+
+                    pctGreen,
+
+                    pctRed
+
+                }
+            );
+
+        }
+
+    }
+
+    else {
+
+        console.log(
+            "⚠️ NO EXISTE HISTORIAL PARA PATRÓN:",
+            pattern
+        );
+
+    }
+
+
+    // ========================================================
+    // 📊 AÑADIR HISTORIAL AL SCORE
+    //
+    // IMPORTANTE:
+    //
+    // SOLO UNA VEZ.
+    //
+    // La versión anterior lo agregaba dos veces.
+    // ========================================================
+
+    if (
+        historyValid
+    ) {
+
+        if (
+            historyDirection === "CALL"
+        ) {
 
             if (
-                historyDirection === "CALL" &&
                 historyEdge >= 10
             ) {
 
@@ -662,8 +1191,8 @@ function syntheticProStrategy(candles, state = {}) {
 
             }
 
+
             if (
-                historyDirection === "CALL" &&
                 historyEdge >= 20
             ) {
 
@@ -674,8 +1203,8 @@ function syntheticProStrategy(candles, state = {}) {
 
             }
 
+
             if (
-                historyDirection === "CALL" &&
                 historyEdge >= 30
             ) {
 
@@ -686,9 +1215,14 @@ function syntheticProStrategy(candles, state = {}) {
 
             }
 
+        }
+
+
+        if (
+            historyDirection === "PUT"
+        ) {
 
             if (
-                historyDirection === "PUT" &&
                 historyEdge >= 10
             ) {
 
@@ -699,8 +1233,8 @@ function syntheticProStrategy(candles, state = {}) {
 
             }
 
+
             if (
-                historyDirection === "PUT" &&
                 historyEdge >= 20
             ) {
 
@@ -711,8 +1245,8 @@ function syntheticProStrategy(candles, state = {}) {
 
             }
 
+
             if (
-                historyDirection === "PUT" &&
                 historyEdge >= 30
             ) {
 
@@ -725,36 +1259,67 @@ function syntheticProStrategy(candles, state = {}) {
 
         }
 
-    
+    }
 
 
-    // =========================================================
-    // FILTRO HISTÓRICO OBLIGATORIO
-    // =========================================================
+    // ========================================================
+    // 🚨 HISTORIAL OBLIGATORIO
+    // ========================================================
 
-    if (CONFIG.REQUIRE_HISTORY) {
+    if (
+        CONFIG.REQUIRE_HISTORY
+    ) {
 
-        if (!historyValid) {
+        // ====================================================
+        // NO EXISTE HISTORIAL SUFICIENTE
+        // ====================================================
+
+        if (
+            !historyValid
+        ) {
 
             console.log(
                 "⛔ NO TRADE: historial insuficiente",
                 {
+
                     pattern,
-                    total: currentStats?.total
+
+                    total:
+                        historyTotal,
+
+                    minimo:
+                        CONFIG.PATTERN_MIN,
+
+                    pctGreen,
+
+                    pctRed
+
                 }
             );
 
+
             return buildSignal({
 
-                strategy: "synthetic_pro",
+                strategy:
+                    "synthetic_pro",
 
-                signal: null,
+                signal:
+                    null,
 
-                score: 0,
+                score:
+                    Math.max(
+                        callScore,
+                        putScore
+                    ),
 
-                trend: trendUp || trendDown,
 
-                bos: bosUp || bosDown,
+                trend:
+                    trendUp ||
+                    trendDown,
+
+                bos:
+                    bosUp ||
+                    bosDown,
 
                 pullback:
                     pullbackUp ||
@@ -764,14 +1329,24 @@ function syntheticProStrategy(candles, state = {}) {
                     momentumUp ||
                     momentumDown,
 
-                strength: avgStrength,
+                strength:
+                    avgStrength,
 
                 pattern,
 
                 pctGreen,
+
                 pctRed,
 
+                total:
+                    historyTotal,
+
+                historyEdge,
+
+                historyDirection,
+
                 callScore,
+
                 putScore,
 
                 sma
@@ -781,9 +1356,9 @@ function syntheticProStrategy(candles, state = {}) {
         }
 
 
-        // =====================================================
-        // FILTRO 50/50 / EDGE BAJO
-        // =====================================================
+        // ====================================================
+        // EDGE INSUFICIENTE
+        // ====================================================
 
         if (
             historyEdge <
@@ -793,24 +1368,45 @@ function syntheticProStrategy(candles, state = {}) {
             console.log(
                 "⛔ NO TRADE: EDGE HISTÓRICO INSUFICIENTE",
                 {
+
                     pattern,
+
                     pctGreen,
+
                     pctRed,
-                    edge: historyEdge
+
+                    edge:
+                        historyEdge,
+
+                    minimo:
+                        CONFIG.HISTORY_MIN_EDGE
+
                 }
             );
 
+
             return buildSignal({
 
-                strategy: "synthetic_pro",
+                strategy:
+                    "synthetic_pro",
 
-                signal: null,
+                signal:
+                    null,
 
-                score: 0,
+                score:
+                    Math.max(
+                        callScore,
+                        putScore
+                    ),
 
-                trend: trendUp || trendDown,
 
-                bos: bosUp || bosDown,
+                trend:
+                    trendUp ||
+                    trendDown,
+
+                bos:
+                    bosUp ||
+                    bosDown,
 
                 pullback:
                     pullbackUp ||
@@ -820,14 +1416,24 @@ function syntheticProStrategy(candles, state = {}) {
                     momentumUp ||
                     momentumDown,
 
-                strength: avgStrength,
+                strength:
+                    avgStrength,
 
                 pattern,
 
                 pctGreen,
+
                 pctRed,
 
+                total:
+                    historyTotal,
+
+                historyEdge,
+
+                historyDirection,
+
                 callScore,
+
                 putScore,
 
                 sma
@@ -839,9 +1445,9 @@ function syntheticProStrategy(candles, state = {}) {
     }
 
 
-    // =========================================================
-    // PENALIZACIÓN CONTRARIA
-    // =========================================================
+    // ========================================================
+    // PENALIZACIÓN CONTRARIA A LA TENDENCIA
+    // ========================================================
 
     if (
         trendUp &&
@@ -871,22 +1477,25 @@ function syntheticProStrategy(candles, state = {}) {
     }
 
 
-    // =========================================================
-    // DEBUG
-    // =========================================================
+    // ========================================================
+    // 📊 DEBUG
+    // ========================================================
 
     console.log(
-        "========================================"
+        "=============================================="
     );
 
+
     console.log(
-        "SYNTHETIC PRO"
+        "🧠 SYNTHETIC PRO"
     );
+
 
     console.log(
         "Pattern:",
         pattern
     );
+
 
     console.log(
         "Trend:",
@@ -897,6 +1506,7 @@ function syntheticProStrategy(candles, state = {}) {
                 : "NEUTRAL"
     );
 
+
     console.log(
         "BOS:",
         bosUp
@@ -905,6 +1515,17 @@ function syntheticProStrategy(candles, state = {}) {
                 ? "DOWN"
                 : "NONE"
     );
+
+
+    console.log(
+        "Pullback:",
+        pullbackUp
+            ? "UP"
+            : pullbackDown
+                ? "DOWN"
+                : "NONE"
+    );
+
 
     console.log(
         "Momentum:",
@@ -915,114 +1536,164 @@ function syntheticProStrategy(candles, state = {}) {
                 : "NONE"
     );
 
+
     console.log(
         "Avg Strength:",
         avgStrength
     );
 
+
+    console.log(
+        "Last Strength:",
+        strengthLast
+    );
+
+
     console.log(
         "History:",
-        pctGreen,
-        "/",
-        pctRed
+        `${pctGreen}% / ${pctRed}%`
     );
+
+
+    console.log(
+        "History Total:",
+        historyTotal
+    );
+
 
     console.log(
         "History Direction:",
         historyDirection
     );
 
+
     console.log(
         "History Edge:",
         historyEdge
     );
+
 
     console.log(
         "CALL SCORE:",
         callScore
     );
 
+
     console.log(
         "PUT SCORE:",
         putScore
     );
+
 
     console.log(
         "Martingale:",
         martingale
     );
 
+
     console.log(
         "Consecutive Losses:",
         consecutiveLosses
     );
 
-    console.table(reasons);
 
-    console.log(
-        "========================================"
+    console.table(
+        reasons
     );
 
 
-    // =========================================================
-    // DECISIÓN CALL
-    // =========================================================
+    console.log(
+        "=============================================="
+    );
+
+
+    // ========================================================
+    // 🟢 CALL
+    // ========================================================
 
     if (
 
-        callScore >= CONFIG.MIN_SCORE &&
+        callScore >=
+        CONFIG.MIN_SCORE &&
 
-        (callScore - putScore)
-            >= CONFIG.MIN_DIFF
+        (
+            callScore -
+            putScore
+        ) >=
+        CONFIG.MIN_DIFF
 
     ) {
 
 
-        // =====================================================
-        // VALIDACIÓN HISTÓRICA CALL
-        // =====================================================
+        // ====================================================
+        // HISTORIA DEBE APOYAR CALL
+        // ====================================================
 
         if (
 
             CONFIG.REQUIRE_HISTORY &&
 
-            historyDirection !== "CALL"
+            historyDirection !==
+            "CALL"
 
         ) {
 
             console.log(
-                "⛔ CALL BLOQUEADO: HISTORIA FAVORECE PUT",
+                "⛔ CALL BLOQUEADO: HISTORIA NO APOYA CALL",
                 {
+
                     pattern,
+
                     pctGreen,
+
                     pctRed,
-                    edge: historyEdge
+
+                    historyDirection,
+
+                    historyEdge
+
                 }
             );
 
+
             return buildSignal({
 
-                strategy: "synthetic_pro",
+                strategy:
+                    "synthetic_pro",
 
-                signal: null,
+                signal:
+                    null,
 
-                score: callScore,
+                score:
+                    callScore,
 
-                trend: trendUp,
+                trend:
+                    trendUp,
 
-                bos: bosUp,
+                bos:
+                    bosUp,
 
-                pullback: pullbackUp,
+                pullback:
+                    pullbackUp,
 
-                momentum: momentumUp,
+                momentum:
+                    momentumUp,
 
-                strength: avgStrength,
+                strength:
+                    avgStrength,
 
                 pattern,
 
                 pctGreen,
 
                 pctRed,
+
+                total:
+                    historyTotal,
+
+                historyEdge,
+
+                historyDirection,
 
                 callScore,
 
@@ -1035,9 +1706,9 @@ function syntheticProStrategy(candles, state = {}) {
         }
 
 
-        // =====================================================
-        // CONFIRMACIÓN HISTÓRICA FUERTE
-        // =====================================================
+        // ====================================================
+        // EDGE CALL
+        // ====================================================
 
         if (
 
@@ -1049,33 +1720,57 @@ function syntheticProStrategy(candles, state = {}) {
         ) {
 
             console.log(
-                "⛔ CALL BLOQUEADO: EDGE insuficiente",
-                historyEdge
+                "⛔ CALL BLOQUEADO: EDGE INSUFICIENTE",
+                {
+
+                    edge:
+                        historyEdge,
+
+                    minimo:
+                        CONFIG.HISTORY_MIN_EDGE
+
+                }
             );
+
 
             return buildSignal({
 
-                strategy: "synthetic_pro",
+                strategy:
+                    "synthetic_pro",
 
-                signal: null,
+                signal:
+                    null,
 
-                score: callScore,
+                score:
+                    callScore,
 
-                trend: trendUp,
+                trend:
+                    trendUp,
 
-                bos: bosUp,
+                bos:
+                    bosUp,
 
-                pullback: pullbackUp,
+                pullback:
+                    pullbackUp,
 
-                momentum: momentumUp,
+                momentum:
+                    momentumUp,
 
-                strength: avgStrength,
+                strength:
+                    avgStrength,
 
                 pattern,
 
                 pctGreen,
 
                 pctRed,
+
+                total:
+                    historyTotal,
+
+                historyEdge,
+
+                historyDirection,
 
                 callScore,
 
@@ -1088,50 +1783,71 @@ function syntheticProStrategy(candles, state = {}) {
         }
 
 
-        // =====================================================
-        // CONFIRMACIÓN ÚLTIMA VELA
-        // =====================================================
+        // ====================================================
+        // ÚLTIMA VELA
+        // ====================================================
 
         if (
 
-            last.close <= last.open ||
+            Number(last.close) <=
+            Number(last.open) ||
 
-            lastStrength <
+            strengthLast <
             CONFIG.MIN_LAST_STRENGTH
 
         ) {
 
             console.log(
-                "⛔ CALL descartado: última vela débil",
+                "⛔ CALL DESCARTADO: ÚLTIMA VELA DÉBIL",
                 {
+
                     callScore,
-                    lastStrength
+
+                    lastStrength:
+                        strengthLast
+
                 }
             );
 
+
             return buildSignal({
 
-                strategy: "synthetic_pro",
+                strategy:
+                    "synthetic_pro",
 
-                signal: null,
+                signal:
+                    null,
 
-                score: callScore,
+                score:
+                    callScore,
 
-                trend: trendUp,
+                trend:
+                    trendUp,
 
-                bos: bosUp,
+                bos:
+                    bosUp,
 
-                pullback: pullbackUp,
+                pullback:
+                    pullbackUp,
 
-                momentum: momentumUp,
+                momentum:
+                    momentumUp,
 
-                strength: avgStrength,
+                strength:
+                    avgStrength,
 
                 pattern,
 
                 pctGreen,
 
                 pctRed,
+
+                total:
+                    historyTotal,
+
+                historyEdge,
+
+                historyDirection,
 
                 callScore,
 
@@ -1144,9 +1860,9 @@ function syntheticProStrategy(candles, state = {}) {
         }
 
 
-        // =====================================================
+        // ====================================================
         // REVERSIÓN CALL
-        // =====================================================
+        // ====================================================
 
         if (
 
@@ -1163,40 +1879,59 @@ function syntheticProStrategy(candles, state = {}) {
         ) {
 
             console.log(
-                "⚠️ CALL REVERSIÓN DETECTADA"
+                "⚠️ CALL DESCARTADO POR POSIBLE REVERSIÓN",
+                {
+
+                    callScore,
+
+                    avgStrength,
+
+                    pattern,
+
+                    pctGreen
+
+                }
             );
 
-            // IMPORTANTE:
-            // No entramos CALL automáticamente.
-            //
-            // Una secuencia GGG muy fuerte puede estar
-            // sobreextendida.
-            //
-            // Por seguridad se descarta.
 
             return buildSignal({
 
-                strategy: "synthetic_pro",
+                strategy:
+                    "synthetic_pro",
 
-                signal: null,
+                signal:
+                    null,
 
-                score: callScore,
+                score:
+                    callScore,
 
-                trend: trendUp,
+                trend:
+                    trendUp,
 
-                bos: bosUp,
+                bos:
+                    bosUp,
 
-                pullback: pullbackUp,
+                pullback:
+                    pullbackUp,
 
-                momentum: momentumUp,
+                momentum:
+                    momentumUp,
 
-                strength: avgStrength,
+                strength:
+                    avgStrength,
 
                 pattern,
 
                 pctGreen,
 
                 pctRed,
+
+                total:
+                    historyTotal,
+
+                historyEdge,
+
+                historyDirection,
 
                 callScore,
 
@@ -1209,43 +1944,78 @@ function syntheticProStrategy(candles, state = {}) {
         }
 
 
-        // =====================================================
-        // CALL FINAL
-        // =====================================================
+        // ====================================================
+        // 🚀 CALL FINAL
+        // ====================================================
 
         console.log(
-            "🟢 SIGNAL CALL",
+            "🟢🟢🟢 SIGNAL CALL 🟢🟢🟢"
+        );
+
+
+        console.log(
             {
+
+                signal:
+                    "CALL",
+
                 callScore,
+
                 putScore,
-                historyEdge,
-                pattern
+
+                pattern,
+
+                pctGreen,
+
+                pctRed,
+
+                total:
+                    historyTotal,
+
+                historyEdge
+
             }
         );
 
+
         return buildSignal({
 
-            strategy: "synthetic_pro",
+            strategy:
+                "synthetic_pro",
 
-            signal: "CALL",
+            signal:
+                "CALL",
 
-            score: callScore,
+            score:
+                callScore,
 
-            trend: trendUp,
+            trend:
+                trendUp,
 
-            bos: bosUp,
+            bos:
+                bosUp,
 
-            pullback: pullbackUp,
+            pullback:
+                pullbackUp,
 
-            momentum: momentumUp,
+            momentum:
+                momentumUp,
 
-            strength: avgStrength,
+            strength:
+                avgStrength,
 
             pattern,
 
             pctGreen,
 
             pctRed,
+
+            total:
+                historyTotal,
+
+            historyEdge,
+
+            historyDirection,
 
             callScore,
 
@@ -1258,65 +2028,93 @@ function syntheticProStrategy(candles, state = {}) {
     }
 
 
-    // =========================================================
-    // DECISIÓN PUT
-    // =========================================================
+    // ========================================================
+    // 🔴 PUT
+    // ========================================================
 
     if (
 
-        putScore >= CONFIG.MIN_SCORE &&
+        putScore >=
+        CONFIG.MIN_SCORE &&
 
-        (putScore - callScore)
-            >= CONFIG.MIN_DIFF
+        (
+            putScore -
+            callScore
+        ) >=
+        CONFIG.MIN_DIFF
 
     ) {
 
 
-        // =====================================================
-        // VALIDACIÓN HISTÓRICA PUT
-        // =====================================================
+        // ====================================================
+        // HISTORIA DEBE APOYAR PUT
+        // ====================================================
 
         if (
 
             CONFIG.REQUIRE_HISTORY &&
 
-            historyDirection !== "PUT"
+            historyDirection !==
+            "PUT"
 
         ) {
 
             console.log(
-                "⛔ PUT BLOQUEADO: HISTORIA FAVORECE CALL",
+                "⛔ PUT BLOQUEADO: HISTORIA NO APOYA PUT",
                 {
+
                     pattern,
+
                     pctGreen,
+
                     pctRed,
-                    edge: historyEdge
+
+                    historyDirection,
+
+                    historyEdge
+
                 }
             );
 
+
             return buildSignal({
 
-                strategy: "synthetic_pro",
+                strategy:
+                    "synthetic_pro",
 
-                signal: null,
+                signal:
+                    null,
 
-                score: putScore,
+                score:
+                    putScore,
 
-                trend: trendDown,
+                trend:
+                    trendDown,
 
-                bos: bosDown,
+                bos:
+                    bosDown,
 
-                pullback: pullbackDown,
+                pullback:
+                    pullbackDown,
 
-                momentum: momentumDown,
+                momentum:
+                    momentumDown,
 
-                strength: avgStrength,
+                strength:
+                    avgStrength,
 
                 pattern,
 
                 pctGreen,
 
                 pctRed,
+
+                total:
+                    historyTotal,
+
+                historyEdge,
+
+                historyDirection,
 
                 callScore,
 
@@ -1329,9 +2127,9 @@ function syntheticProStrategy(candles, state = {}) {
         }
 
 
-        // =====================================================
-        // EDGE
-        // =====================================================
+        // ====================================================
+        // EDGE PUT
+        // ====================================================
 
         if (
 
@@ -1343,33 +2141,57 @@ function syntheticProStrategy(candles, state = {}) {
         ) {
 
             console.log(
-                "⛔ PUT BLOQUEADO: EDGE insuficiente",
-                historyEdge
+                "⛔ PUT BLOQUEADO: EDGE INSUFICIENTE",
+                {
+
+                    edge:
+                        historyEdge,
+
+                    minimo:
+                        CONFIG.HISTORY_MIN_EDGE
+
+                }
             );
+
 
             return buildSignal({
 
-                strategy: "synthetic_pro",
+                strategy:
+                    "synthetic_pro",
 
-                signal: null,
+                signal:
+                    null,
 
-                score: putScore,
+                score:
+                    putScore,
 
-                trend: trendDown,
+                trend:
+                    trendDown,
 
-                bos: bosDown,
+                bos:
+                    bosDown,
 
-                pullback: pullbackDown,
+                pullback:
+                    pullbackDown,
 
-                momentum: momentumDown,
+                momentum:
+                    momentumDown,
 
-                strength: avgStrength,
+                strength:
+                    avgStrength,
 
                 pattern,
 
                 pctGreen,
 
                 pctRed,
+
+                total:
+                    historyTotal,
+
+                historyEdge,
+
+                historyDirection,
 
                 callScore,
 
@@ -1382,50 +2204,71 @@ function syntheticProStrategy(candles, state = {}) {
         }
 
 
-        // =====================================================
-        // CONFIRMACIÓN ÚLTIMA VELA
-        // =====================================================
+        // ====================================================
+        // ÚLTIMA VELA
+        // ====================================================
 
         if (
 
-            last.close >= last.open ||
+            Number(last.close) >=
+            Number(last.open) ||
 
-            lastStrength <
+            strengthLast <
             CONFIG.MIN_LAST_STRENGTH
 
         ) {
 
             console.log(
-                "⛔ PUT descartado: última vela débil",
+                "⛔ PUT DESCARTADO: ÚLTIMA VELA DÉBIL",
                 {
+
                     putScore,
-                    lastStrength
+
+                    lastStrength:
+                        strengthLast
+
                 }
             );
 
+
             return buildSignal({
 
-                strategy: "synthetic_pro",
+                strategy:
+                    "synthetic_pro",
 
-                signal: null,
+                signal:
+                    null,
 
-                score: putScore,
+                score:
+                    putScore,
 
-                trend: trendDown,
+                trend:
+                    trendDown,
 
-                bos: bosDown,
+                bos:
+                    bosDown,
 
-                pullback: pullbackDown,
+                pullback:
+                    pullbackDown,
 
-                momentum: momentumDown,
+                momentum:
+                    momentumDown,
 
-                strength: avgStrength,
+                strength:
+                    avgStrength,
 
                 pattern,
 
                 pctGreen,
 
                 pctRed,
+
+                total:
+                    historyTotal,
+
+                historyEdge,
+
+                historyDirection,
 
                 callScore,
 
@@ -1438,9 +2281,9 @@ function syntheticProStrategy(candles, state = {}) {
         }
 
 
-        // =====================================================
+        // ====================================================
         // REVERSIÓN PUT
-        // =====================================================
+        // ====================================================
 
         if (
 
@@ -1457,32 +2300,59 @@ function syntheticProStrategy(candles, state = {}) {
         ) {
 
             console.log(
-                "⚠️ PUT REVERSIÓN DETECTADA"
+                "⚠️ PUT DESCARTADO POR POSIBLE REVERSIÓN",
+                {
+
+                    putScore,
+
+                    avgStrength,
+
+                    pattern,
+
+                    pctRed
+
+                }
             );
+
 
             return buildSignal({
 
-                strategy: "synthetic_pro",
+                strategy:
+                    "synthetic_pro",
 
-                signal: null,
+                signal:
+                    null,
 
-                score: putScore,
+                score:
+                    putScore,
 
-                trend: trendDown,
+                trend:
+                    trendDown,
 
-                bos: bosDown,
+                bos:
+                    bosDown,
 
-                pullback: pullbackDown,
+                pullback:
+                    pullbackDown,
 
-                momentum: momentumDown,
+                momentum:
+                    momentumDown,
 
-                strength: avgStrength,
+                strength:
+                    avgStrength,
 
                 pattern,
 
                 pctGreen,
 
                 pctRed,
+
+                total:
+                    historyTotal,
+
+                historyEdge,
+
+                historyDirection,
 
                 callScore,
 
@@ -1495,43 +2365,78 @@ function syntheticProStrategy(candles, state = {}) {
         }
 
 
-        // =====================================================
-        // PUT FINAL
-        // =====================================================
+        // ====================================================
+        // 🚀 PUT FINAL
+        // ====================================================
 
         console.log(
-            "🔴 SIGNAL PUT",
+            "🔴🔴🔴 SIGNAL PUT 🔴🔴🔴"
+        );
+
+
+        console.log(
             {
+
+                signal:
+                    "PUT",
+
                 putScore,
+
                 callScore,
-                historyEdge,
-                pattern
+
+                pattern,
+
+                pctGreen,
+
+                pctRed,
+
+                total:
+                    historyTotal,
+
+                historyEdge
+
             }
         );
 
+
         return buildSignal({
 
-            strategy: "synthetic_pro",
+            strategy:
+                "synthetic_pro",
 
-            signal: "PUT",
+            signal:
+                "PUT",
 
-            score: putScore,
+            score:
+                putScore,
 
-            trend: trendDown,
+            trend:
+                trendDown,
 
-            bos: bosDown,
+            bos:
+                bosDown,
 
-            pullback: pullbackDown,
+            pullback:
+                pullbackDown,
 
-            momentum: momentumDown,
+            momentum:
+                momentumDown,
 
-            strength: avgStrength,
+            strength:
+                avgStrength,
 
             pattern,
 
             pctGreen,
 
             pctRed,
+
+            total:
+                historyTotal,
+
+            historyEdge,
+
+            historyDirection,
 
             callScore,
 
@@ -1544,30 +2449,48 @@ function syntheticProStrategy(candles, state = {}) {
     }
 
 
-    // =========================================================
-    // SIN SEÑAL
-    // =========================================================
+    // ========================================================
+    // ⚪ SIN SEÑAL
+    // ========================================================
 
     console.log(
-        "⚪ NO TRADE",
+        "⚪ SYNTHETIC PRO: SIN SEÑAL",
         {
+
             pattern,
+
             callScore,
+
             putScore,
-            historyEdge
+
+            historyDirection,
+
+            historyEdge,
+
+            pctGreen,
+
+            pctRed,
+
+            total:
+                historyTotal
+
         }
     );
 
+
     return buildSignal({
 
-        strategy: "synthetic_pro",
+        strategy:
+            "synthetic_pro",
 
-        signal: null,
+        signal:
+            null,
 
-        score: Math.max(
-            callScore,
-            putScore
-        ),
+        score:
+            Math.max(
+                callScore,
+                putScore
+            ),
 
         trend:
             trendUp ||
@@ -1585,13 +2508,21 @@ function syntheticProStrategy(candles, state = {}) {
             momentumUp ||
             momentumDown,
 
-        strength: avgStrength,
+        strength:
+            avgStrength,
 
         pattern,
 
         pctGreen,
 
         pctRed,
+
+        total:
+            historyTotal,
+
+        historyEdge,
+
+        historyDirection,
 
         callScore,
 
@@ -1604,4 +2535,9 @@ function syntheticProStrategy(candles, state = {}) {
 }
 
 
-module.exports = syntheticProStrategy;
+// ============================================================
+// EXPORT
+// ============================================================
+
+module.exports =
+    syntheticProStrategy;

@@ -15,10 +15,6 @@ const {
   getSignal
 } = require("../bot/strategy");
 
-const {
-  calculateSMA
-} = require("../bot/indicators");
-
 const RiskManager =
   require("../bot/riskManager");
 
@@ -51,7 +47,7 @@ const {
 
 
 // ============================================================
-// ⚙️ CONFIGURACIÓN DE SEGURIDAD
+// ⚙️ CONFIGURACIÓN
 // ============================================================
 
 const ENGINE_CONFIG = {
@@ -66,7 +62,7 @@ const ENGINE_CONFIG = {
   // Máximo martingale permitido
   MAX_MARTINGALE: 3,
 
-  // Tiempo de contrato
+  // Duración esperada del contrato
   CONTRACT_DURATION_MS:
     60 * 1000,
 
@@ -74,13 +70,7 @@ const ENGINE_CONFIG = {
   CONTRACT_TIMEOUT_MS:
     75 * 1000,
 
-  // Mínimo histórico
-  HISTORY_MIN: 30,
-
-  // Edge mínimo
-  HISTORY_MIN_EDGE: 15,
-
-  // Volatilidad
+  // Histórico mínimo global
   MIN_HISTORY_CANDLES: 30
 
 };
@@ -194,7 +184,7 @@ const debugVisual = (
 
 
 // ============================================================
-// 🔓 LIBERAR ESTADO DEL BOT
+// 🔓 LIBERAR ESTADO
 // ============================================================
 
 const releaseBotState = (
@@ -208,8 +198,6 @@ const releaseBotState = (
   );
 
   state.running = false;
-
-  state.cooldown = false;
 
   state.currentContractId = null;
 
@@ -734,12 +722,6 @@ const startContractWatchdog = (
           );
 
 
-          // ====================================================
-          // IMPORTANTE:
-          //
-          // AHORA EL WATCHDOG REUTILIZA finishTrade()
-          // ====================================================
-
           if (
             typeof finishTrade ===
             "function"
@@ -821,6 +803,12 @@ const startBot = async (
   }
 
 
+  console.log(
+    "🟢 DERIV CONECTADO:",
+    deriv.isConnected
+  );
+
+
   // ==========================================================
   // BALANCE INICIAL
   // ==========================================================
@@ -847,6 +835,12 @@ const startBot = async (
   }
 
 
+  console.log(
+    "💰 BALANCE INICIAL:",
+    initialBalance
+  );
+
+
   // ==========================================================
   // RISK MANAGER
   // ==========================================================
@@ -856,6 +850,20 @@ const startBot = async (
       initialBalance,
       settings || {}
     );
+
+
+  console.log(
+    "🛡️ RISK MANAGER:",
+    {
+
+      balance:
+        risk.balance,
+
+      martingale:
+        risk.martingaleStep
+
+    }
+  );
 
 
   // ==========================================================
@@ -1082,26 +1090,32 @@ const startBot = async (
 
 
       console.log(
-        "📊 Histórico cargado:",
+        "📊 HISTÓRICO CARGADO:",
         history.length
       );
 
 
       console.log(
-        "📈 Estadísticas iniciales:",
+        "📈 ESTADÍSTICAS INICIALES:",
         state.stats
       );
 
 
       console.log(
-        "🕯️ Velas cerradas:",
+        "🕯️ VELAS CERRADAS:",
         candleBuilder.candles.length
       );
 
 
       console.log(
-        "🕯️ Vela actual:",
+        "🕯️ VELA ACTUAL:",
         candleBuilder.currentCandle
+      );
+
+    } else {
+
+      console.warn(
+        "⚠️ DERIV NO DEVOLVIÓ HISTÓRICO"
       );
 
     }
@@ -1303,10 +1317,21 @@ const startBot = async (
 
 
             console.log(
-              "🕯️ NUEVA VELA:",
+              "\n=========================================="
+            );
+
+            console.log(
+              "🕯️ NUEVA VELA:"
+            );
+
+            console.log(
               new Date(
                 epoch * 1000
               ).toISOString()
+            );
+
+            console.log(
+              "=========================================="
             );
 
 
@@ -1321,6 +1346,12 @@ const startBot = async (
               );
 
 
+            console.log(
+              "📊 VELAS CERRADAS:",
+              closedCandles.length
+            );
+
+
             if (
               closedCandles.length <
               ENGINE_CONFIG.MIN_HISTORY_CANDLES
@@ -1328,7 +1359,15 @@ const startBot = async (
 
               console.log(
                 "⏳ HISTÓRICO INSUFICIENTE:",
-                closedCandles.length
+                {
+
+                  actual:
+                    closedCandles.length,
+
+                  minimo:
+                    ENGINE_CONFIG.MIN_HISTORY_CANDLES
+
+                }
               );
 
               return;
@@ -1347,8 +1386,14 @@ const startBot = async (
 
 
             console.log(
-              "📊 Stats actualizadas:",
-              state.stats
+              "📊 STATS ACTUALIZADAS:"
+            );
+
+            console.dir(
+              state.stats,
+              {
+                depth: null
+              }
             );
 
 
@@ -1394,7 +1439,17 @@ const startBot = async (
             ) {
 
               console.log(
-                "⛔ VOLATILIDAD INSUFICIENTE"
+                "⛔ VOLATILIDAD INSUFICIENTE:",
+                {
+
+                  volatility,
+
+                  avgRange,
+
+                  required:
+                    avgRange * 0.5
+
+                }
               );
 
               return;
@@ -1407,9 +1462,39 @@ const startBot = async (
             // ==================================================
 
             console.log(
-              "🧠 EJECUTANDO ESTRATEGIA..."
+              "\n🧠 EJECUTANDO ESTRATEGIA..."
             );
 
+
+            console.log(
+              "🧠 STRATEGY:",
+              botConfig.strategy
+            );
+
+
+            console.log(
+              "🧠 CANDLES:",
+              closedCandles.length
+            );
+
+
+            console.log(
+              "🧠 STATS DISPONIBLES:",
+              Object.keys(
+                state.stats || {}
+              )
+            );
+
+
+            // ==================================================
+            // IMPORTANTE:
+            //
+            // Se pasa TODO state.
+            //
+            // syntheticProStrategy espera:
+            //
+            // state.stats
+            // ==================================================
 
             const result =
               getSignal(
@@ -1421,6 +1506,22 @@ const startBot = async (
                 state
 
               );
+
+
+            // ==================================================
+            // 🔥 DEBUG COMPLETO
+            // ==================================================
+
+            console.log(
+              "\n🚨 RESULTADO COMPLETO DE GETSIGNAL:"
+            );
+
+            console.dir(
+              result,
+              {
+                depth: null
+              }
+            );
 
 
             // ==================================================
@@ -1445,7 +1546,7 @@ const startBot = async (
 
 
             // ==================================================
-            // DEBUG RESULTADO
+            // RESULTADO ESTRATEGIA
             // ==================================================
 
             console.log(
@@ -1475,6 +1576,9 @@ const startBot = async (
 
                 pctRed:
                   result.pctRed,
+
+                total:
+                  result.total,
 
                 historyEdge:
                   result.historyEdge
@@ -1510,63 +1614,103 @@ const startBot = async (
 
 
             // ==================================================
-            // VALIDACIÓN ESTADÍSTICA EXTRA
+            // 📊 INFORMACIÓN HISTÓRICA
             //
-            // Esto protege al engine incluso si getSignal()
-            // cambia en el futuro.
+            // IMPORTANTE:
+            //
+            // YA NO BLOQUEAMOS EL TRADE AQUÍ.
+            //
+            // La estrategia es responsable de utilizar
+            // el histórico para decidir CALL / PUT.
             // ==================================================
 
-            const pctGreen =
+            let patternStats =
+              null;
+
+
+            if (
+              result.pattern &&
+              state.stats
+            ) {
+
+              patternStats =
+                state.stats[
+                  result.pattern
+                ];
+
+            }
+
+
+            let pctGreen =
               Number(
-                result.pctGreen ?? 0
+                result.pctGreen
               );
 
 
-            const pctRed =
+            let pctRed =
               Number(
-                result.pctRed ?? 0
+                result.pctRed
               );
+
+
+            if (
+              !Number.isFinite(
+                pctGreen
+              )
+            ) {
+
+              pctGreen =
+                Number(
+                  patternStats?.pctGreen
+                );
+
+            }
+
+
+            if (
+              !Number.isFinite(
+                pctRed
+              )
+            ) {
+
+              pctRed =
+                Number(
+                  patternStats?.pctRed
+                );
+
+            }
+
+
+            if (
+              !Number.isFinite(
+                pctGreen
+              )
+            ) {
+
+              pctGreen =
+                0;
+
+            }
+
+
+            if (
+              !Number.isFinite(
+                pctRed
+              )
+            ) {
+
+              pctRed =
+                0;
+
+            }
 
 
             const statsTotal =
               Number(
                 result.total ??
-                state.stats?.[
-                  result.pattern
-                ]?.total ??
+                patternStats?.total ??
                 0
               );
-
-
-            /*if (
-              statsTotal <
-              ENGINE_CONFIG.HISTORY_MIN
-            ) {
-
-              console.log(
-                "⛔ TRADE BLOQUEADO: HISTORIAL INSUFICIENTE",
-                {
-
-                  pattern:
-                    result.pattern,
-
-                  total:
-                    statsTotal
-
-                }
-              );
-
-              return;
-
-          }*/
-
-
-            const historyDirection =
-              pctGreen > pctRed
-                ? "CALL"
-                : pctRed > pctGreen
-                  ? "PUT"
-                  : null;
 
 
             const historyEdge =
@@ -1577,78 +1721,60 @@ const startBot = async (
 
 
             console.log(
-              "📊 FILTRO HISTÓRICO:",
+              "📊 INFORMACIÓN HISTÓRICA:",
               {
 
                 pattern:
                   result.pattern,
 
+                total:
+                  statsTotal,
+
                 pctGreen,
 
                 pctRed,
 
-                direction:
-                  historyDirection,
-
                 edge:
-                  historyEdge
+                  historyEdge,
+
+                strategySignal:
+                  finalSignal
 
               }
             );
 
 
             // ==================================================
-            // EDGE MÍNIMO
+            // 🚨 NO HAY BLOQUEO HISTÓRICO
+            // ==================================================
+            //
+            // ANTES:
+            //
+            // if(historyDirection !== finalSignal)
+            //     return;
+            //
+            // ESO SE ELIMINA.
+            //
+            // La estrategia ya tomó la decisión.
+            //
             // ==================================================
 
-            /*if (
-              historyEdge <
-              ENGINE_CONFIG.HISTORY_MIN_EDGE
-            ) {
 
-              console.log(
-                "⛔ TRADE BLOQUEADO: EDGE < 15%",
-                {
+            console.log(
+              "✅ SEÑAL APROBADA POR LA ESTRATEGIA:",
+              {
 
-                  historyEdge
+                signal:
+                  finalSignal,
 
-                }
-              );
+                score:
+                  result.score,
 
-              return;
+                pattern:
+                  result.pattern
 
-            }*/
-
-
-            // ==================================================
-            // DIRECCIÓN HISTÓRICA
-            // DEBE COINCIDIR
-            // ==================================================
-
-            if (
-              historyDirection !==
-              finalSignal
-            ) {
-
-              console.log(
-                "⛔ TRADE BLOQUEADO: DIRECCIÓN CONTRARIA",
-                {
-
-                  signal:
-                    finalSignal,
-
-                  historyDirection,
-
-                  pctGreen,
-
-                  pctRed
-
-                }
-              );
-
-              return;
-
-            }
+              }
+            );
 
 
             // ==================================================
@@ -1690,7 +1816,7 @@ const startBot = async (
 
               const formattedStake =
                 Number(
-                  stake.toFixed(2)
+                  Number(stake).toFixed(2)
                 );
 
 
@@ -1740,17 +1866,93 @@ const startBot = async (
                   }
                 );
 
+
                 activateLossCooldown(
                   state,
                   "max_martingale_before_buy"
                 );
 
+
                 state.running =
                   false;
+
 
                 return;
 
               }
+
+
+              // =================================================
+              // 🔥 PREPARANDO BUY
+              // =================================================
+
+              console.log(
+                "\n🚀 PREPARANDO BUY"
+              );
+
+
+              console.log(
+                "=========================================="
+              );
+
+
+              console.log(
+                "📌 SYMBOL:",
+                botConfig.symbol
+              );
+
+
+              console.log(
+                "📌 SIGNAL:",
+                finalSignal
+              );
+
+
+              console.log(
+                "📌 STAKE:",
+                formattedStake
+              );
+
+
+              console.log(
+                "📌 SCORE:",
+                result.score
+              );
+
+
+              console.log(
+                "📌 CALL SCORE:",
+                result.callScore
+              );
+
+
+              console.log(
+                "📌 PUT SCORE:",
+                result.putScore
+              );
+
+
+              console.log(
+                "📌 PATTERN:",
+                result.pattern
+              );
+
+
+              console.log(
+                "📌 MARTINGALE:",
+                currentMartingale
+              );
+
+
+              console.log(
+                "📌 DERIV CONNECTED:",
+                deriv.isConnected
+              );
+
+
+              console.log(
+                "=========================================="
+              );
 
 
               // =================================================
@@ -1797,6 +1999,22 @@ const startBot = async (
 
 
               // =================================================
+              // VERIFICAR DERIV
+              // =================================================
+
+              if (
+                !deriv ||
+                !deriv.isConnected
+              ) {
+
+                throw new Error(
+                  "Deriv no está conectado antes del BUY"
+                );
+
+              }
+
+
+              // =================================================
               // SINCRONIZAR SEGUNDO
               // =================================================
 
@@ -1806,6 +2024,13 @@ const startBot = async (
                   Date.now() %
                   1000
                 );
+
+
+              console.log(
+                "⏱️ ESPERANDO PARA BUY:",
+                msToNextSecond + 200,
+                "ms"
+              );
 
 
               await sleep(
@@ -1828,9 +2053,44 @@ const startBot = async (
               }
 
 
+              if (
+                !deriv.isConnected
+              ) {
+
+                throw new Error(
+                  "Deriv se desconectó antes del BUY"
+                );
+
+              }
+
+
               // =================================================
-              // BUY
+              // 🔥 BUY
               // =================================================
+
+              console.log(
+                "\n💥 EJECUTANDO BUY CONTRACT..."
+              );
+
+
+              console.log(
+                {
+
+                  amount:
+                    formattedStake,
+
+                  price:
+                    formattedStake,
+
+                  contract_type:
+                    finalSignal,
+
+                  symbol:
+                    botConfig.symbol
+
+                }
+              );
+
 
               const contract =
                 await deriv.buyContract({
@@ -1851,6 +2111,23 @@ const startBot = async (
 
 
               // =================================================
+              // RESPUESTA BUY
+              // =================================================
+
+              console.log(
+                "\n📥 RESPUESTA BUY:"
+              );
+
+
+              console.dir(
+                contract,
+                {
+                  depth: null
+                }
+              );
+
+
+              // =================================================
               // BUY ERROR
               // =================================================
 
@@ -1859,7 +2136,7 @@ const startBot = async (
               ) {
 
                 console.error(
-                  "BUY ERROR RESPONSE:",
+                  "❌ BUY ERROR RESPONSE:",
                   JSON.stringify(
                     contract,
                     null,
@@ -1887,8 +2164,13 @@ const startBot = async (
                 !contractId
               ) {
 
+                console.error(
+                  "❌ RESPUESTA BUY SIN CONTRACT ID:",
+                  contract
+                );
+
                 throw new Error(
-                  "Contrato inválido"
+                  "Contrato inválido: no se recibió contract_id"
                 );
 
               }
@@ -1916,101 +2198,136 @@ const startBot = async (
               // DB TRADE
               // =================================================
 
-              trade =
-                await createTrade({
+              try {
 
-                  start_time:
-                    new Date(),
+                trade =
+                  await createTrade({
 
-                  expiry_time:
-                    new Date(
-                      Date.now() +
-                      ENGINE_CONFIG.CONTRACT_DURATION_MS
-                    ),
+                    start_time:
+                      new Date(),
 
-                  user_id:
-                    user.id,
+                    expiry_time:
+                      new Date(
+                        Date.now() +
+                        ENGINE_CONFIG.CONTRACT_DURATION_MS
+                      ),
 
-                  bot_id:
-                    botConfig.id,
+                    user_id:
+                      user.id,
 
-                  contract_id:
-                    contractId,
+                    bot_id:
+                      botConfig.id,
 
-                  symbol:
-                    botConfig.symbol,
+                    contract_id:
+                      contractId,
 
-                  type:
-                    finalSignal,
+                    symbol:
+                      botConfig.symbol,
 
-                  entry_price:
-                    null,
+                    type:
+                      finalSignal,
 
-                  status:
-                    "open"
+                    entry_price:
+                      null,
 
-                });
+                    status:
+                      "open"
+
+                  });
 
 
-              tradeCreated =
-                true;
+                tradeCreated =
+                  true;
+
+
+                console.log(
+                  "✅ TRADE CREADO EN DB:",
+                  trade?.id
+                );
+
+
+              } catch (dbErr) {
+
+                console.error(
+                  "❌ ERROR CREANDO TRADE EN DB:",
+                  dbErr.message
+                );
+
+                // IMPORTANTE:
+                // El contrato ya existe.
+                // NO cancelamos el control del contrato.
+
+              }
 
 
               // =================================================
               // ESTADÍSTICAS
               // =================================================
 
-              await saveTradeStatistics({
+              if (
+                trade?.id
+              ) {
 
-                tradeId:
-                  trade.id,
+                try {
 
-                strategy:
-                  result.strategy,
+                  await saveTradeStatistics({
 
-                symbol:
-                  botConfig.symbol,
+                    tradeId:
+                      trade.id,
 
-                signal:
-                  result.signal,
+                    strategy:
+                      result.strategy,
 
-                score:
-                  result.score,
+                    symbol:
+                      botConfig.symbol,
 
-                analysis:
-                  result.analysis,
+                    signal:
+                      result.signal,
 
-                stake:
-                  formattedStake,
+                    score:
+                      result.score,
 
-                martingale:
-                  currentMartingale,
+                    analysis:
+                      result.analysis,
 
-                balanceBefore:
-                  risk.balance,
+                    stake:
+                      formattedStake,
 
-                // =============================================
-                // DATOS ADICIONALES
-                // =============================================
+                    martingale:
+                      currentMartingale,
 
-                callScore:
-                  result.callScore,
+                    balanceBefore:
+                      risk.balance,
 
-                putScore:
-                  result.putScore,
+                    callScore:
+                      result.callScore,
 
-                pattern:
-                  result.pattern,
+                    putScore:
+                      result.putScore,
 
-                pctGreen,
+                    pattern:
+                      result.pattern,
 
-                pctRed,
+                    pctGreen,
 
-                historyEdge,
+                    pctRed,
 
-                volatility
+                    historyEdge,
 
-              });
+                    volatility
+
+                  });
+
+                } catch (statsErr) {
+
+                  console.error(
+                    "⚠️ ERROR GUARDANDO ESTADÍSTICAS:",
+                    statsErr.message
+                  );
+
+                }
+
+              }
 
 
               state.trades++;
@@ -2743,29 +3060,35 @@ const startBot = async (
                           true;
 
 
-                        const updatedTrade =
-                          await updateTradeByContract(
+                        if (
+                          trade?.id
+                        ) {
 
-                            Number(
-                              contractId
-                            ),
+                          const updatedTrade =
+                            await updateTradeByContract(
 
-                            {
+                              Number(
+                                contractId
+                              ),
 
-                              entry_price:
-                                Number(
-                                  current
-                                )
+                              {
 
-                            }
+                                entry_price:
+                                  Number(
+                                    current
+                                  )
 
+                              }
+
+                            );
+
+
+                          console.log(
+                            "✅ TRADE ACTUALIZADO:",
+                            updatedTrade
                           );
 
-
-                        console.log(
-                          "✅ TRADE ACTUALIZADO:",
-                          updatedTrade
-                        );
+                        }
 
                       }
 
@@ -2783,7 +3106,8 @@ const startBot = async (
                         {
 
                           contract_id:
-                            c.contractId,
+                            c.contractId ||
+                            contractId,
 
                           profit:
                             c.profit,
@@ -2945,11 +3269,41 @@ const startBot = async (
                   );
 
 
+              // =================================================
+              // BUY COMPLETADO
+              // =================================================
+
+              console.log(
+                "\n✅ BUY COMPLETADO CORRECTAMENTE"
+              );
+
+              console.log(
+                "🔒 CONTRACT ID:",
+                contractId
+              );
+
+              console.log(
+                "🎯 SIGNAL:",
+                finalSignal
+              );
+
+              console.log(
+                "💰 STAKE:",
+                formattedStake
+              );
+
+
             } catch (err) {
 
               console.error(
-                "🔥 TRADE ERROR:",
+                "\n🔥 TRADE ERROR:",
                 err.message
+              );
+
+
+              console.error(
+                "🔥 TRADE ERROR STACK:",
+                err.stack
               );
 
 
@@ -2972,10 +3326,6 @@ const startBot = async (
 
 
                 try {
-
-                  // -----------------------------------------------
-                  // RECUPERAR WATCH
-                  // -----------------------------------------------
 
                   await deriv.watchContract(
 
@@ -3035,6 +3385,7 @@ const startBot = async (
                 }
 
 
+                // No liberar el bot si existe contrato
                 return;
 
               }
@@ -3043,6 +3394,11 @@ const startBot = async (
               // =================================================
               // SI NO HUBO BUY
               // =================================================
+
+              console.log(
+                "🔓 NO HUBO CONTRATO → LIBERANDO BOT"
+              );
+
 
               state.currentContractId =
                 null;
