@@ -921,529 +921,166 @@ function syntheticProStrategy(
     }
 
 
-    // ========================================================
-    // 📊 HISTORIAL DEL PATRÓN
-    // ========================================================
+    
 
-    const currentStats =
-        stats?.[pattern];
+// =========================================================
+// 🔒 FILTRO HISTÓRICO OBLIGATORIO
+// =========================================================
 
+if (CONFIG.REQUIRE_HISTORY) {
 
-    let pctGreen =
-        null;
+    // -----------------------------------------------------
+    // HISTORIAL INSUFICIENTE
+    // -----------------------------------------------------
 
-
-    let pctRed =
-        null;
-
-
-    let historyTotal =
-        0;
-
-
-    let historyEdge =
-        0;
-
-
-    let historyDirection =
-        null;
-
-
-    let historyValid =
-        false;
-
-
-    // ========================================================
-    // EXISTE ESTADÍSTICA
-    // ========================================================
-
-    if (
-        currentStats
-    ) {
-
-        historyTotal =
-            Number(
-                currentStats.total || 0
-            );
-
-
-        // ====================================================
-        // PORCENTAJES DIRECTOS
-        // ====================================================
-
-        pctGreen =
-            Number(
-                currentStats.pctGreen
-            );
-
-
-        pctRed =
-            Number(
-                currentStats.pctRed
-            );
-
-
-        // ====================================================
-        // FALLBACK
-        //
-        // Si calculateStats devuelve:
-        //
-        // green
-        // red
-        // total
-        //
-        // calculamos los porcentajes.
-        // ====================================================
-
-        if (
-            !Number.isFinite(
-                pctGreen
-            ) ||
-            !Number.isFinite(
-                pctRed
-            )
-        ) {
-
-            const green =
-                Number(
-                    currentStats.green || 0
-                );
-
-
-            const red =
-                Number(
-                    currentStats.red || 0
-                );
-
-
-            const calculatedTotal =
-                green +
-                red;
-
-
-            if (
-                calculatedTotal > 0
-            ) {
-
-                pctGreen =
-                    Number(
-                        (
-                            green /
-                            calculatedTotal *
-                            100
-                        ).toFixed(2)
-                    );
-
-
-                pctRed =
-                    Number(
-                        (
-                            red /
-                            calculatedTotal *
-                            100
-                        ).toFixed(2)
-                    );
-
-
-                // Si total no vino correctamente
-                if (
-                    historyTotal <= 0
-                ) {
-
-                    historyTotal =
-                        calculatedTotal;
-
-                }
-
-            }
-
-        }
-
-
-        // ====================================================
-        // VALIDAR PORCENTAJES
-        // ====================================================
-
-        if (
-            Number.isFinite(
-                pctGreen
-            ) &&
-            Number.isFinite(
-                pctRed
-            ) &&
-            historyTotal >=
-            CONFIG.PATTERN_MIN
-        ) {
-
-            historyValid =
-                true;
-
-
-            // ================================================
-            // DIRECCIÓN HISTÓRICA
-            // ================================================
-
-            if (
-                pctGreen >
-                pctRed
-            ) {
-
-                historyDirection =
-                    "CALL";
-
-
-                historyEdge =
-                    pctGreen -
-                    pctRed;
-
-            }
-
-            else if (
-                pctRed >
-                pctGreen
-            ) {
-
-                historyDirection =
-                    "PUT";
-
-
-                historyEdge =
-                    pctRed -
-                    pctGreen;
-
-            }
-
-            else {
-
-                historyDirection =
-                    null;
-
-
-                historyEdge =
-                    0;
-
-            }
-
-
-        }
-
-        else {
-
-            console.log(
-                "⚠️ HISTORIAL DEL PATRÓN INSUFICIENTE:",
-                {
-
-                    pattern,
-
-                    total:
-                        historyTotal,
-
-                    minimo:
-                        CONFIG.PATTERN_MIN,
-
-                    pctGreen,
-
-                    pctRed
-
-                }
-            );
-
-        }
-
-    }
-
-    else {
+    if (!historyValid) {
 
         console.log(
-            "⚠️ NO EXISTE HISTORIAL PARA PATRÓN:",
-            pattern
+            "⛔ NO TRADE: HISTORIAL INSUFICIENTE",
+            {
+                pattern,
+                total: historyTotal,
+                minimo: CONFIG.PATTERN_MIN
+            }
         );
 
+        return buildSignal({
+
+            strategy: "synthetic_pro",
+
+            signal: null,
+
+            score:
+                Math.max(
+                    callScore,
+                    putScore
+                ),
+
+            trend:
+                trendUp ||
+                trendDown,
+
+            bos:
+                bosUp ||
+                bosDown,
+
+            pullback:
+                pullbackUp ||
+                pullbackDown,
+
+            momentum:
+                momentumUp ||
+                momentumDown,
+
+            strength:
+                avgStrength,
+
+            pattern,
+
+            pctGreen,
+
+            pctRed,
+
+            total:
+                historyTotal,
+
+            historyEdge,
+
+            historyDirection,
+
+            callScore,
+
+            putScore,
+
+            sma
+
+        });
+
     }
 
 
-    // ========================================================
-    // 📊 AÑADIR HISTORIAL AL SCORE
-    //
-    // IMPORTANTE:
-    //
-    // SOLO UNA VEZ.
-    //
-    // La versión anterior lo agregaba dos veces.
-    // ========================================================
+    // -----------------------------------------------------
+    // EDGE MÍNIMO
+    // -----------------------------------------------------
 
     if (
-        historyValid
+        historyEdge <
+        CONFIG.HISTORY_MIN_EDGE
     ) {
 
-        if (
-            historyDirection === "CALL"
-        ) {
-
-            if (
-                historyEdge >= 10
-            ) {
-
-                addCall(
-                    1,
-                    "History"
-                );
-
+        console.log(
+            "⛔ NO TRADE: EDGE HISTÓRICO INSUFICIENTE",
+            {
+                pattern,
+                total: historyTotal,
+                pctGreen,
+                pctRed,
+                direction:
+                    historyDirection,
+                edge:
+                    Number(
+                        historyEdge.toFixed(2)
+                    ),
+                minimo:
+                    CONFIG.HISTORY_MIN_EDGE
             }
+        );
 
+        return buildSignal({
 
-            if (
-                historyEdge >= 20
-            ) {
+            strategy: "synthetic_pro",
 
-                addCall(
-                    1,
-                    "History Strong"
-                );
+            signal: null,
 
-            }
+            score:
+                Math.max(
+                    callScore,
+                    putScore
+                ),
 
+            trend:
+                trendUp ||
+                trendDown,
 
-            if (
-                historyEdge >= 30
-            ) {
+            bos:
+                bosUp ||
+                bosDown,
 
-                addCall(
-                    1,
-                    "History Very Strong"
-                );
+            pullback:
+                pullbackUp ||
+                pullbackDown,
 
-            }
+            momentum:
+                momentumUp ||
+                momentumDown,
 
-        }
+            strength:
+                avgStrength,
 
+            pattern,
 
-        if (
-            historyDirection === "PUT"
-        ) {
+            pctGreen,
 
-            if (
-                historyEdge >= 10
-            ) {
+            pctRed,
 
-                addPut(
-                    1,
-                    "History"
-                );
+            total:
+                historyTotal,
 
-            }
+            historyEdge,
 
+            historyDirection,
 
-            if (
-                historyEdge >= 20
-            ) {
+            callScore,
 
-                addPut(
-                    1,
-                    "History Strong"
-                );
+            putScore,
 
-            }
+            sma
 
-
-            if (
-                historyEdge >= 30
-            ) {
-
-                addPut(
-                    1,
-                    "History Very Strong"
-                );
-
-            }
-
-        }
+        });
 
     }
 
-
-    // ========================================================
-    // 🚨 HISTORIAL OBLIGATORIO
-    // ========================================================
-
-    if (
-        CONFIG.REQUIRE_HISTORY
-    ) {
-
-        // ====================================================
-        // NO EXISTE HISTORIAL SUFICIENTE
-        // ====================================================
-
-        if (
-            !historyValid
-        ) {
-
-            console.log(
-                "⛔ NO TRADE: historial insuficiente",
-                {
-
-                    pattern,
-
-                    total:
-                        historyTotal,
-
-                    minimo:
-                        CONFIG.PATTERN_MIN,
-
-                    pctGreen,
-
-                    pctRed
-
-                }
-            );
-
-
-            return buildSignal({
-
-                strategy:
-                    "synthetic_pro",
-
-                signal:
-                    null,
-
-                score:
-                    Math.max(
-                        callScore,
-                        putScore
-                    ),
-
-
-                trend:
-                    trendUp ||
-                    trendDown,
-
-                bos:
-                    bosUp ||
-                    bosDown,
-
-                pullback:
-                    pullbackUp ||
-                    pullbackDown,
-
-                momentum:
-                    momentumUp ||
-                    momentumDown,
-
-                strength:
-                    avgStrength,
-
-                pattern,
-
-                pctGreen,
-
-                pctRed,
-
-                total:
-                    historyTotal,
-
-                historyEdge,
-
-                historyDirection,
-
-                callScore,
-
-                putScore,
-
-                sma
-
-            });
-
-        }
-
-
-        // ====================================================
-        // EDGE INSUFICIENTE
-        // ====================================================
-
-        if (
-            historyEdge <
-            CONFIG.HISTORY_MIN_EDGE
-        ) {
-
-            console.log(
-                "⛔ NO TRADE: EDGE HISTÓRICO INSUFICIENTE",
-                {
-
-                    pattern,
-
-                    pctGreen,
-
-                    pctRed,
-
-                    edge:
-                        historyEdge,
-
-                    minimo:
-                        CONFIG.HISTORY_MIN_EDGE
-
-                }
-            );
-
-
-            return buildSignal({
-
-                strategy:
-                    "synthetic_pro",
-
-                signal:
-                    null,
-
-                score:
-                    Math.max(
-                        callScore,
-                        putScore
-                    ),
-
-
-                trend:
-                    trendUp ||
-                    trendDown,
-
-                bos:
-                    bosUp ||
-                    bosDown,
-
-                pullback:
-                    pullbackUp ||
-                    pullbackDown,
-
-                momentum:
-                    momentumUp ||
-                    momentumDown,
-
-                strength:
-                    avgStrength,
-
-                pattern,
-
-                pctGreen,
-
-                pctRed,
-
-                total:
-                    historyTotal,
-
-                historyEdge,
-
-                historyDirection,
-
-                callScore,
-
-                putScore,
-
-                sma
-
-            });
-
-        }
-
-    }
-
+}
 
     // ========================================================
     // PENALIZACIÓN CONTRARIA A LA TENDENCIA
