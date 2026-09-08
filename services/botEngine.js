@@ -1,5 +1,5 @@
 // ============================================================
-// 🤖 BOT ENGINE - MODO PRO
+// 🤖 BOT ENGINE - MODO PRO + INTELLIGENCE
 // ============================================================
 
 const {
@@ -17,6 +17,9 @@ const {
 
 const RiskManager =
   require("../bot/riskManager");
+
+const IntelligenceEngine =
+  require("../bot/intelligenceEngine");
 
 const {
   updateBotStatus,
@@ -59,7 +62,7 @@ const ENGINE_CONFIG = {
   LOSS_COOLDOWN_MS:
     5 * 60 * 1000,
 
-  // Máximo martingale permitido
+  // Máximo martingale permitido por ENGINE
   MAX_MARTINGALE: 3,
 
   // Duración esperada del contrato
@@ -71,7 +74,16 @@ const ENGINE_CONFIG = {
     75 * 1000,
 
   // Histórico mínimo global
-  MIN_HISTORY_CANDLES: 30
+  MIN_HISTORY_CANDLES: 30,
+
+  // ----------------------------------------------------------
+  // INTELLIGENCE
+  // ----------------------------------------------------------
+
+  INTELLIGENCE_MIN_CONFIDENCE: 60,
+
+  // Solo se utiliza Intelligence con synthetic_pro
+  INTELLIGENCE_STRATEGY: "synthetic_pro"
 
 };
 
@@ -269,7 +281,9 @@ const scheduleNextTrade = (
 
   const msToNextMinute =
     60000 -
-    (now % 60000);
+    (
+      now % 60000
+    );
 
 
   // ==========================================================
@@ -283,7 +297,9 @@ const scheduleNextTrade = (
     state.nextTradeTime =
       now +
       msToNextMinute +
-      (2 * 60000);
+      (
+        2 * 60000
+      );
 
   }
 
@@ -587,6 +603,268 @@ const calculateAverageRange = (
 
 
 // ============================================================
+// 🧠 ANALIZAR CON INTELLIGENCE
+// ============================================================
+
+const runIntelligence = (
+  state,
+  botConfig,
+  candles,
+  strategyResult
+) => {
+
+  // ----------------------------------------------------------
+  // Intelligence solamente para synthetic_pro
+  // ----------------------------------------------------------
+
+  if (
+    botConfig.strategy !==
+    ENGINE_CONFIG.INTELLIGENCE_STRATEGY
+  ) {
+
+    return null;
+
+  }
+
+
+  // ----------------------------------------------------------
+  // No analizar si no existe señal
+  // ----------------------------------------------------------
+
+  if (
+    !strategyResult ||
+    !strategyResult.signal
+  ) {
+
+    return null;
+
+  }
+
+
+  if (
+    !state.intelligence
+  ) {
+
+    console.warn(
+      "⚠️ INTELLIGENCE NO DISPONIBLE"
+    );
+
+    return null;
+
+  }
+
+
+  try {
+
+    const intelligence =
+      state.intelligence.analyze(
+        candles,
+        strategyResult,
+        state
+      );
+
+
+    if (
+      !intelligence
+    ) {
+
+      console.warn(
+        "⚠️ INTELLIGENCE NO DEVOLVIÓ RESULTADO"
+      );
+
+      return null;
+
+    }
+
+
+    // --------------------------------------------------------
+    // Compatibilidad con versiones antiguas de Intelligence
+    // --------------------------------------------------------
+
+    const confidence =
+      Number(
+        intelligence.confidence || 0
+      );
+
+
+    let approved;
+
+
+    // Si Intelligence ya devuelve approved,
+    // utilizamos directamente ese valor.
+
+    if (
+      typeof intelligence.approved ===
+      "boolean"
+    ) {
+
+      approved =
+        intelligence.approved;
+
+    } else {
+
+      // Compatibilidad con tu Intelligence actual
+      approved = Boolean(
+
+        strategyResult.signal &&
+
+        intelligence.signal &&
+
+        intelligence.signal ===
+        strategyResult.signal &&
+
+        confidence >=
+        ENGINE_CONFIG.INTELLIGENCE_MIN_CONFIDENCE
+
+      );
+
+    }
+
+
+    const finalAnalysis = {
+
+      ...intelligence,
+
+      approved,
+
+      syntheticSignal:
+        strategyResult.signal,
+
+      syntheticScore:
+        Number(
+          strategyResult.score || 0
+        ),
+
+      syntheticCallScore:
+        Number(
+          strategyResult.callScore || 0
+        ),
+
+      syntheticPutScore:
+        Number(
+          strategyResult.putScore || 0
+        )
+
+    };
+
+
+    // --------------------------------------------------------
+    // LOG
+    // --------------------------------------------------------
+
+    console.log(
+      "\n🧠 ================================"
+    );
+
+    console.log(
+      "🧠 INTELLIGENCE RESULT"
+    );
+
+    console.log(
+      "🧠 ================================"
+    );
+
+    console.dir(
+      {
+
+        syntheticSignal:
+          strategyResult.signal,
+
+        syntheticScore:
+          strategyResult.score,
+
+        syntheticCallScore:
+          strategyResult.callScore,
+
+        syntheticPutScore:
+          strategyResult.putScore,
+
+        intelligenceSignal:
+          finalAnalysis.signal,
+
+        confidence:
+          finalAnalysis.confidence,
+
+        approved:
+          finalAnalysis.approved,
+
+        regime:
+          finalAnalysis.regime?.regime ??
+          finalAnalysis.regime,
+
+        volatility:
+          finalAnalysis.volatility?.regime ??
+          finalAnalysis.volatility,
+
+        candleStrength:
+          finalAnalysis.candleStrength,
+
+        difference:
+          finalAnalysis.difference,
+
+        reasons:
+          finalAnalysis.reasons
+
+      },
+
+      {
+        depth: null
+      }
+    );
+
+    console.log(
+      "🧠 ================================\n"
+    );
+
+
+    return finalAnalysis;
+
+
+  } catch (err) {
+
+    console.error(
+      "❌ ERROR INTELLIGENCE:",
+      err.message
+    );
+
+    console.error(
+      err.stack
+    );
+
+    // --------------------------------------------------------
+    // IMPORTANTE:
+    //
+    // Si Intelligence falla NO hacemos BUY.
+    //
+    // Esto evita que un fallo del motor inteligente
+    // convierta una señal no validada en una operación.
+    // --------------------------------------------------------
+
+    return {
+
+      enabled:
+        true,
+
+      signal:
+        null,
+
+      confidence:
+        0,
+
+      approved:
+        false,
+
+      error:
+        err.message
+
+    };
+
+  }
+
+};
+
+
+// ============================================================
 // 🚨 WATCHDOG DEL CONTRATO
 // ============================================================
 
@@ -875,6 +1153,17 @@ const startBot = async (
 
 
   // ==========================================================
+  // 🧠 INTELLIGENCE
+  //
+  // Cada bot tiene su propia memoria.
+  // No mezclamos trades entre bots.
+  // ==========================================================
+
+  const intelligence =
+    new IntelligenceEngine();
+
+
+  // ==========================================================
   // ESTADO
   // ==========================================================
 
@@ -892,6 +1181,8 @@ const startBot = async (
 
     risk,
 
+    intelligence,
+
     subId:
       null,
 
@@ -907,6 +1198,7 @@ const startBot = async (
     pnl:
       0,
 
+
     // ------------------------------------------
     // RACHAS
     // ------------------------------------------
@@ -917,6 +1209,7 @@ const startBot = async (
     consecutiveLosses:
       0,
 
+
     // ------------------------------------------
     // COOLDOWN
     // ------------------------------------------
@@ -926,6 +1219,7 @@ const startBot = async (
 
     cooldownUntil:
       0,
+
 
     // ------------------------------------------
     // TRADING
@@ -946,12 +1240,22 @@ const startBot = async (
     lastExecutedSignal:
       null,
 
+
     // ------------------------------------------
     // HISTÓRICO
     // ------------------------------------------
 
     stats:
       {},
+
+
+    // ------------------------------------------
+    // 🧠 CONTEXTO DE LA ÚLTIMA OPERACIÓN
+    // ------------------------------------------
+
+    lastTradeContext:
+      null,
+
 
     // ------------------------------------------
     // TIMERS
@@ -962,6 +1266,7 @@ const startBot = async (
 
     contractWatchdog:
       null,
+
 
     // ------------------------------------------
     // ESTADO
@@ -1149,7 +1454,11 @@ const startBot = async (
         botConfig.symbol,
 
       strategy:
-        botConfig.strategy
+        botConfig.strategy,
+
+      intelligence:
+        botConfig.strategy ===
+        ENGINE_CONFIG.INTELLIGENCE_STRATEGY
 
     }
   );
@@ -1486,16 +1795,6 @@ const startBot = async (
             );
 
 
-            // ==================================================
-            // IMPORTANTE:
-            //
-            // Se pasa TODO state.
-            //
-            // syntheticProStrategy espera:
-            //
-            // state.stats
-            // ==================================================
-
             const result =
               getSignal(
 
@@ -1581,7 +1880,10 @@ const startBot = async (
                   result.total,
 
                 historyEdge:
-                  result.historyEdge
+                  result.historyEdge,
+
+                historyDirection:
+                  result.historyDirection
 
               }
             );
@@ -1615,13 +1917,6 @@ const startBot = async (
 
             // ==================================================
             // 📊 INFORMACIÓN HISTÓRICA
-            //
-            // IMPORTANTE:
-            //
-            // YA NO BLOQUEAMOS EL TRADE AQUÍ.
-            //
-            // La estrategia es responsable de utilizar
-            // el histórico para decidir CALL / PUT.
             // ==================================================
 
             let patternStats =
@@ -1714,10 +2009,20 @@ const startBot = async (
 
 
             const historyEdge =
-              Math.abs(
-                pctGreen -
-                pctRed
-              );
+              Number.isFinite(
+                Number(
+                  result.historyEdge
+                )
+              )
+
+                ? Number(
+                    result.historyEdge
+                  )
+
+                : Math.abs(
+                    pctGreen -
+                    pctRed
+                  );
 
 
             console.log(
@@ -1745,23 +2050,116 @@ const startBot = async (
 
 
             // ==================================================
-            // 🚨 NO HAY BLOQUEO HISTÓRICO
-            // ==================================================
-            //
-            // ANTES:
-            //
-            // if(historyDirection !== finalSignal)
-            //     return;
-            //
-            // ESO SE ELIMINA.
-            //
-            // La estrategia ya tomó la decisión.
-            //
+            // 🧠 INTELLIGENCE
             // ==================================================
 
+            const intelligence =
+              runIntelligence(
+
+                state,
+
+                botConfig,
+
+                closedCandles,
+
+                result
+
+              );
+
+
+            // ==================================================
+            // ⛔ INTELLIGENCE BLOQUEA
+            // ==================================================
+
+            if (
+
+              botConfig.strategy ===
+              ENGINE_CONFIG.INTELLIGENCE_STRATEGY
+
+            ) {
+
+              if (
+                !intelligence
+              ) {
+
+                console.log(
+                  "🧠⛔ INTELLIGENCE SIN RESULTADO → NO BUY"
+                );
+
+                return;
+
+              }
+
+
+              if (
+                !intelligence.approved
+              ) {
+
+                console.log(
+                  "🧠⛔ INTELLIGENCE BLOQUEÓ LA OPERACIÓN:",
+                  {
+
+                    synthetic:
+                      finalSignal,
+
+                    intelligence:
+                      intelligence.signal,
+
+                    confidence:
+                      intelligence.confidence,
+
+                    approved:
+                      intelligence.approved,
+
+                    regime:
+                      intelligence.regime?.regime ??
+                      intelligence.regime,
+
+                    volatility:
+                      intelligence.volatility?.regime ??
+                      intelligence.volatility,
+
+                    reasons:
+                      intelligence.reasons
+
+                  }
+                );
+
+                return;
+
+              }
+
+
+              console.log(
+                "🧠✅ INTELLIGENCE APROBÓ LA OPERACIÓN:",
+                {
+
+                  signal:
+                    finalSignal,
+
+                  confidence:
+                    intelligence.confidence,
+
+                  regime:
+                    intelligence.regime?.regime ??
+                    intelligence.regime,
+
+                  volatility:
+                    intelligence.volatility?.regime ??
+                    intelligence.volatility
+
+                }
+              );
+
+            }
+
+
+            // ==================================================
+            // SEÑAL APROBADA
+            // ==================================================
 
             console.log(
-              "✅ SEÑAL APROBADA POR LA ESTRATEGIA:",
+              "✅ SEÑAL APROBADA:",
               {
 
                 signal:
@@ -1771,7 +2169,15 @@ const startBot = async (
                   result.score,
 
                 pattern:
-                  result.pattern
+                  result.pattern,
+
+                intelligence:
+                  intelligence?.approved ??
+                  null,
+
+                confidence:
+                  intelligence?.confidence ??
+                  null
 
               }
             );
@@ -1779,9 +2185,6 @@ const startBot = async (
 
             // ==================================================
             // 🔒 RESERVAR BOT
-            //
-            // MUY IMPORTANTE:
-            // antes de cualquier await.
             // ==================================================
 
             state.running =
@@ -1883,6 +2286,100 @@ const startBot = async (
 
 
               // =================================================
+              // 🧠 GUARDAR CONTEXTO PARA LEARNING
+              // =================================================
+
+              state.lastTradeContext = {
+
+                signal:
+                  finalSignal,
+
+                score:
+                  Number(
+                    result.score || 0
+                  ),
+
+                callScore:
+                  Number(
+                    result.callScore || 0
+                  ),
+
+                putScore:
+                  Number(
+                    result.putScore || 0
+                  ),
+
+                pattern:
+                  result.pattern ??
+                  null,
+
+                pctGreen:
+                  Number(
+                    pctGreen || 0
+                  ),
+
+                pctRed:
+                  Number(
+                    pctRed || 0
+                  ),
+
+                total:
+                  Number(
+                    statsTotal || 0
+                  ),
+
+                historyEdge:
+                  Number(
+                    historyEdge || 0
+                  ),
+
+                historyDirection:
+                  result.historyDirection ??
+                  null,
+
+                confidence:
+                  Number(
+                    intelligence?.confidence || 0
+                  ),
+
+                regime:
+                  intelligence?.regime?.regime ??
+                  intelligence?.regime ??
+                  null,
+
+                volatility:
+                  intelligence?.volatility?.regime ??
+                  intelligence?.volatility ??
+                  null,
+
+                candleStrength:
+                  Number(
+                    intelligence?.candleStrength || 0
+                  ),
+
+                martingale:
+                  currentMartingale,
+
+                strategy:
+                  result.strategy ??
+                  botConfig.strategy,
+
+                symbol:
+                  botConfig.symbol,
+
+                createdAt:
+                  Date.now()
+
+              };
+
+
+              console.log(
+                "🧠 CONTEXTO GUARDADO PARA LEARNING:",
+                state.lastTradeContext
+              );
+
+
+              // =================================================
               // 🔥 PREPARANDO BUY
               // =================================================
 
@@ -1939,6 +2436,19 @@ const startBot = async (
 
 
               console.log(
+                "📌 HISTORY EDGE:",
+                historyEdge
+              );
+
+
+              console.log(
+                "📌 INTELLIGENCE CONFIDENCE:",
+                intelligence?.confidence ??
+                null
+              );
+
+
+              console.log(
                 "📌 MARTINGALE:",
                 currentMartingale
               );
@@ -1990,6 +2500,20 @@ const startBot = async (
                   pctRed,
 
                   historyEdge,
+
+                  confidence:
+                    intelligence?.confidence ??
+                    null,
+
+                  regime:
+                    intelligence?.regime?.regime ??
+                    intelligence?.regime ??
+                    null,
+
+                  volatility:
+                    intelligence?.volatility?.regime ??
+                    intelligence?.volatility ??
+                    null,
 
                   martingale:
                     currentMartingale
@@ -2144,6 +2668,7 @@ const startBot = async (
                   )
                 );
 
+
                 throw new Error(
                   contract.error.message ||
                   "Error al comprar contrato"
@@ -2168,6 +2693,7 @@ const startBot = async (
                   "❌ RESPUESTA BUY SIN CONTRACT ID:",
                   contract
                 );
+
 
                 throw new Error(
                   "Contrato inválido: no se recibió contract_id"
@@ -2253,9 +2779,8 @@ const startBot = async (
                   dbErr.message
                 );
 
-                // IMPORTANTE:
                 // El contrato ya existe.
-                // NO cancelamos el control del contrato.
+                // Continuamos controlándolo.
 
               }
 
@@ -2317,6 +2842,7 @@ const startBot = async (
                     volatility
 
                   });
+
 
                 } catch (statsErr) {
 
@@ -2505,6 +3031,74 @@ const startBot = async (
 
 
                   // =============================================
+                  // 🧠 INTELLIGENCE LEARNING
+                  // =============================================
+
+                  if (
+
+                    state.intelligence &&
+
+                    state.lastTradeContext
+
+                  ) {
+
+                    try {
+
+                      const learningData = {
+
+                        ...state.lastTradeContext,
+
+                        result:
+                          tradeResult,
+
+                        profit,
+
+                        contractId,
+
+                        tradeId:
+                          trade?.id ?? null,
+
+                        finishedAt:
+                          Date.now()
+
+                      };
+
+
+                      console.log(
+                        "🧠 INTELLIGENCE LEARNING:",
+                        learningData
+                      );
+
+
+                      const intelligenceStats =
+                        state.intelligence.learn(
+                          learningData
+                        );
+
+
+                      console.log(
+                        "🧠 INTELLIGENCE APRENDIÓ:",
+                        intelligenceStats
+                      );
+
+
+                    } catch (learningErr) {
+
+                      console.error(
+                        "❌ INTELLIGENCE LEARNING ERROR:",
+                        learningErr.message
+                      );
+
+                      console.error(
+                        learningErr.stack
+                      );
+
+                    }
+
+                  }
+
+
+                  // =============================================
                   // MARTINGALE
                   // =============================================
 
@@ -2634,7 +3228,13 @@ const startBot = async (
                         state.consecutiveLosses,
 
                       martingale:
-                        risk.martingaleStep
+                        risk.martingaleStep,
+
+                      intelligence:
+
+                        state.lastTradeContext
+                          ?.confidence ??
+                        0
 
                     }
                   );
@@ -2794,6 +3394,7 @@ const startBot = async (
                       "🧹 Suscripción olvidada:",
                       contractId
                     );
+
 
                   } catch (err) {
 
@@ -2969,7 +3570,13 @@ const startBot = async (
                         ),
 
                       cooldown:
-                        state.cooldown
+                        state.cooldown,
+
+                      intelligenceConfidence:
+                        Number(
+                          state.lastTradeContext
+                            ?.confidence || 0
+                        )
 
                     }
 
@@ -2998,6 +3605,14 @@ const startBot = async (
 
                   state.entrySaved =
                     false;
+
+
+                  // =============================================
+                  // LIMPIAR CONTEXTO DE TRADE
+                  // =============================================
+
+                  state.lastTradeContext =
+                    null;
 
 
                   console.log(
@@ -3277,19 +3892,29 @@ const startBot = async (
                 "\n✅ BUY COMPLETADO CORRECTAMENTE"
               );
 
+
               console.log(
                 "🔒 CONTRACT ID:",
                 contractId
               );
+
 
               console.log(
                 "🎯 SIGNAL:",
                 finalSignal
               );
 
+
               console.log(
                 "💰 STAKE:",
                 formattedStake
+              );
+
+
+              console.log(
+                "🧠 INTELLIGENCE CONFIDENCE:",
+                intelligence?.confidence ??
+                null
               );
 
 
@@ -3385,7 +4010,7 @@ const startBot = async (
                 }
 
 
-                // No liberar el bot si existe contrato
+                // No liberar si existe contrato
                 return;
 
               }
@@ -3412,6 +4037,9 @@ const startBot = async (
               state.entrySaved =
                 false;
 
+              state.lastTradeContext =
+                null;
+
             }
 
 
@@ -3420,6 +4048,10 @@ const startBot = async (
             console.error(
               "🔥 ERROR PROCESANDO TICK:",
               err.message
+            );
+
+            console.error(
+              err.stack
             );
 
           }
@@ -3693,6 +4325,10 @@ const stopBot = async (
 
 
     state.currentContractId =
+      null;
+
+
+    state.lastTradeContext =
       null;
 
 

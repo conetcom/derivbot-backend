@@ -1,12 +1,46 @@
-function buildSignal(data) {
+function buildSignal(data = {}) {
 
     return {
 
-        signal: data.signal,
+        // ==============================
+        // RESULTADO PRINCIPAL
+        // ==============================
 
-        score: data.score,
+        signal: data.signal ?? null,
 
-        strategy: data.strategy,
+        score: Number(data.score) || 0,
+
+        strategy: data.strategy ?? null,
+
+
+        // ==============================
+        // DATOS PRINCIPALES PARA ENGINE
+        // ==============================
+
+        callScore: Number(data.callScore) || 0,
+
+        putScore: Number(data.putScore) || 0,
+
+        pattern: data.pattern ?? null,
+
+        pctGreen: Number(data.pctGreen) || 0,
+
+        pctRed: Number(data.pctRed) || 0,
+
+        total: Number(
+            data.total ??
+            data.historyTotal ??
+            0
+        ) || 0,
+
+        historyEdge: Number(data.historyEdge) || 0,
+
+        historyDirection: data.historyDirection ?? null,
+
+
+        // ==============================
+        // ANÁLISIS COMPLETO
+        // ==============================
 
         analysis: {
 
@@ -24,20 +58,30 @@ function buildSignal(data) {
 
             pattern: data.pattern ?? null,
 
-            pctGreen: data.pctGreen ?? null,
+            pctGreen: Number(data.pctGreen) || 0,
 
-            pctRed: data.pctRed ?? null,
+            pctRed: Number(data.pctRed) || 0,
 
-            callScore: data.callScore ?? 0,
+            callScore: Number(data.callScore) || 0,
 
-            putScore: data.putScore ?? 0,
+            putScore: Number(data.putScore) || 0,
+
+            total: Number(
+                data.total ??
+                data.historyTotal ??
+                0
+            ) || 0,
+
+            historyEdge: Number(data.historyEdge) || 0,
+
+            historyDirection: data.historyDirection ?? null,
 
             sma: data.sma ?? null
 
         }
 
     };
-
 }
 
 module.exports = buildSignal;
+
