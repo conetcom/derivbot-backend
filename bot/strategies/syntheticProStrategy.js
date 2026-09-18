@@ -2460,11 +2460,7 @@ function syntheticProStrategy(
             pctRed,
 
             total:
-                historyTotal,
-                bos,
-            pullback,
-            momentum
-         
+                historyTotal
 
         }
     );
