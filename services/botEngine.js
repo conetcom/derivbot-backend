@@ -55,25 +55,31 @@ const {
 
 const ENGINE_CONFIG = {
 
-  // Máximo de pérdidas consecutivas
+  // ----------------------------------------------------------
+  // SEGURIDAD
+  // ----------------------------------------------------------
+
   MAX_CONSECUTIVE_LOSSES: 3,
 
-  // Tiempo de pausa después de 3 pérdidas
   LOSS_COOLDOWN_MS:
     5 * 60 * 1000,
 
-  // Máximo martingale permitido por ENGINE
   MAX_MARTINGALE: 3,
 
-  // Duración esperada del contrato
+  // ----------------------------------------------------------
+  // CONTRATO
+  // ----------------------------------------------------------
+
   CONTRACT_DURATION_MS:
     60 * 1000,
 
-  // Timeout de seguridad
   CONTRACT_TIMEOUT_MS:
     75 * 1000,
 
-  // Histórico mínimo global
+  // ----------------------------------------------------------
+  // HISTÓRICO
+  // ----------------------------------------------------------
+
   MIN_HISTORY_CANDLES: 30,
 
   // ----------------------------------------------------------
@@ -82,8 +88,8 @@ const ENGINE_CONFIG = {
 
   INTELLIGENCE_MIN_CONFIDENCE: 60,
 
-  // Solo se utiliza Intelligence con synthetic_pro
-  INTELLIGENCE_STRATEGY: "synthetic_pro"
+  INTELLIGENCE_STRATEGY:
+    "synthetic_pro"
 
 };
 
@@ -215,9 +221,7 @@ const releaseBotState = (
 
   state.entrySaved = false;
 
-  if (
-    state.tradeTimeout
-  ) {
+  if (state.tradeTimeout) {
 
     clearTimeout(
       state.tradeTimeout
@@ -227,9 +231,7 @@ const releaseBotState = (
 
   }
 
-  if (
-    state.contractWatchdog
-  ) {
+  if (state.contractWatchdog) {
 
     clearInterval(
       state.contractWatchdog
@@ -286,9 +288,9 @@ const scheduleNextTrade = (
     );
 
 
-  // ==========================================================
+  // ----------------------------------------------------------
   // LOSS
-  // ==========================================================
+  // ----------------------------------------------------------
 
   if (
     tradeResult === "loss"
@@ -304,9 +306,9 @@ const scheduleNextTrade = (
   }
 
 
-  // ==========================================================
+  // ----------------------------------------------------------
   // WIN
-  // ==========================================================
+  // ----------------------------------------------------------
 
   else {
 
@@ -381,10 +383,8 @@ const isCooldownActive = (
 
   }
 
-
   const now =
     Date.now();
-
 
   if (
     state.cooldownUntil &&
@@ -411,7 +411,6 @@ const isCooldownActive = (
 
   }
 
-
   return true;
 
 };
@@ -429,7 +428,6 @@ const isMartingaleBlocked = (
     Number(
       state.risk?.martingaleStep ?? 0
     );
-
 
   if (
     martingale >
@@ -451,7 +449,6 @@ const isMartingaleBlocked = (
     return true;
 
   }
-
 
   return false;
 
@@ -479,7 +476,6 @@ const checkLossProtection = (
 
     );
 
-
   if (
     losses >=
     ENGINE_CONFIG.MAX_CONSECUTIVE_LOSSES
@@ -499,7 +495,6 @@ const checkLossProtection = (
     return false;
 
   }
-
 
   return true;
 
@@ -523,10 +518,8 @@ const calculateVolatility = (
 
   }
 
-
   const recent =
     candles.slice(-5);
-
 
   const high =
     Math.max(
@@ -535,14 +528,12 @@ const calculateVolatility = (
       )
     );
 
-
   const low =
     Math.min(
       ...recent.map(
         c => Number(c.low)
       )
     );
-
 
   return (
     high -
@@ -569,10 +560,8 @@ const calculateAverageRange = (
 
   }
 
-
   const recent =
     candles.slice(-10);
-
 
   const ranges =
     recent.map(
@@ -581,7 +570,6 @@ const calculateAverageRange = (
         Number(c.low)
     );
 
-
   if (
     ranges.length === 0
   ) {
@@ -589,7 +577,6 @@ const calculateAverageRange = (
     return 0;
 
   }
-
 
   return (
     ranges.reduce(
@@ -614,7 +601,7 @@ const runIntelligence = (
 ) => {
 
   // ----------------------------------------------------------
-  // Intelligence solamente para synthetic_pro
+  // Intelligence solo para Synthetic Pro
   // ----------------------------------------------------------
 
   if (
@@ -628,7 +615,7 @@ const runIntelligence = (
 
 
   // ----------------------------------------------------------
-  // No analizar si no existe señal
+  // No analizar sin señal
   // ----------------------------------------------------------
 
   if (
@@ -640,6 +627,10 @@ const runIntelligence = (
 
   }
 
+
+  // ----------------------------------------------------------
+  // Intelligence disponible
+  // ----------------------------------------------------------
 
   if (
     !state.intelligence
@@ -678,7 +669,7 @@ const runIntelligence = (
 
 
     // --------------------------------------------------------
-    // Compatibilidad con versiones antiguas de Intelligence
+    // CONFIDENCE
     // --------------------------------------------------------
 
     const confidence =
@@ -687,11 +678,12 @@ const runIntelligence = (
       );
 
 
+    // --------------------------------------------------------
+    // APPROVED
+    // --------------------------------------------------------
+
     let approved;
 
-
-    // Si Intelligence ya devuelve approved,
-    // utilizamos directamente ese valor.
 
     if (
       typeof intelligence.approved ===
@@ -701,9 +693,10 @@ const runIntelligence = (
       approved =
         intelligence.approved;
 
-    } else {
+    }
 
-      // Compatibilidad con tu Intelligence actual
+    else {
+
       approved = Boolean(
 
         strategyResult.signal &&
@@ -720,6 +713,10 @@ const runIntelligence = (
 
     }
 
+
+    // --------------------------------------------------------
+    // RESULTADO FINAL
+    // --------------------------------------------------------
 
     const finalAnalysis = {
 
@@ -831,13 +828,9 @@ const runIntelligence = (
       err.stack
     );
 
+
     // --------------------------------------------------------
-    // IMPORTANTE:
-    //
-    // Si Intelligence falla NO hacemos BUY.
-    //
-    // Esto evita que un fallo del motor inteligente
-    // convierta una señal no validada en una operación.
+    // FAIL SAFE
     // --------------------------------------------------------
 
     return {
@@ -886,7 +879,6 @@ const startContractWatchdog = (
 
   }
 
-
   let attempts = 0;
 
   const maxAttempts = 24;
@@ -898,9 +890,9 @@ const startContractWatchdog = (
 
         try {
 
-          // ====================================================
-          // CONTRATO YA NO ES EL ACTUAL
-          // ====================================================
+          // --------------------------------------------------
+          // YA NO ES EL CONTRATO ACTUAL
+          // --------------------------------------------------
 
           if (
             state.currentContractId !==
@@ -946,6 +938,7 @@ const startContractWatchdog = (
             console.warn(
               "⚠️ WATCHDOG: contrato no encontrado"
             );
+
 
             if (
               attempts >= maxAttempts
@@ -1154,13 +1147,15 @@ const startBot = async (
 
   // ==========================================================
   // 🧠 INTELLIGENCE
-  //
-  // Cada bot tiene su propia memoria.
-  // No mezclamos trades entre bots.
   // ==========================================================
 
   const intelligence =
-    new IntelligenceEngine();
+    new IntelligenceEngine({
+
+      MIN_CONFIDENCE:
+        ENGINE_CONFIG.INTELLIGENCE_MIN_CONFIDENCE
+
+    });
 
 
   // ==========================================================
@@ -1198,10 +1193,9 @@ const startBot = async (
     pnl:
       0,
 
-
-    // ------------------------------------------
+    // --------------------------------------------------------
     // RACHAS
-    // ------------------------------------------
+    // --------------------------------------------------------
 
     lossStreak:
       0,
@@ -1209,10 +1203,9 @@ const startBot = async (
     consecutiveLosses:
       0,
 
-
-    // ------------------------------------------
+    // --------------------------------------------------------
     // COOLDOWN
-    // ------------------------------------------
+    // --------------------------------------------------------
 
     cooldown:
       false,
@@ -1220,10 +1213,9 @@ const startBot = async (
     cooldownUntil:
       0,
 
-
-    // ------------------------------------------
+    // --------------------------------------------------------
     // TRADING
-    // ------------------------------------------
+    // --------------------------------------------------------
 
     running:
       false,
@@ -1240,26 +1232,23 @@ const startBot = async (
     lastExecutedSignal:
       null,
 
-
-    // ------------------------------------------
+    // --------------------------------------------------------
     // HISTÓRICO
-    // ------------------------------------------
+    // --------------------------------------------------------
 
     stats:
       {},
 
-
-    // ------------------------------------------
-    // 🧠 CONTEXTO DE LA ÚLTIMA OPERACIÓN
-    // ------------------------------------------
+    // --------------------------------------------------------
+    // 🧠 CONTEXTO
+    // --------------------------------------------------------
 
     lastTradeContext:
       null,
 
-
-    // ------------------------------------------
+    // --------------------------------------------------------
     // TIMERS
-    // ------------------------------------------
+    // --------------------------------------------------------
 
     tradeTimeout:
       null,
@@ -1267,10 +1256,9 @@ const startBot = async (
     contractWatchdog:
       null,
 
-
-    // ------------------------------------------
+    // --------------------------------------------------------
     // ESTADO
-    // ------------------------------------------
+    // --------------------------------------------------------
 
     stopping:
       false,
@@ -1349,20 +1337,12 @@ const startBot = async (
       history.length > 0
     ) {
 
-      // ----------------------------------------------
-      // Todas menos la vela actual
-      // ----------------------------------------------
-
       candleBuilder.candles =
         history.slice(
           0,
           -1
         );
 
-
-      // ----------------------------------------------
-      // Vela actual
-      // ----------------------------------------------
 
       candleBuilder.currentCandle =
         {
@@ -1372,10 +1352,6 @@ const startBot = async (
         };
 
 
-      // ----------------------------------------------
-      // Tiempo
-      // ----------------------------------------------
-
       candleBuilder.lastTime =
         Math.floor(
           history[
@@ -1383,10 +1359,6 @@ const startBot = async (
           ].time / 60
         );
 
-
-      // ----------------------------------------------
-      // ESTADÍSTICAS
-      // ----------------------------------------------
 
       state.stats =
         calculateStats(
@@ -1417,7 +1389,9 @@ const startBot = async (
         candleBuilder.currentCandle
       );
 
-    } else {
+    }
+
+    else {
 
       console.warn(
         "⚠️ DERIV NO DEVOLVIÓ HISTÓRICO"
@@ -1534,7 +1508,7 @@ const startBot = async (
 
 
             // ==================================================
-            // EVITAR OPERACIONES DUPLICADAS
+            // EVITAR DUPLICADOS
             // ==================================================
 
             if (
@@ -1604,11 +1578,8 @@ const startBot = async (
             // ==================================================
 
             const {
-
               candles,
-
               isNewCandle
-
             } =
               candleBuilder.update(
                 price,
@@ -1735,7 +1706,7 @@ const startBot = async (
 
 
             // ==================================================
-            // FILTRO DE VOLATILIDAD
+            // FILTRO VOLATILIDAD
             // ==================================================
 
             if (
@@ -1774,18 +1745,15 @@ const startBot = async (
               "\n🧠 EJECUTANDO ESTRATEGIA..."
             );
 
-
             console.log(
               "🧠 STRATEGY:",
               botConfig.strategy
             );
 
-
             console.log(
               "🧠 CANDLES:",
               closedCandles.length
             );
-
 
             console.log(
               "🧠 STATS DISPONIBLES:",
@@ -1808,7 +1776,7 @@ const startBot = async (
 
 
             // ==================================================
-            // 🔥 DEBUG COMPLETO
+            // DEBUG GET SIGNAL
             // ==================================================
 
             console.log(
@@ -1916,7 +1884,7 @@ const startBot = async (
 
 
             // ==================================================
-            // 📊 INFORMACIÓN HISTÓRICA
+            // INFORMACIÓN HISTÓRICA
             // ==================================================
 
             let patternStats =
@@ -2068,14 +2036,12 @@ const startBot = async (
 
 
             // ==================================================
-            // ⛔ INTELLIGENCE BLOQUEA
+            // ⛔ INTELLIGENCE
             // ==================================================
 
             if (
-
               botConfig.strategy ===
               ENGINE_CONFIG.INTELLIGENCE_STRATEGY
-
             ) {
 
               if (
@@ -2096,7 +2062,7 @@ const startBot = async (
               ) {
 
                 console.log(
-                  "🧠⛔ INTELLIGENCE BLOQUEÓ LA OPERACIÓN:",
+                  "🧠⛔ INTELLIGENCE BLOQUEÓ:",
                   {
 
                     synthetic:
@@ -2131,7 +2097,7 @@ const startBot = async (
 
 
               console.log(
-                "🧠✅ INTELLIGENCE APROBÓ LA OPERACIÓN:",
+                "🧠✅ INTELLIGENCE APROBÓ:",
                 {
 
                   signal:
@@ -2190,22 +2156,20 @@ const startBot = async (
             state.running =
               true;
 
-
             state.entrySaved =
-              false;
-
-
-            let tradeCreated =
               false;
 
 
             let trade =
               null;
 
-
             let contractId =
               null;
 
+
+            // ==================================================
+            // 🔥 TRADE
+            // ==================================================
 
             try {
 
@@ -2243,7 +2207,7 @@ const startBot = async (
 
 
               // =================================================
-              // MARTINGALE ACTUAL
+              // MARTINGALE
               // =================================================
 
               const currentMartingale =
@@ -2258,15 +2222,7 @@ const startBot = async (
               ) {
 
                 console.log(
-                  "🛑 MARTINGALE BLOQUEADO ANTES DEL BUY",
-                  {
-
-                    currentMartingale,
-
-                    max:
-                      ENGINE_CONFIG.MAX_MARTINGALE
-
-                  }
+                  "🛑 MARTINGALE BLOQUEADO ANTES DEL BUY"
                 );
 
 
@@ -2279,14 +2235,13 @@ const startBot = async (
                 state.running =
                   false;
 
-
                 return;
 
               }
 
 
               // =================================================
-              // 🧠 GUARDAR CONTEXTO PARA LEARNING
+              // 🧠 GUARDAR CONTEXTO
               // =================================================
 
               state.lastTradeContext = {
@@ -2374,72 +2329,62 @@ const startBot = async (
 
 
               console.log(
-                "🧠 CONTEXTO GUARDADO PARA LEARNING:",
+                "🧠 CONTEXTO GUARDADO:",
                 state.lastTradeContext
               );
 
 
               // =================================================
-              // 🔥 PREPARANDO BUY
+              // PREPARAR BUY
               // =================================================
 
               console.log(
                 "\n🚀 PREPARANDO BUY"
               );
 
-
               console.log(
                 "=========================================="
               );
-
 
               console.log(
                 "📌 SYMBOL:",
                 botConfig.symbol
               );
 
-
               console.log(
                 "📌 SIGNAL:",
                 finalSignal
               );
-
 
               console.log(
                 "📌 STAKE:",
                 formattedStake
               );
 
-
               console.log(
                 "📌 SCORE:",
                 result.score
               );
-
 
               console.log(
                 "📌 CALL SCORE:",
                 result.callScore
               );
 
-
               console.log(
                 "📌 PUT SCORE:",
                 result.putScore
               );
-
 
               console.log(
                 "📌 PATTERN:",
                 result.pattern
               );
 
-
               console.log(
                 "📌 HISTORY EDGE:",
                 historyEdge
               );
-
 
               console.log(
                 "📌 INTELLIGENCE CONFIDENCE:",
@@ -2447,18 +2392,15 @@ const startBot = async (
                 null
               );
 
-
               console.log(
                 "📌 MARTINGALE:",
                 currentMartingale
               );
 
-
               console.log(
                 "📌 DERIV CONNECTED:",
                 deriv.isConnected
               );
-
 
               console.log(
                 "=========================================="
@@ -2466,7 +2408,7 @@ const startBot = async (
 
 
               // =================================================
-              // LOG REQUEST
+              // REQUEST
               // =================================================
 
               log(
@@ -2539,7 +2481,7 @@ const startBot = async (
 
 
               // =================================================
-              // SINCRONIZAR SEGUNDO
+              // SINCRONIZAR
               // =================================================
 
               const msToNextSecond =
@@ -2563,7 +2505,7 @@ const startBot = async (
 
 
               // =================================================
-              // VERIFICAR ESTADO NUEVAMENTE
+              // VERIFICAR NUEVAMENTE
               // =================================================
 
               if (
@@ -2589,30 +2531,11 @@ const startBot = async (
 
 
               // =================================================
-              // 🔥 BUY
+              // BUY
               // =================================================
 
               console.log(
                 "\n💥 EJECUTANDO BUY CONTRACT..."
-              );
-
-
-              console.log(
-                {
-
-                  amount:
-                    formattedStake,
-
-                  price:
-                    formattedStake,
-
-                  contract_type:
-                    finalSignal,
-
-                  symbol:
-                    botConfig.symbol
-
-                }
               );
 
 
@@ -2635,13 +2558,12 @@ const startBot = async (
 
 
               // =================================================
-              // RESPUESTA BUY
+              // RESPUESTA
               // =================================================
 
               console.log(
                 "\n📥 RESPUESTA BUY:"
               );
-
 
               console.dir(
                 contract,
@@ -2658,16 +2580,6 @@ const startBot = async (
               if (
                 contract?.error
               ) {
-
-                console.error(
-                  "❌ BUY ERROR RESPONSE:",
-                  JSON.stringify(
-                    contract,
-                    null,
-                    2
-                  )
-                );
-
 
                 throw new Error(
                   contract.error.message ||
@@ -2689,12 +2601,6 @@ const startBot = async (
                 !contractId
               ) {
 
-                console.error(
-                  "❌ RESPUESTA BUY SIN CONTRACT ID:",
-                  contract
-                );
-
-
                 throw new Error(
                   "Contrato inválido: no se recibió contract_id"
                 );
@@ -2708,7 +2614,6 @@ const startBot = async (
 
               state.currentContractId =
                 contractId;
-
 
               state.lastExecutedSignal =
                 finalSignal;
@@ -2762,10 +2667,6 @@ const startBot = async (
                   });
 
 
-                tradeCreated =
-                  true;
-
-
                 console.log(
                   "✅ TRADE CREADO EN DB:",
                   trade?.id
@@ -2779,14 +2680,11 @@ const startBot = async (
                   dbErr.message
                 );
 
-                // El contrato ya existe.
-                // Continuamos controlándolo.
-
               }
 
 
               // =================================================
-              // ESTADÍSTICAS
+              // ESTADÍSTICAS INICIALES
               // =================================================
 
               if (
@@ -2801,7 +2699,8 @@ const startBot = async (
                       trade.id,
 
                     strategy:
-                      result.strategy,
+                      result.strategy ??
+                      botConfig.strategy,
 
                     symbol:
                       botConfig.symbol,
@@ -2839,9 +2738,31 @@ const startBot = async (
 
                     historyEdge,
 
-                    volatility
+                    volatility,
+
+                    // -----------------------------------------
+                    // INTELLIGENCE
+                    // -----------------------------------------
+
+                    confidence:
+                      intelligence?.confidence ??
+                      null,
+
+                    regime:
+                      intelligence?.regime?.regime ??
+                      intelligence?.regime ??
+                      null,
+
+                    intelligenceSignal:
+                      intelligence?.signal ??
+                      null
 
                   });
+
+
+                  console.log(
+                    "🧠 ESTADÍSTICAS INICIALES GUARDADAS"
+                  );
 
 
                 } catch (statsErr) {
@@ -2855,6 +2776,10 @@ const startBot = async (
 
               }
 
+
+              // =================================================
+              // TOTAL TRADES
+              // =================================================
 
               state.trades++;
 
@@ -2875,7 +2800,6 @@ const startBot = async (
                 deriv.isConnected
               );
 
-
               console.log(
                 "CONTRACT ID:",
                 contractId
@@ -2889,13 +2813,8 @@ const startBot = async (
               let closed =
                 false;
 
-
               let contractFinished =
                 false;
-
-
-              let tradeResult =
-                null;
 
 
               // =================================================
@@ -2926,7 +2845,7 @@ const startBot = async (
 
 
                   // =============================================
-                  // ESTADO CONTRATO
+                  // CONTRATO TERMINADO
                   // =============================================
 
                   const done =
@@ -2955,7 +2874,6 @@ const startBot = async (
 
                   closed =
                     true;
-
 
                   contractFinished =
                     true;
@@ -3003,36 +2921,60 @@ const startBot = async (
 
                   const profit =
                     Number(
-                      c.profit || 0
+                      c?.profit || 0
                     );
 
 
-                  tradeResult =
+                  // =================================================
+                  // 🔥 RESULTADO OFICIAL
+                  // =================================================
+
+                  const tradeResult =
                     profit > 0
                       ? "win"
                       : "loss";
 
 
                   console.log(
-                    "🏁 CONTRATO CERRADO:",
-                    {
+                    "\n=========================================="
+                  );
 
-                      contractId,
+                  console.log(
+                    "🏁 CONTRATO CERRADO"
+                  );
 
-                      profit,
+                  console.log(
+                    "=========================================="
+                  );
 
-                      result:
-                        tradeResult,
+                  console.log(
+                    "📌 CONTRACT ID:",
+                    contractId
+                  );
 
-                      source
+                  console.log(
+                    "📌 PROFIT:",
+                    profit
+                  );
 
-                    }
+                  console.log(
+                    "📌 RESULT:",
+                    tradeResult
+                  );
+
+                  console.log(
+                    "📌 SOURCE:",
+                    source
+                  );
+
+                  console.log(
+                    "=========================================="
                   );
 
 
-                  // =============================================
+                  // =================================================
                   // 🧠 INTELLIGENCE LEARNING
-                  // =============================================
+                  // =================================================
 
                   if (
 
@@ -3056,7 +2998,8 @@ const startBot = async (
                         contractId,
 
                         tradeId:
-                          trade?.id ?? null,
+                          trade?.id ??
+                          null,
 
                         finishedAt:
                           Date.now()
@@ -3098,15 +3041,16 @@ const startBot = async (
                   }
 
 
-                  // =============================================
+                  // =================================================
                   // MARTINGALE
-                  // =============================================
+                  // =================================================
 
                   try {
 
                     risk.nextStake(
                       tradeResult
                     );
+
 
                   } catch (err) {
 
@@ -3118,9 +3062,9 @@ const startBot = async (
                   }
 
 
-                  // =============================================
+                  // =================================================
                   // MÉTRICAS
-                  // =============================================
+                  // =================================================
 
                   if (
                     tradeResult === "win"
@@ -3139,7 +3083,9 @@ const startBot = async (
                       "✅ WIN → RESET MARTINGALE / RACHA"
                     );
 
-                  } else {
+                  }
+
+                  else {
 
                     state.losses++;
 
@@ -3173,9 +3119,9 @@ const startBot = async (
                   }
 
 
-                  // =============================================
+                  // =================================================
                   // PNL
-                  // =============================================
+                  // =================================================
 
                   state.pnl +=
                     profit;
@@ -3187,9 +3133,9 @@ const startBot = async (
                   );
 
 
-                  // =============================================
+                  // =================================================
                   // WINRATE
-                  // =============================================
+                  // =================================================
 
                   const winrate =
                     state.trades > 0
@@ -3204,9 +3150,9 @@ const startBot = async (
                       : 0;
 
 
-                  // =============================================
+                  // =================================================
                   // RESULT LOG
-                  // =============================================
+                  // =================================================
 
                   log(
                     "RESULT",
@@ -3231,7 +3177,6 @@ const startBot = async (
                         risk.martingaleStep,
 
                       intelligence:
-
                         state.lastTradeContext
                           ?.confidence ??
                         0
@@ -3240,9 +3185,9 @@ const startBot = async (
                   );
 
 
-                  // =============================================
+                  // =================================================
                   // BALANCE
-                  // =============================================
+                  // =================================================
 
                   let balanceAfter =
                     risk.balance;
@@ -3256,20 +3201,29 @@ const startBot = async (
 
                     balanceAfter =
                       Number(
-                        balanceData.balance
+                        balanceData?.balance ||
+                        0
                       );
 
 
-                    emitBalance(
-                      io,
-                      user.id,
-                      balanceAfter
-                    );
+                    if (
+                      Number.isFinite(
+                        balanceAfter
+                      )
+                    ) {
+
+                      emitBalance(
+                        io,
+                        user.id,
+                        balanceAfter
+                      );
 
 
-                    risk.update(
-                      balanceAfter
-                    );
+                      risk.update(
+                        balanceAfter
+                      );
+
+                    }
 
 
                     console.log(
@@ -3288,9 +3242,9 @@ const startBot = async (
                   }
 
 
-                  // =============================================
-                  // DB TRADE
-                  // =============================================
+                  // =================================================
+                  // 🔥 DB TRADE
+                  // =================================================
 
                   try {
 
@@ -3306,33 +3260,11 @@ const startBot = async (
                         profit,
 
                         exit_price:
-                          c.currentSpot
+                          c?.currentSpot
 
                       }
 
                     );
-
-
-                    if (
-                      trade?.id
-                    ) {
-
-                      await updateTradeStatistics(
-
-                        trade.id,
-
-                        {
-
-                          balanceAfter:
-                            balanceAfter,
-
-                          tradeResult
-
-                        }
-
-                      );
-
-                    }
 
 
                     console.log(
@@ -3344,16 +3276,103 @@ const startBot = async (
                   } catch (err) {
 
                     console.error(
-                      "⚠️ ERROR DB:",
+                      "⚠️ ERROR CERRANDO TRADE:",
                       err.message
                     );
 
                   }
 
 
-                  // =============================================
+                  // =================================================
+                  // 🧠 DB ESTADÍSTICAS
+                  // =================================================
+
+                  if (
+                    trade?.id
+                  ) {
+
+                    try {
+
+                      console.log(
+                        "💾 GUARDANDO RESULTADO ESTADÍSTICA:",
+                        {
+
+                          tradeId:
+                            trade.id,
+
+                          balanceAfter,
+
+                          tradeResult,
+
+                          result:
+                            tradeResult,
+
+                          profit
+
+                        }
+                      );
+
+
+                      await updateTradeStatistics(
+
+                        trade.id,
+
+                        {
+
+                          balanceAfter: balanceAfter,
+                          result: tradeResult,
+                          tradeResult: tradeResult,
+
+                          // Compatibilidad si el modelo
+                          // utiliza "result"
+                          profit: profit
+
+                        }
+
+                      );
+
+
+                      console.log(
+                        "✅ RESULTADO GUARDADO EN trade_statistics:",
+                        {
+
+                          tradeId:
+                            trade.id,
+
+                          result:
+                            tradeResult
+
+                        }
+                      );
+
+
+                    } catch (statsErr) {
+
+                      console.error(
+                        "❌ ERROR ACTUALIZANDO TRADE STATISTICS:",
+                        statsErr.message
+                      );
+
+                      console.error(
+                        statsErr.stack
+                      );
+
+                    }
+
+                  }
+
+                  else {
+
+                    console.warn(
+                      "⚠️ NO SE PUDO ACTUALIZAR trade_statistics: trade.id no existe"
+                    );
+
+                  }
+
+
+                  // =================================================
                   // FRONTEND FINAL
-                  // =============================================
+                  // =================================================
 
                   emitTradeUpdate(
 
@@ -3368,20 +3387,23 @@ const startBot = async (
 
                       profit,
 
+                      result:
+                        tradeResult,
+
                       status:
                         "closed",
 
                       exit_price:
-                        c.currentSpot
+                        c?.currentSpot
 
                     }
 
                   );
 
 
-                  // =============================================
+                  // =================================================
                   // FORGET
-                  // =============================================
+                  // =================================================
 
                   try {
 
@@ -3406,9 +3428,9 @@ const startBot = async (
                   }
 
 
-                  // =============================================
+                  // =================================================
                   // STOP LOSS
-                  // =============================================
+                  // =================================================
 
                   const stopLoss =
                     Number(
@@ -3447,9 +3469,9 @@ const startBot = async (
                   }
 
 
-                  // =============================================
+                  // =================================================
                   // TARGET PROFIT
-                  // =============================================
+                  // =================================================
 
                   const targetProfit =
                     Number(
@@ -3488,9 +3510,9 @@ const startBot = async (
                   }
 
 
-                  // =============================================
+                  // =================================================
                   // 3 PÉRDIDAS
-                  // =============================================
+                  // =================================================
 
                   if (
 
@@ -3507,9 +3529,9 @@ const startBot = async (
                   }
 
 
-                  // =============================================
+                  // =================================================
                   // MARTINGALE MÁXIMO
-                  // =============================================
+                  // =================================================
 
                   if (
 
@@ -3528,9 +3550,9 @@ const startBot = async (
                   }
 
 
-                  // =============================================
+                  // =================================================
                   // MÉTRICAS
-                  // =============================================
+                  // =================================================
 
                   emitMetrics(
 
@@ -3583,9 +3605,9 @@ const startBot = async (
                   );
 
 
-                  // =============================================
+                  // =================================================
                   // PRÓXIMA OPERACIÓN
-                  // =============================================
+                  // =================================================
 
                   scheduleNextTrade(
                     state,
@@ -3593,9 +3615,9 @@ const startBot = async (
                   );
 
 
-                  // =============================================
+                  // =================================================
                   // LIBERAR CONTRATO
-                  // =============================================
+                  // =================================================
 
                   state.currentContractId =
                     null;
@@ -3607,9 +3629,9 @@ const startBot = async (
                     false;
 
 
-                  // =============================================
-                  // LIMPIAR CONTEXTO DE TRADE
-                  // =============================================
+                  // =================================================
+                  // LIMPIAR CONTEXTO
+                  // =================================================
 
                   state.lastTradeContext =
                     null;
@@ -3642,42 +3664,44 @@ const startBot = async (
                 };
 
 
-                // =================================================
-                // WATCH CONTRACT
-                // =================================================
+              // =================================================
+              // WATCH CONTRACT
+              // =================================================
 
-                await deriv.watchContract(
+              await deriv.watchContract(
 
-                  contractId,
+                contractId,
 
-                  async (c) => {
+                async (c) => {
 
-                    try {
+                  try {
 
-                      // ==========================================
-                      // ENTRY
-                      // ==========================================
+                    // ==========================================
+                    // ENTRY
+                    // ==========================================
 
-                      const current =
-                        c.entryPrice ||
-                        c.currentSpot;
+                    const current =
+                      c?.entryPrice ||
+                      c?.currentSpot;
+
+
+                    if (
+
+                      !state.entrySaved &&
+
+                      current
+
+                    ) {
+
+                      state.entrySaved =
+                        true;
 
 
                       if (
-
-                        !state.entrySaved &&
-
-                        current
-
+                        trade?.id
                       ) {
 
-                        state.entrySaved =
-                          true;
-
-
-                        if (
-                          trade?.id
-                        ) {
+                        try {
 
                           const updatedTrade =
                             await updateTradeByContract(
@@ -3703,163 +3727,162 @@ const startBot = async (
                             updatedTrade
                           );
 
+
+                        } catch (entryErr) {
+
+                          console.error(
+                            "❌ ERROR ACTUALIZANDO ENTRY:",
+                            entryErr.message
+                          );
+
                         }
 
                       }
 
-
-                      // ==========================================
-                      // FRONTEND
-                      // ==========================================
-
-                      emitTradeUpdate(
-
-                        io,
-
-                        user.id,
-
-                        {
-
-                          contract_id:
-                            c.contractId ||
-                            contractId,
-
-                          profit:
-                            c.profit,
-
-                          status:
-                            c.status,
-
-                          entry_price:
-                            c.entryPrice,
-
-                          current_spot:
-                            c.currentSpot,
-
-                          date_start:
-                            c.dateStart,
-
-                          date_expiry:
-                            c.dateExpiry
-
-                        }
-
-                      );
-
-
-                      // ==========================================
-                      // CIERRE
-                      // ==========================================
-
-                      await finishTrade(
-                        c,
-                        "websocket"
-                      );
-
-
-                    } catch (err) {
-
-                      console.error(
-                        "🔥 ERROR CALLBACK CONTRATO:",
-                        err.message
-                      );
-
                     }
+
+
+                    // ==========================================
+                    // FRONTEND
+                    // ==========================================
+
+                    emitTradeUpdate(
+
+                      io,
+
+                      user.id,
+
+                      {
+
+                        contract_id:
+                          c?.contractId ||
+                          contractId,
+
+                        profit:
+                          c?.profit,
+
+                        status:
+                          c?.status,
+
+                        entry_price:
+                          c?.entryPrice,
+
+                        current_spot:
+                          c?.currentSpot,
+
+                        date_start:
+                          c?.dateStart,
+
+                        date_expiry:
+                          c?.dateExpiry
+
+                      }
+
+                    );
+
+
+                    // ==========================================
+                    // CIERRE
+                    // ==========================================
+
+                    await finishTrade(
+                      c,
+                      "websocket"
+                    );
+
+
+                  } catch (err) {
+
+                    console.error(
+                      "🔥 ERROR CALLBACK CONTRATO:",
+                      err.message
+                    );
+
+                    console.error(
+                      err.stack
+                    );
 
                   }
 
-                );
+                }
+
+              );
 
 
-                // =================================================
-                // WATCHDOG
-                // =================================================
+              // =================================================
+              // WATCHDOG
+              // =================================================
 
-                startContractWatchdog(
+              startContractWatchdog(
 
-                  user,
+                user,
 
-                  botConfig,
+                botConfig,
 
-                  state,
+                state,
 
-                  contractId,
+                contractId,
 
-                  finishTrade
+                finishTrade
 
-                );
-
-
-                // =================================================
-                // TIMEOUT
-                // =================================================
-
-                state.tradeTimeout =
-
-                  setTimeout(
-
-                    async () => {
-
-                      console.error(
-                        "🚨 TIMEOUT DEL CONTRATO:",
-                        contractId
-                      );
+              );
 
 
-                      try {
+              // =================================================
+              // TIMEOUT
+              // =================================================
 
-                        const latest =
-                          await deriv.getContract(
-                            contractId
-                          );
+              state.tradeTimeout =
+
+                setTimeout(
+
+                  async () => {
+
+                    console.error(
+                      "🚨 TIMEOUT DEL CONTRATO:",
+                      contractId
+                    );
+
+
+                    try {
+
+                      const latest =
+                        await deriv.getContract(
+                          contractId
+                        );
+
+
+                      if (
+                        latest
+                      ) {
+
+                        const done =
+
+                          Boolean(
+                            latest.is_sold
+                          ) ||
+
+                          Boolean(
+                            latest.isSold
+                          ) ||
+
+                          latest.status === "sold" ||
+
+                          latest.status === "closed";
 
 
                         if (
-                          latest
+                          done
                         ) {
 
-                          const done =
-
-                            Boolean(
-                              latest.is_sold
-                            ) ||
-
-                            Boolean(
-                              latest.isSold
-                            ) ||
-
-                            latest.status === "sold" ||
-
-                            latest.status === "closed";
-
-
-                          if (
-                            done
-                          ) {
-
-                            console.log(
-                              "✅ TIMEOUT: CONTRATO YA CERRADO"
-                            );
-
-
-                            await finishTrade(
-                              latest,
-                              "timeout"
-                            );
-
-
-                            return;
-
-                          }
-
-
-                          console.warn(
-                            "⚠️ TIMEOUT: CONTRATO TODAVÍA ABIERTO"
+                          console.log(
+                            "✅ TIMEOUT: CONTRATO YA CERRADO"
                           );
 
 
-                          console.warn(
-                            "🔒 BOT PERMANECE BLOQUEADO"
+                          await finishTrade(
+                            latest,
+                            "timeout"
                           );
 
 
@@ -3868,20 +3891,33 @@ const startBot = async (
                         }
 
 
-                      } catch (err) {
-
-                        console.error(
-                          "❌ ERROR TIMEOUT CONTRACT:",
-                          err.message
+                        console.warn(
+                          "⚠️ TIMEOUT: CONTRATO TODAVÍA ABIERTO"
                         );
+
+                        console.warn(
+                          "🔒 BOT PERMANECE BLOQUEADO"
+                        );
+
+                        return;
 
                       }
 
-                    },
 
-                    ENGINE_CONFIG.CONTRACT_TIMEOUT_MS
+                    } catch (err) {
 
-                  );
+                      console.error(
+                        "❌ ERROR TIMEOUT CONTRACT:",
+                        err.message
+                      );
+
+                    }
+
+                  },
+
+                  ENGINE_CONFIG.CONTRACT_TIMEOUT_MS
+
+                );
 
 
               // =================================================
@@ -3892,24 +3928,20 @@ const startBot = async (
                 "\n✅ BUY COMPLETADO CORRECTAMENTE"
               );
 
-
               console.log(
                 "🔒 CONTRACT ID:",
                 contractId
               );
-
 
               console.log(
                 "🎯 SIGNAL:",
                 finalSignal
               );
 
-
               console.log(
                 "💰 STAKE:",
                 formattedStake
               );
-
 
               console.log(
                 "🧠 INTELLIGENCE CONFIDENCE:",
@@ -3925,7 +3957,6 @@ const startBot = async (
                 err.message
               );
 
-
               console.error(
                 "🔥 TRADE ERROR STACK:",
                 err.stack
@@ -3933,7 +3964,7 @@ const startBot = async (
 
 
               // =================================================
-              // BUY PUDO HABER OCURRIDO
+              // ⚠️ BUY PUDO HABER OCURRIDO
               // =================================================
 
               if (
@@ -3963,16 +3994,16 @@ const startBot = async (
                         const done =
 
                           Boolean(
-                            c.isSold
+                            c?.isSold
                           ) ||
 
                           Boolean(
-                            c.is_sold
+                            c?.is_sold
                           ) ||
 
-                          c.status === "sold" ||
+                          c?.status === "sold" ||
 
-                          c.status === "closed";
+                          c?.status === "closed";
 
 
                         if (
@@ -3982,6 +4013,332 @@ const startBot = async (
                           console.log(
                             "🏁 CIERRE RECUPERADO:",
                             contractId
+                          );
+
+
+                          // --------------------------------------
+                          // IMPORTANTE:
+                          // usar el mismo finishTrade
+                          // no duplicar lógica.
+                          // --------------------------------------
+
+                          // El finishTrade pertenece al scope
+                          // del try donde se creó.
+                          //
+                          // Si el error ocurrió antes de crear
+                          // finishTrade, aquí hacemos una
+                          // recuperación directa.
+
+                          const recoveredProfit =
+                            Number(
+                              c?.profit || 0
+                            );
+
+                          const recoveredResult =
+                            recoveredProfit > 0
+                              ? "win"
+                              : "loss";
+
+
+                          console.log(
+                            "🏁 RESULTADO RECUPERADO:",
+                            {
+
+                              contractId,
+
+                              profit:
+                                recoveredProfit,
+
+                              result:
+                                recoveredResult
+
+                            }
+                          );
+
+
+                          // --------------------------------------
+                          // LEARNING
+                          // --------------------------------------
+
+                          if (
+
+                            state.intelligence &&
+
+                            state.lastTradeContext
+
+                          ) {
+
+                            try {
+
+                              state.intelligence.learn({
+
+                                ...state.lastTradeContext,
+
+                                result:
+                                  recoveredResult,
+
+                                profit:
+                                  recoveredProfit,
+
+                                contractId,
+
+                                tradeId:
+                                  trade?.id ??
+                                  null,
+
+                                finishedAt:
+                                  Date.now()
+
+                              });
+
+                            } catch (learningErr) {
+
+                              console.error(
+                                "❌ ERROR LEARNING RECUPERADO:",
+                                learningErr.message
+                              );
+
+                            }
+
+                          }
+
+
+                          // --------------------------------------
+                          // DB
+                          // --------------------------------------
+
+                          try {
+
+                            await closeTrade(
+
+                              contractId,
+
+                              {
+
+                                status:
+                                  "closed",
+
+                                profit:
+                                  recoveredProfit,
+
+                                exit_price:
+                                  c?.currentSpot
+
+                              }
+
+                            );
+
+
+                            if (
+                              trade?.id
+                            ) {
+
+                              await updateTradeStatistics(
+
+                                trade.id,
+
+                                {
+
+                                  balanceAfter:
+                                    risk.balance,
+
+                                  tradeResult:
+                                    recoveredResult,
+
+                                  result:
+                                    recoveredResult,
+
+                                  profit:
+                                    recoveredProfit
+
+                                }
+
+                              );
+
+                            }
+
+
+                          } catch (dbErr) {
+
+                            console.error(
+                              "❌ ERROR DB RECUPERADO:",
+                              dbErr.message
+                            );
+
+                          }
+
+
+                          // --------------------------------------
+                          // ESTADO
+                          // --------------------------------------
+
+                          if (
+                            recoveredResult ===
+                            "win"
+                          ) {
+
+                            state.wins++;
+
+                            state.lossStreak =
+                              0;
+
+                            state.consecutiveLosses =
+                              0;
+
+                          }
+
+                          else {
+
+                            state.losses++;
+
+                            state.lossStreak =
+                              Number(
+                                state.lossStreak || 0
+                              ) + 1;
+
+                            state.consecutiveLosses =
+                              Number(
+                                state.consecutiveLosses || 0
+                              ) + 1;
+
+                          }
+
+
+                          state.pnl +=
+                            recoveredProfit;
+
+
+                          try {
+
+                            risk.nextStake(
+                              recoveredResult
+                            );
+
+                          } catch (riskErr) {
+
+                            console.error(
+                              "⚠️ MARTINGALE RECUPERADO:",
+                              riskErr.message
+                            );
+
+                          }
+
+
+                          try {
+
+                            await deriv.forgetContract(
+                              contractId
+                            );
+
+                          } catch (forgetErr) {
+
+                            console.warn(
+                              "⚠️ FORGET RECUPERADO:",
+                              forgetErr.message
+                            );
+
+                          }
+
+
+                          state.currentContractId =
+                            null;
+
+                          state.running =
+                            false;
+
+                          state.entrySaved =
+                            false;
+
+                          state.lastTradeContext =
+                            null;
+
+
+                          scheduleNextTrade(
+                            state,
+                            recoveredResult
+                          );
+
+
+                          emitTradeUpdate(
+
+                            io,
+
+                            user.id,
+
+                            {
+
+                              contract_id:
+                                contractId,
+
+                              profit:
+                                recoveredProfit,
+
+                              result:
+                                recoveredResult,
+
+                              status:
+                                "closed",
+
+                              exit_price:
+                                c?.currentSpot
+
+                            }
+
+                          );
+
+
+                          const recoveredWinrate =
+                            state.trades > 0
+
+                              ? (
+                                  state.wins /
+                                  state.trades
+                                ) * 100
+
+                              : 0;
+
+
+                          emitMetrics(
+
+                            io,
+
+                            user.id,
+
+                            {
+
+                              trades:
+                                state.trades,
+
+                              wins:
+                                state.wins,
+
+                              losses:
+                                state.losses,
+
+                              pnl:
+                                state.pnl,
+
+                              winrate:
+                                Number(
+                                  recoveredWinrate.toFixed(2)
+                                ),
+
+                              lossStreak:
+                                state.lossStreak,
+
+                              consecutiveLosses:
+                                state.consecutiveLosses,
+
+                              martingale:
+                                Number(
+                                  risk.martingaleStep ?? 0
+                                ),
+
+                              cooldown:
+                                state.cooldown
+
+                            }
+
                           );
 
                         }
@@ -4000,6 +4357,12 @@ const startBot = async (
                   );
 
 
+                  // ----------------------------------------------
+                  // NO LIBERAR MIENTRAS EXISTA CONTRATO
+                  // ----------------------------------------------
+
+                  return;
+
                 } catch (watchErr) {
 
                   console.error(
@@ -4010,7 +4373,6 @@ const startBot = async (
                 }
 
 
-                // No liberar si existe contrato
                 return;
 
               }
@@ -4216,10 +4578,16 @@ const stopBot = async (
         await state.deriv.getBalance();
 
 
+      const balance =
+        Number(
+          balanceData?.balance || 0
+        );
+
+
       emitBalance(
         state.io,
         user.id,
-        balanceData.balance
+        balance
       );
 
 
@@ -4231,7 +4599,7 @@ const stopBot = async (
 
           state.accountId,
 
-          balanceData.balance
+          balance
 
         );
 
@@ -4240,7 +4608,7 @@ const stopBot = async (
 
       console.log(
         "💰 Balance guardado:",
-        balanceData.balance
+        balance
       );
 
 
