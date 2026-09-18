@@ -97,7 +97,7 @@ function rsiStrategy(candles, state = {}) {
     if (!candles || candles.length < 30) {
 
         return buildSignal({
-            strategy: "synthetic_pro",
+            strategy: "Rsi Estrategia",
             signal: null,
             score: 0
         });
@@ -113,7 +113,7 @@ function rsiStrategy(candles, state = {}) {
     if (!sma) {
 
         return buildSignal({
-            strategy: "synthetic_pro",
+            strategy: "Rsi Estrategia",
             signal: null,
             score: 0
         });
@@ -132,7 +132,7 @@ function rsiStrategy(candles, state = {}) {
     if (!last || !prev || !prev2 || !prev3) {
 
         return buildSignal({
-            strategy: "synthetic_pro",
+            strategy: "Rsi Estrategia",
             signal: null,
             score: 0
         });
@@ -222,7 +222,7 @@ function rsiStrategy(candles, state = {}) {
     if (lastRange <= 0) {
 
         return buildSignal({
-            strategy: "synthetic_pro",
+            strategy: "Rsi Estrategia",
             signal: null,
             score: 0,
             strength: avgStrength,
@@ -1045,7 +1045,7 @@ function rsiStrategy(candles, state = {}) {
 
     const signalData = {
 
-        strategy: "synthetic_pro",
+        strategy: "Rsi Estrategia",
 
         trend:
             trendUp ||

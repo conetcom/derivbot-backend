@@ -1,6 +1,7 @@
 const calculateSMA = require('../indicators/sma');
 const buildSignal = require("../helpers/buildSignal");
 const smaStrategy = require('./smaStrategy');
+const calculateRSI = require('../indicators/rsi');
 function forexStrategy(candles) {
   if (candles.length < 25) return null;
 
@@ -40,7 +41,7 @@ function forexStrategy(candles) {
   if (trendUp && rsi < 60 && last.close > prev.close) {
    return buildSignal({
 
-    strategy:"synthetic_pro",
+    strategy:"Forex Estartegia",
 
     signal:"CALL",
 
@@ -57,7 +58,7 @@ sma
   if (trendDown && rsi > 40 && last.close < prev.close) {
    return buildSignal({
 
-    strategy:"synthetic_pro",
+    strategy:"Forex Estartegia",
 
     signal:"PUT",
 
@@ -78,7 +79,7 @@ sma
 
   return buildSignal({
 
-    strategy:"forex",
+    strategy:"Forex Estartegia",
 
     signal:null,
 
