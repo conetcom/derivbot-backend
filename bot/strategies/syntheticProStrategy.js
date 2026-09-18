@@ -1482,9 +1482,9 @@ function syntheticProStrategy(
     console.log(
         "Trend:",
         trendUp
-            ? "true "
+            ? "UP"
             : trendDown
-                ? "false"
+                ? "DOWN"
                 : "NEUTRAL"
     );
 
@@ -1492,9 +1492,9 @@ function syntheticProStrategy(
     console.log(
         "BOS:",
         bosUp
-            ? "true"
+            ? "UP"
             : bosDown
-                ? "false"
+                ? "DOWN"
                 : "NONE"
     );
 
@@ -1502,9 +1502,9 @@ function syntheticProStrategy(
     console.log(
         "Pullback:",
         pullbackUp
-            ? "true"
+            ? "UP"
             : pullbackDown
-                ? "false"
+                ? "DOWN"
                 : "NONE"
     );
 
@@ -1512,9 +1512,9 @@ function syntheticProStrategy(
     console.log(
         "Momentum:",
         momentumUp
-            ? "true"
+            ? "UP"
             : momentumDown
-                ? "false"
+                ? "DOWN"
                 : "NONE"
     );
 
@@ -2460,7 +2460,11 @@ function syntheticProStrategy(
             pctRed,
 
             total:
-                historyTotal
+                historyTotal,
+                bos,
+            pullback,
+            momentum
+         
 
         }
     );
