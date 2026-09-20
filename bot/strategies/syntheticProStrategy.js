@@ -6,7 +6,7 @@ const buildSignal = require("../helpers/buildSignal");
 // ⚙️ CONFIGURACIÓN SYNTHETIC PRO
 // ============================================================
 
-const CONFIG = {
+/*const CONFIG = {
 
     // ========================================================
     // SCORE
@@ -29,7 +29,7 @@ const CONFIG = {
     // SCORE MÍNIMO
     // ========================================================
 
-    MIN_SCORE: 8,
+    MIN_SCORE: 6,
 
     MIN_DIFF: 2,
 
@@ -39,10 +39,10 @@ const CONFIG = {
     // ========================================================
 
     // Cantidad mínima GLOBAL de velas
-    HISTORY_MIN: 30,
+    HISTORY_MIN: 10,
 
     // Cantidad mínima de apariciones del patrón
-    PATTERN_MIN: 10,
+    PATTERN_MIN: 5,
 
     // Diferencia mínima histórica
     //
@@ -50,10 +50,10 @@ const CONFIG = {
     // 55 / 45  = 10  → NO TRADE
     // 60 / 40  = 20  → TRADE
     //
-    HISTORY_MIN_EDGE: 15,
+    HISTORY_MIN_EDGE: 10,
 
     // Edge fuerte
-    HISTORY_STRONG_EDGE: 30,
+    HISTORY_STRONG_EDGE: 20,
 
 
     // ========================================================
@@ -87,8 +87,42 @@ const CONFIG = {
 
     ENABLE_REVERSAL: false
 
-};
+};*/
+const CONFIG = {
+    TREND_POINTS: 3,
+    BOS_POINTS: 3,
+    PULLBACK_POINTS: 2,
 
+    // Reducimos su importancia
+    MOMENTUM_POINTS: 0,
+
+    STRONG_CANDLE: 2,
+    MEDIUM_CANDLE: 1,
+
+    // Antes 8
+    MIN_SCORE: 7,
+
+    // Antes 2
+    MIN_DIFF: 1,
+
+    HISTORY_MIN: 30,
+
+    PATTERN_MIN: 10,
+    HISTORY_MIN_EDGE: 10,
+    HISTORY_STRONG_EDGE: 20,
+
+    MAX_MARTINGALE: 1,
+    MAX_CONSECUTIVE_LOSSES: 3,
+
+    COOLDOWN_MS: 5 * 60 * 1000,
+
+    REQUIRE_HISTORY: true,
+
+    // Antes 0.65
+    MIN_LAST_STRENGTH: 0.55,
+
+    ENABLE_REVERSAL: false
+};
 
 // ============================================================
 // 🧠 SYNTHETIC PRO STRATEGY
