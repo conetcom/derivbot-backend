@@ -2,38 +2,45 @@ const buildSignal = require("../helpers/buildSignal");
 
 /*
 ============================================================
-SMA STRATEGY V4
+SMA STRATEGY V4 - MODO PRUEBA
 ============================================================
 
-V4 mantiene la lógica de V3:
+Mantiene:
 
 - MA10 / MA50
-- detección de tendencia
-- múltiples operaciones por tendencia
 - CROSS
 - EARLY_TREND
 - PULLBACK
 - CONTINUATION
+- múltiples operaciones por tendencia
 - separación entre operaciones
 
 NUEVO:
 
-- MA10_REJECTION
+MA10_REJECTION
 
-Detecta:
+Busca:
 
 IMPULSO
    ↓
 RETROCESO
    ↓
-PRECIO CERCA DE MA10
+PRECIO SE ACERCA A MA10
    ↓
 RECHAZO
    ↓
 CONTINUACIÓN
+   ↓
+ENTRADA
+
+MODO PRUEBA:
+
+Se redujo el rigor del detector MA10_REJECTION
+para poder observarlo funcionando en tiempo real.
 
 ============================================================
 */
+
 
 const CONFIG = {
 
@@ -46,21 +53,24 @@ const CONFIG = {
     FAST_MA: 10,
     SLOW_MA: 50,
 
+
     /*
     ========================================================
-    RANGO / VOLATILIDAD
+    RANGO
     ========================================================
     */
 
     RANGE_PERIOD: 10,
 
+
     /*
     ========================================================
-    ENTRADA TEMPRANA
+    EARLY TREND
     ========================================================
     */
 
     EARLY_DISTANCE_MAX: 1.5,
+
 
     /*
     ========================================================
@@ -70,21 +80,26 @@ const CONFIG = {
 
     PULLBACK_DISTANCE: 0.50,
 
+
     /*
     ========================================================
-    FUERZA MÍNIMA DE VELA
+    FUERZA GENERAL
     ========================================================
     */
 
     MIN_CANDLE_STRENGTH: 0.45,
 
+
     /*
     ========================================================
     SEPARACIÓN ENTRE OPERACIONES
     ========================================================
+
+    2 = mínimo dos velas entre entradas.
     */
 
     MIN_CANDLES_BETWEEN_TRADES: 2,
+
 
     /*
     ========================================================
@@ -95,6 +110,7 @@ const CONFIG = {
     */
 
     MAX_TRADES_PER_TREND: null,
+
 
     /*
     ========================================================
@@ -108,37 +124,48 @@ const CONFIG = {
 
     EARLY_TREND_CANDLES: 3,
 
+
     /*
     ========================================================
-    NUEVO V4
-    RECHAZO DE MA10
+    MA10 REJECTION - MODO PRUEBA
     ========================================================
+
+    MUCHO MENOS ESTRICTO QUE V4 ORIGINAL.
     */
 
     MA10_REJECTION_ENABLED: true,
 
     /*
-    Qué tan cerca debe estar el precio de MA10.
+    Distancia máxima del cierre respecto a MA10,
+    expresada en rangos promedio.
 
-    0.50 = máximo 0.50 rangos promedio
+    1.00 = permite estar hasta un rango promedio
+    de distancia.
     */
 
-    MA10_REJECTION_DISTANCE: 0.50,
+    MA10_REJECTION_DISTANCE: 1.00,
+
 
     /*
-    Permite que la mecha llegue ligeramente más allá
-    de MA10.
+    Tolerancia de toque de MA10.
 
-    0.20 = 20% del rango promedio
+    0.50 = permitimos que la mecha quede hasta
+    50% del rango promedio separada de MA10.
     */
 
-    MA10_TOUCH_TOLERANCE: 0.20,
+    MA10_TOUCH_TOLERANCE: 0.50,
+
 
     /*
-    La vela de rechazo debe tener al menos esta fuerza.
+    Fuerza mínima de la vela de rechazo.
+
+    MODO PRUEBA:
+
+    0.25
     */
 
-    MA10_REJECTION_MIN_STRENGTH: 0.45,
+    MA10_REJECTION_MIN_STRENGTH: 0.25,
+
 
     /*
     ========================================================
@@ -152,7 +179,7 @@ const CONFIG = {
 
 /*
 ============================================================
-UTILIDADES
+UTILIDAD NUMBER
 ============================================================
 */
 
@@ -166,9 +193,16 @@ function number(value, fallback = 0) {
 }
 
 
+/*
+============================================================
+ROUND
+============================================================
+*/
+
 function round(value, decimals = 4) {
 
-    const factor = Math.pow(10, decimals);
+    const factor =
+        Math.pow(10, decimals);
 
     return Math.round(
         number(value) * factor
@@ -178,7 +212,7 @@ function round(value, decimals = 4) {
 
 /*
 ============================================================
-SMA
+CALCULATE SMA
 ============================================================
 */
 
@@ -192,20 +226,24 @@ function calculateSMA(candles, period) {
         return null;
     }
 
-    const slice = candles.slice(-period);
+    const slice =
+        candles.slice(-period);
 
-    const values = slice
-        .map(c => number(c.close))
-        .filter(Number.isFinite);
+    const values =
+        slice.map(c =>
+            number(c.close)
+        );
 
     if (values.length < period) {
         return null;
     }
 
-    const sum = values.reduce(
-        (acc, value) => acc + value,
-        0
-    );
+    const sum =
+        values.reduce(
+            (acc, value) =>
+                acc + value,
+            0
+        );
 
     return sum / period;
 }
@@ -213,15 +251,17 @@ function calculateSMA(candles, period) {
 
 /*
 ============================================================
-SMA EN ÍNDICE ESPECÍFICO
-
-Importante:
+SMA EN ÍNDICE
 
 No utiliza velas futuras.
 ============================================================
 */
 
-function smaAt(candles, index, period) {
+function smaAt(
+    candles,
+    index,
+    period
+) {
 
     if (
         !Array.isArray(candles) ||
@@ -230,13 +270,20 @@ function smaAt(candles, index, period) {
         return null;
     }
 
-    const start = index - period + 1;
+    const start =
+        index - period + 1;
 
     let sum = 0;
 
-    for (let i = start; i <= index; i++) {
+    for (
+        let i = start;
+        i <= index;
+        i++
+    ) {
 
-        sum += number(candles[i].close);
+        sum += number(
+            candles[i].close
+        );
     }
 
     return sum / period;
@@ -262,10 +309,11 @@ function averageRangeAt(
         return null;
     }
 
-    const start = Math.max(
-        0,
-        index - period + 1
-    );
+    const start =
+        Math.max(
+            0,
+            index - period + 1
+        );
 
     const ranges = [];
 
@@ -275,10 +323,14 @@ function averageRangeAt(
         i++
     ) {
 
-        const high = number(candles[i].high);
-        const low = number(candles[i].low);
+        const high =
+            number(candles[i].high);
 
-        const range = high - low;
+        const low =
+            number(candles[i].low);
+
+        const range =
+            high - low;
 
         if (range > 0) {
             ranges.push(range);
@@ -289,10 +341,12 @@ function averageRangeAt(
         return null;
     }
 
-    const total = ranges.reduce(
-        (sum, value) => sum + value,
-        0
-    );
+    const total =
+        ranges.reduce(
+            (sum, value) =>
+                sum + value,
+            0
+        );
 
     return total / ranges.length;
 }
@@ -301,9 +355,10 @@ function averageRangeAt(
 /*
 ============================================================
 FUERZA DE VELA
+============================================================
 
-0 = vela muy débil
-1 = vela muy fuerte
+0 = cuerpo pequeño
+1 = cuerpo ocupa todo el rango
 ============================================================
 */
 
@@ -313,18 +368,29 @@ function candleStrength(candle) {
         return 0;
     }
 
-    const open = number(candle.open);
-    const close = number(candle.close);
-    const high = number(candle.high);
-    const low = number(candle.low);
+    const open =
+        number(candle.open);
 
-    const range = high - low;
+    const close =
+        number(candle.close);
+
+    const high =
+        number(candle.high);
+
+    const low =
+        number(candle.low);
+
+    const range =
+        high - low;
 
     if (range <= 0) {
         return 0;
     }
 
-    const body = Math.abs(close - open);
+    const body =
+        Math.abs(
+            close - open
+        );
 
     return body / range;
 }
@@ -338,37 +404,46 @@ DIRECCIÓN DE VELA
 
 function isBullish(candle) {
 
-    return number(candle.close) >
-        number(candle.open);
+    return (
+        number(candle.close) >
+        number(candle.open)
+    );
 }
 
 
 function isBearish(candle) {
 
-    return number(candle.close) <
-        number(candle.open);
+    return (
+        number(candle.close) <
+        number(candle.open)
+    );
 }
 
 
 /*
 ============================================================
-DATOS DE MA
+DATOS MA10 / MA50
 ============================================================
 */
 
-function getMAData(candles, index) {
+function getMAData(
+    candles,
+    index
+) {
 
-    const ma10 = smaAt(
-        candles,
-        index,
-        CONFIG.FAST_MA
-    );
+    const ma10 =
+        smaAt(
+            candles,
+            index,
+            CONFIG.FAST_MA
+        );
 
-    const ma50 = smaAt(
-        candles,
-        index,
-        CONFIG.SLOW_MA
-    );
+    const ma50 =
+        smaAt(
+            candles,
+            index,
+            CONFIG.SLOW_MA
+        );
 
     if (
         ma10 == null ||
@@ -378,7 +453,9 @@ function getMAData(candles, index) {
     }
 
     const close =
-        number(candles[index].close);
+        number(
+            candles[index].close
+        );
 
     const avgRange =
         averageRangeAt(
@@ -389,7 +466,9 @@ function getMAData(candles, index) {
 
     const distance =
         avgRange > 0
-            ? Math.abs(ma10 - ma50) / avgRange
+            ? Math.abs(
+                ma10 - ma50
+            ) / avgRange
             : 0;
 
     return {
@@ -416,13 +495,19 @@ function getMAData(candles, index) {
 
 /*
 ============================================================
-DETECTAR CRUCE
+DETECT CROSS
 ============================================================
 */
 
-function detectCross(candles, index) {
+function detectCross(
+    candles,
+    index
+) {
 
-    if (index < CONFIG.SLOW_MA + 1) {
+    if (
+        index <
+        CONFIG.SLOW_MA + 1
+    ) {
         return null;
     }
 
@@ -466,7 +551,7 @@ function detectCross(candles, index) {
 
     /*
     ========================================================
-    CRUCE ALCISTA
+    CROSS ALCISTA
     ========================================================
     */
 
@@ -481,7 +566,7 @@ function detectCross(candles, index) {
 
     /*
     ========================================================
-    CRUCE BAJISTA
+    CROSS BAJISTA
     ========================================================
     */
 
@@ -499,7 +584,7 @@ function detectCross(candles, index) {
 
 /*
 ============================================================
-BUSCAR ÚLTIMO CRUCE
+BUSCAR ÚLTIMO CROSS
 ============================================================
 */
 
@@ -532,7 +617,9 @@ function findLatestCross(
         if (cross) {
 
             return {
+
                 direction: cross,
+
                 index: testIndex
             };
         }
@@ -544,7 +631,7 @@ function findLatestCross(
 
 /*
 ============================================================
-DISTANCIA MA10 / MA50 SE ESTÁ AMPLIANDO
+DISTANCIA MA10 / MA50 CRECIENDO
 ============================================================
 */
 
@@ -554,7 +641,8 @@ function isDistanceExpanding(
 ) {
 
     if (
-        index < CONFIG.DISTANCE_LOOKBACK
+        index <
+        CONFIG.DISTANCE_LOOKBACK
     ) {
         return false;
     }
@@ -568,7 +656,8 @@ function isDistanceExpanding(
     const previous =
         getMAData(
             candles,
-            index - CONFIG.DISTANCE_LOOKBACK
+            index -
+            CONFIG.DISTANCE_LOOKBACK
         );
 
     if (
@@ -578,8 +667,10 @@ function isDistanceExpanding(
         return false;
     }
 
-    return current.distance >
-        previous.distance;
+    return (
+        current.distance >
+        previous.distance
+    );
 }
 
 
@@ -595,7 +686,8 @@ function getDistanceChange(
 ) {
 
     if (
-        index < CONFIG.DISTANCE_LOOKBACK
+        index <
+        CONFIG.DISTANCE_LOOKBACK
     ) {
         return 0;
     }
@@ -609,7 +701,8 @@ function getDistanceChange(
     const previous =
         getMAData(
             candles,
-            index - CONFIG.DISTANCE_LOOKBACK
+            index -
+            CONFIG.DISTANCE_LOOKBACK
         );
 
     if (
@@ -619,8 +712,10 @@ function getDistanceChange(
         return 0;
     }
 
-    return current.distance -
-        previous.distance;
+    return (
+        current.distance -
+        previous.distance
+    );
 }
 
 
@@ -638,7 +733,10 @@ function detectPullback(
     const i =
         candles.length - 1;
 
-    if (i < CONFIG.SLOW_MA + 3) {
+    if (
+        i <
+        CONFIG.SLOW_MA + 3
+    ) {
         return false;
     }
 
@@ -700,7 +798,8 @@ function detectPullback(
 
         const previousDistance =
             Math.abs(
-                previousClose - ma10
+                previousClose -
+                ma10
             );
 
 
@@ -712,7 +811,8 @@ function detectPullback(
 
         const currentNear =
             Math.abs(
-                currentClose - ma10
+                currentClose -
+                ma10
             ) <=
             avgRange *
             CONFIG.PULLBACK_DISTANCE;
@@ -723,7 +823,8 @@ function detectPullback(
 
 
         const slowing =
-            previousClose <= previous2Close ||
+            previousClose <=
+            previous2Close ||
             !isBullish(previous);
 
 
@@ -765,7 +866,8 @@ function detectPullback(
 
         const previousDistance =
             Math.abs(
-                previousClose - ma10
+                previousClose -
+                ma10
             );
 
 
@@ -777,7 +879,8 @@ function detectPullback(
 
         const currentNear =
             Math.abs(
-                currentClose - ma10
+                currentClose -
+                ma10
             ) <=
             avgRange *
             CONFIG.PULLBACK_DISTANCE;
@@ -788,7 +891,8 @@ function detectPullback(
 
 
         const slowing =
-            previousClose >= previous2Close ||
+            previousClose >=
+            previous2Close ||
             !isBearish(previous);
 
 
@@ -808,21 +912,36 @@ function detectPullback(
 
 /*
 ============================================================
-NUEVO V4
+MA10 REJECTION V4 - MODO PRUEBA
+============================================================
 
-RECHAZO DE MA10
+Esta es la función nueva.
 
 Busca:
 
-IMPULSO
-   ↓
-RETROCESO
-   ↓
-ACERCAMIENTO A MA10
-   ↓
-RECHAZO
-   ↓
-CONTINUACIÓN
+PUT:
+
+    caída
+      ↓
+    retroceso
+      ↓
+    acercamiento MA10
+      ↓
+    rechazo
+      ↓
+    PUT
+
+CALL:
+
+    subida
+      ↓
+    retroceso
+      ↓
+    acercamiento MA10
+      ↓
+    rechazo
+      ↓
+    CALL
 ============================================================
 */
 
@@ -834,6 +953,7 @@ function detectMA10Rejection(
     if (
         !CONFIG.MA10_REJECTION_ENABLED
     ) {
+
         return {
             detected: false
         };
@@ -843,8 +963,9 @@ function detectMA10Rejection(
     if (
         !Array.isArray(candles) ||
         candles.length <
-        CONFIG.SLOW_MA + 3
+        CONFIG.SLOW_MA + 5
     ) {
+
         return {
             detected: false
         };
@@ -854,6 +975,7 @@ function detectMA10Rejection(
     const i =
         candles.length - 1;
 
+
     const current =
         candles[i];
 
@@ -862,6 +984,9 @@ function detectMA10Rejection(
 
     const previous2 =
         candles[i - 2];
+
+    const previous3 =
+        candles[i - 3];
 
 
     /*
@@ -884,6 +1009,13 @@ function detectMA10Rejection(
             CONFIG.FAST_MA
         );
 
+    const ma10Previous2 =
+        smaAt(
+            candles,
+            i - 2,
+            CONFIG.FAST_MA
+        );
+
 
     /*
     ========================================================
@@ -902,8 +1034,10 @@ function detectMA10Rejection(
     if (
         ma10Current == null ||
         ma10Previous == null ||
+        ma10Previous2 == null ||
         ma50Current == null
     ) {
+
         return {
             detected: false
         };
@@ -928,6 +1062,7 @@ function detectMA10Rejection(
         !avgRange ||
         avgRange <= 0
     ) {
+
         return {
             detected: false
         };
@@ -936,20 +1071,20 @@ function detectMA10Rejection(
 
     /*
     ========================================================
-    DATOS DE VELAS
+    DATOS VELA ACTUAL
     ========================================================
     */
 
-    const currentOpen =
+    const open =
         number(current.open);
 
-    const currentClose =
+    const close =
         number(current.close);
 
-    const currentHigh =
+    const high =
         number(current.high);
 
-    const currentLow =
+    const low =
         number(current.low);
 
 
@@ -959,10 +1094,13 @@ function detectMA10Rejection(
     const previous2Close =
         number(previous2.close);
 
+    const previous3Close =
+        number(previous3.close);
+
 
     /*
     ========================================================
-    FUERZA DE LA VELA ACTUAL
+    FUERZA
     ========================================================
     */
 
@@ -976,20 +1114,20 @@ function detectMA10Rejection(
     ========================================================
     */
 
-    const distanceToMA10 =
+    const distanceCurrent =
         Math.abs(
-            currentClose -
+            close -
             ma10Current
         ) / avgRange;
 
 
     /*
     ========================================================
-    DISTANCIA ANTERIOR A MA10
+    DISTANCIA ANTERIOR
     ========================================================
     */
 
-    const previousDistance =
+    const distancePrevious =
         Math.abs(
             previousClose -
             ma10Previous
@@ -998,18 +1136,15 @@ function detectMA10Rejection(
 
     /*
     ========================================================
-    DEBE HABER UN RETROCESO
+    DISTANCIA ANTERIOR 2
     ========================================================
-
-    No queremos simplemente detectar una vela cerca de MA10.
-
-    Queremos que anteriormente el precio estuviera más
-    alejado y ahora esté regresando hacia la media.
     */
 
-    const movedTowardMA =
-        previousDistance >
-        distanceToMA10;
+    const distancePrevious2 =
+        Math.abs(
+            previous2Close -
+            ma10Previous2
+        ) / avgRange;
 
 
     /*
@@ -1020,9 +1155,8 @@ function detectMA10Rejection(
 
     if (direction === "PUT") {
 
-
         /*
-        Tendencia bajista
+        Tendencia bajista.
         */
 
         if (
@@ -1037,51 +1171,32 @@ function detectMA10Rejection(
 
 
         /*
-        El precio venía recuperándose.
-
-        Ejemplo:
-
-        🟥
-        🟥
-        🟥
-        🟩
-        🟩
-        🟥 ← rechazo
+        Precio debajo de MA10.
         */
 
-        const previousWasRecovering =
-            previousClose >
-            previous2Close;
-
-
-        /*
-        El cierre actual sigue debajo de MA10
-        */
-
-        const rejectedBelowMA10 =
-            currentClose <
+        const belowMA10 =
+            close <
             ma10Current;
 
 
         /*
-        La mecha alcanzó MA10 o quedó
-        suficientemente cerca.
-        */
-
-        const touchedMA10 =
-            currentHigh >=
-            ma10Current -
-            avgRange *
-            CONFIG.MA10_TOUCH_TOLERANCE;
-
-
-        /*
-        La distancia debe ser pequeña.
+        Precio cerca de MA10.
         */
 
         const closeToMA10 =
-            distanceToMA10 <=
+            distanceCurrent <=
             CONFIG.MA10_REJECTION_DISTANCE;
+
+
+        /*
+        La mecha llegó cerca de MA10.
+        */
+
+        const touchedMA10 =
+            high >=
+            ma10Current -
+            avgRange *
+            CONFIG.MA10_TOUCH_TOLERANCE;
 
 
         /*
@@ -1089,40 +1204,132 @@ function detectMA10Rejection(
         */
 
         const bearish =
-            currentClose <
-            currentOpen;
+            close <
+            open;
 
 
         /*
         ====================================================
-        RECHAZO PUT
+        DETECTAR RETROCESO
+        ====================================================
+
+        Permitimos varias formas:
+
+        1. La distancia disminuyó.
+
+        2. La vela anterior cerró más arriba.
+
+        3. La vela anterior a esa también cerró más arriba.
+        */
+
+        const pullbackDetected =
+            distancePrevious <
+            distancePrevious2 ||
+
+            previousClose >
+            previous2Close ||
+
+            previous2Close >
+            previous3Close;
+
+
+        /*
+        ====================================================
+        RECHAZO
         ====================================================
         */
 
         const rejection =
-            rejectedBelowMA10 &&
-            touchedMA10 &&
+            belowMA10 &&
             closeToMA10 &&
+            touchedMA10 &&
             bearish;
 
 
         /*
         ====================================================
-        CONFIRMACIÓN DEL PULLBACK
+        RESULTADO
         ====================================================
         */
 
-        const validPullback =
-            previousWasRecovering &&
-            movedTowardMA;
-
-
-        if (
+        const detected =
             rejection &&
-            validPullback &&
+            pullbackDetected &&
             strength >=
-            CONFIG.MA10_REJECTION_MIN_STRENGTH
-        ) {
+            CONFIG.MA10_REJECTION_MIN_STRENGTH;
+
+
+        /*
+        ====================================================
+        DEBUG
+        ====================================================
+        */
+
+        if (CONFIG.DEBUG) {
+
+            console.log(
+                "🔎 MA10 REJECTION TEST PUT:",
+                {
+
+                    ma10:
+                        round(
+                            ma10Current,
+                            5
+                        ),
+
+                    ma50:
+                        round(
+                            ma50Current,
+                            5
+                        ),
+
+                    close:
+                        round(
+                            close,
+                            5
+                        ),
+
+                    distance:
+                        round(
+                            distanceCurrent,
+                            3
+                        ),
+
+                    previousDistance:
+                        round(
+                            distancePrevious,
+                            3
+                        ),
+
+                    closeToMA10,
+
+                    touchedMA10,
+
+                    belowMA10,
+
+                    bearish,
+
+                    pullbackDetected,
+
+                    strength:
+                        round(
+                            strength,
+                            3
+                        ),
+
+                    minStrength:
+                        CONFIG
+                            .MA10_REJECTION_MIN_STRENGTH,
+
+                    rejection,
+
+                    detected
+                }
+            );
+        }
+
+
+        if (detected) {
 
             return {
 
@@ -1130,17 +1337,18 @@ function detectMA10Rejection(
 
                 direction: "PUT",
 
-                type: "MA10_REJECTION",
+                type:
+                    "MA10_REJECTION",
 
                 distanceToMA10:
                     round(
-                        distanceToMA10,
+                        distanceCurrent,
                         3
                     ),
 
                 previousDistance:
                     round(
-                        previousDistance,
+                        distancePrevious,
                         3
                     ),
 
@@ -1177,9 +1385,8 @@ function detectMA10Rejection(
 
     if (direction === "CALL") {
 
-
         /*
-        Tendencia alcista
+        Tendencia alcista.
         */
 
         if (
@@ -1194,50 +1401,32 @@ function detectMA10Rejection(
 
 
         /*
-        El precio venía retrocediendo.
-
-        Ejemplo:
-
-        🟩
-        🟩
-        🟩
-        🟥
-        🟥
-        🟩 ← rechazo
+        Precio encima de MA10.
         */
 
-        const previousWasRecovering =
-            previousClose <
-            previous2Close;
-
-
-        /*
-        Cierre actual encima de MA10.
-        */
-
-        const rejectedAboveMA10 =
-            currentClose >
+        const aboveMA10 =
+            close >
             ma10Current;
 
 
         /*
-        La mecha llegó a MA10.
-        */
-
-        const touchedMA10 =
-            currentLow <=
-            ma10Current +
-            avgRange *
-            CONFIG.MA10_TOUCH_TOLERANCE;
-
-
-        /*
-        Está realmente cerca.
+        Cerca de MA10.
         */
 
         const closeToMA10 =
-            distanceToMA10 <=
+            distanceCurrent <=
             CONFIG.MA10_REJECTION_DISTANCE;
+
+
+        /*
+        La mecha llegó cerca de MA10.
+        */
+
+        const touchedMA10 =
+            low <=
+            ma10Current +
+            avgRange *
+            CONFIG.MA10_TOUCH_TOLERANCE;
 
 
         /*
@@ -1245,40 +1434,124 @@ function detectMA10Rejection(
         */
 
         const bullish =
-            currentClose >
-            currentOpen;
+            close >
+            open;
 
 
         /*
         ====================================================
-        RECHAZO CALL
+        DETECTAR RETROCESO
+        ====================================================
+        */
+
+        const pullbackDetected =
+            distancePrevious <
+            distancePrevious2 ||
+
+            previousClose <
+            previous2Close ||
+
+            previous2Close <
+            previous3Close;
+
+
+        /*
+        ====================================================
+        RECHAZO
         ====================================================
         */
 
         const rejection =
-            rejectedAboveMA10 &&
-            touchedMA10 &&
+            aboveMA10 &&
             closeToMA10 &&
+            touchedMA10 &&
             bullish;
 
 
         /*
         ====================================================
-        CONFIRMACIÓN DEL PULLBACK
+        RESULTADO
         ====================================================
         */
 
-        const validPullback =
-            previousWasRecovering &&
-            movedTowardMA;
-
-
-        if (
+        const detected =
             rejection &&
-            validPullback &&
+            pullbackDetected &&
             strength >=
-            CONFIG.MA10_REJECTION_MIN_STRENGTH
-        ) {
+            CONFIG.MA10_REJECTION_MIN_STRENGTH;
+
+
+        /*
+        ====================================================
+        DEBUG
+        ====================================================
+        */
+
+        if (CONFIG.DEBUG) {
+
+            console.log(
+                "🔎 MA10 REJECTION TEST CALL:",
+                {
+
+                    ma10:
+                        round(
+                            ma10Current,
+                            5
+                        ),
+
+                    ma50:
+                        round(
+                            ma50Current,
+                            5
+                        ),
+
+                    close:
+                        round(
+                            close,
+                            5
+                        ),
+
+                    distance:
+                        round(
+                            distanceCurrent,
+                            3
+                        ),
+
+                    previousDistance:
+                        round(
+                            distancePrevious,
+                            3
+                        ),
+
+                    closeToMA10,
+
+                    touchedMA10,
+
+                    aboveMA10,
+
+                    bullish,
+
+                    pullbackDetected,
+
+                    strength:
+                        round(
+                            strength,
+                            3
+                        ),
+
+                    minStrength:
+                        CONFIG
+                            .MA10_REJECTION_MIN_STRENGTH,
+
+                    rejection,
+
+                    detected
+                }
+            );
+        }
+
+
+        if (detected) {
 
             return {
 
@@ -1286,17 +1559,18 @@ function detectMA10Rejection(
 
                 direction: "CALL",
 
-                type: "MA10_REJECTION",
+                type:
+                    "MA10_REJECTION",
 
                 distanceToMA10:
                     round(
-                        distanceToMA10,
+                        distanceCurrent,
                         3
                     ),
 
                 previousDistance:
                     round(
-                        previousDistance,
+                        distancePrevious,
                         3
                     ),
 
@@ -1333,7 +1607,7 @@ function detectMA10Rejection(
 
 /*
 ============================================================
-CONTINUACIÓN
+CONTINUATION
 ============================================================
 */
 
@@ -1350,6 +1624,7 @@ function detectContinuation(
         CONFIG.SLOW_MA +
         CONFIG.CONTINUATION_LOOKBACK
     ) {
+
         return false;
     }
 
@@ -1383,6 +1658,7 @@ function detectContinuation(
         ma10 == null ||
         ma50 == null
     ) {
+
         return false;
     }
 
@@ -1410,7 +1686,8 @@ function detectContinuation(
 
 
         const aboveMA10 =
-            close > ma10;
+            close >
+            ma10;
 
 
         const bullish =
@@ -1460,7 +1737,8 @@ function detectContinuation(
 
 
         const belowMA10 =
-            close < ma10;
+            close <
+            ma10;
 
 
         const bearish =
@@ -1503,7 +1781,10 @@ function directionConfirmed(
 ) {
 
     const current =
-        candles[candles.length - 1];
+        candles[
+            candles.length - 1
+        ];
+
 
     const ma10 =
         smaAt(
@@ -1511,6 +1792,7 @@ function directionConfirmed(
             candles.length - 1,
             CONFIG.FAST_MA
         );
+
 
     const ma50 =
         smaAt(
@@ -1524,6 +1806,7 @@ function directionConfirmed(
         ma10 == null ||
         ma50 == null
     ) {
+
         return false;
     }
 
@@ -1540,6 +1823,7 @@ function directionConfirmed(
         strength <
         CONFIG.MIN_CANDLE_STRENGTH
     ) {
+
         return false;
     }
 
@@ -1600,7 +1884,7 @@ function initializeState(state) {
 
 /*
 ============================================================
-ACTUALIZAR ESTADO DE TENDENCIA
+ACTUALIZAR TENDENCIA
 ============================================================
 */
 
@@ -1623,7 +1907,7 @@ function updateTrendState(
 
     /*
     ========================================================
-    NUEVO CRUCE
+    NUEVO CROSS
     ========================================================
     */
 
@@ -1645,9 +1929,12 @@ function updateTrendState(
         if (CONFIG.DEBUG) {
 
             console.log(
-                "📊 SMA V4 - NUEVO CRUCE:",
+                "📊 SMA V4 - NUEVO CROSS:",
                 {
-                    direction: cross,
+
+                    direction:
+                        cross,
+
                     index
                 }
             );
@@ -1659,7 +1946,7 @@ function updateTrendState(
 
     /*
     ========================================================
-    SI NO TENEMOS TENDENCIA TODAVÍA
+    TODAVÍA NO TENEMOS TENDENCIA
     ========================================================
     */
 
@@ -1687,15 +1974,15 @@ function updateTrendState(
     }
 
 
-    return strategyState.trendDirection;
+    return (
+        strategyState.trendDirection
+    );
 }
 
 
 /*
 ============================================================
-¿PODEMOS ENTRAR?
-
-Mantiene la regla V3 de separación.
+CAN ENTER
 ============================================================
 */
 
@@ -1710,7 +1997,7 @@ function canEnter(
 
     /*
     ========================================================
-    SEPARACIÓN ENTRE OPERACIONES
+    SEPARACIÓN
     ========================================================
     */
 
@@ -1730,7 +2017,7 @@ function canEnter(
 
     /*
     ========================================================
-    MÁXIMO DE OPERACIONES POR TENDENCIA
+    MÁXIMO POR TENDENCIA
     ========================================================
     */
 
@@ -1780,8 +2067,10 @@ function registerEntry(
         console.log(
             "📈 SMA V4 - ENTRADA:",
             {
+
                 direction:
-                    strategyState.trendDirection,
+                    strategyState
+                        .trendDirection,
 
                 entryType,
 
@@ -1789,7 +2078,8 @@ function registerEntry(
                     index,
 
                 tradesInTrend:
-                    strategyState.tradesInTrend
+                    strategyState
+                        .tradesInTrend
             }
         );
     }
@@ -1798,16 +2088,20 @@ function registerEntry(
 
 /*
 ============================================================
-SEÑAL NEUTRAL
+NEUTRAL
 ============================================================
 */
 
 function neutral() {
 
     return {
+
         signal: null,
+
         score: 0,
+
         strategy: "sma",
+
         entryType: null
     };
 }
@@ -1883,7 +2177,7 @@ function smaStrategy(
 
     /*
     ========================================================
-    SEPARACIÓN MÍNIMA
+    DISTANCIA MA10 / MA50
     ========================================================
     */
 
@@ -1893,27 +2187,12 @@ function smaStrategy(
 
     /*
     ========================================================
-    CONFIRMAR DIRECCIÓN
+    PRIMERO:
+    MA10 REJECTION
     ========================================================
-    */
 
-    const confirmed =
-        directionConfirmed(
-            candles,
-            direction
-        );
-
-
-    /*
-    ========================================================
-    IMPORTANTE
-
-    Primero comprobamos si existe una oportunidad
-    de rechazo MA10.
-
-    Esto permite capturar precisamente el patrón
-    mostrado en tu gráfico.
-    ========================================================
+    Lo evaluamos antes que las demás entradas para
+    asegurarnos de que el nuevo patrón tenga prioridad.
     */
 
     const ma10Rejection =
@@ -1922,12 +2201,6 @@ function smaStrategy(
             direction
         );
 
-
-    /*
-    ========================================================
-    Si tenemos rechazo MA10
-    ========================================================
-    */
 
     if (
         ma10Rejection.detected &&
@@ -1947,7 +2220,7 @@ function smaStrategy(
         if (CONFIG.DEBUG) {
 
             console.log(
-                "🎯 SMA V4 - MA10 REJECTION:",
+                "🎯🎯🎯 SMA V4 - MA10 REJECTION DETECTADO:",
                 ma10Rejection
             );
         }
@@ -1961,7 +2234,8 @@ function smaStrategy(
 
                 score: 10,
 
-                strategy: "sma",
+                strategy:
+                    "sma",
 
                 trend:
                     direction === "CALL"
@@ -1987,19 +2261,17 @@ function smaStrategy(
                     ma10Rejection.strength,
 
                 rejectionDistance:
-                    ma10Rejection.distanceToMA10
+                    ma10Rejection
+                        .distanceToMA10
             });
 
-
-        /*
-        buildSignal puede no conservar entryType.
-        Lo añadimos aquí para no obligarte a modificar
-        buildSignal.js.
-        */
 
         return {
 
             ...result,
+
+            signal:
+                direction,
 
             entryType:
                 "MA10_REJECTION",
@@ -2012,25 +2284,41 @@ function smaStrategy(
 
     /*
     ========================================================
-    NO HAY RECHAZO MA10
+    CONFIRMAR DIRECCIÓN
+    ========================================================
+    */
+
+    const confirmed =
+        directionConfirmed(
+            candles,
+            direction
+        );
+
+
+    /*
+    ========================================================
+    ESTADO
+    ========================================================
+    */
+
+    const strategyState =
+        initializeState(state);
+
+
+    /*
+    ========================================================
+    SI NO ESTÁ CONFIRMADO
     ========================================================
 
-    A partir de aquí continúa exactamente la filosofía
-    de V3.
-    ========================================================
+    Permitimos solamente las primeras velas después
+    del cruce.
     */
 
     if (!confirmed) {
 
-        /*
-        No bloqueamos completamente la búsqueda de
-        una entrada temprana después del cruce.
-        */
-
         const candlesFromCross =
             index -
-            initializeState(state)
-                .lastCrossIndex;
+            strategyState.lastCrossIndex;
 
 
         if (
@@ -2045,7 +2333,7 @@ function smaStrategy(
 
     /*
     ========================================================
-    DISTANCIA SEPARÁNDOSE
+    DISTANCIA EXPANDIÉNDOSE
     ========================================================
     */
 
@@ -2065,13 +2353,9 @@ function smaStrategy(
 
     /*
     ========================================================
-    1. ENTRADA POR CRUCE
+    1. CROSS
     ========================================================
     */
-
-    const strategyState =
-        initializeState(state);
-
 
     const isCrossCandle =
         strategyState.lastCrossIndex ===
@@ -2104,7 +2388,8 @@ function smaStrategy(
 
                 score: 10,
 
-                strategy: "sma",
+                strategy:
+                    "sma",
 
                 trend:
                     direction === "CALL"
@@ -2137,6 +2422,9 @@ function smaStrategy(
         return {
 
             ...result,
+
+            signal:
+                direction,
 
             entryType:
                 "CROSS"
@@ -2189,7 +2477,8 @@ function smaStrategy(
 
                 score: 9,
 
-                strategy: "sma",
+                strategy:
+                    "sma",
 
                 trend:
                     direction === "CALL"
@@ -2223,6 +2512,9 @@ function smaStrategy(
 
             ...result,
 
+            signal:
+                direction,
+
             entryType:
                 "EARLY_TREND"
         };
@@ -2231,7 +2523,7 @@ function smaStrategy(
 
     /*
     ========================================================
-    3. PULLBACK NORMAL
+    3. PULLBACK
     ========================================================
     */
 
@@ -2265,7 +2557,8 @@ function smaStrategy(
 
                 score: 9,
 
-                strategy: "sma",
+                strategy:
+                    "sma",
 
                 trend:
                     direction === "CALL"
@@ -2293,6 +2586,9 @@ function smaStrategy(
 
             ...result,
 
+            signal:
+                direction,
+
             entryType:
                 "PULLBACK"
         };
@@ -2301,7 +2597,7 @@ function smaStrategy(
 
     /*
     ========================================================
-    4. CONTINUACIÓN
+    4. CONTINUATION
     ========================================================
     */
 
@@ -2338,7 +2634,8 @@ function smaStrategy(
 
                 score: 8,
 
-                strategy: "sma",
+                strategy:
+                    "sma",
 
                 trend:
                     direction === "CALL"
@@ -2372,6 +2669,9 @@ function smaStrategy(
 
             ...result,
 
+            signal:
+                direction,
+
             entryType:
                 "CONTINUATION"
         };
@@ -2380,7 +2680,7 @@ function smaStrategy(
 
     /*
     ========================================================
-    SIN ENTRADA
+    NINGUNA ENTRADA
     ========================================================
     */
 
