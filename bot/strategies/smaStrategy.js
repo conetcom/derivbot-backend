@@ -2,92 +2,145 @@ const buildSignal = require("../helpers/buildSignal");
 
 /*
 ============================================================
- SYNTHETIC PRO V2
- Trend + Extension + Pullback + Breakout + Reversal
+ SMA STRATEGY V2
 ============================================================
 
- PRINCIPIOS
+ OBJETIVO:
 
- 1. MA10 = movimiento rápido
- 2. MA50 = estructura principal
- 3. Precio vs MA10
- 4. Precio vs MA50
- 5. Pendiente MA10
- 6. Pendiente MA50
- 7. Distancia normalizada a MA50
- 8. Extensión
- 9. Pullback a MA10
-10. Rechazo de MA10
-11. Breakout / BOS
-12. Reversión
-13. Fuerza de vela
-14. Patrón histórico
+ Evitar entradas tardías después del cruce MA10 / MA50.
 
- TIPOS DE ENTRADA
+ ESTRUCTURA:
 
- CONTINUATION
- BREAKOUT
- REVERSAL
- NO TRADE
+                  CRUCE
+                    │
+                    ▼
+          ¿MA10/MA50 separándose?
+               /          \
+             SI            NO
+             │              │
+             ▼              ▼
+      ¿distancia < 1.5?   ESPERAR
+          /      \
+        SI        NO
+        │          │
+        ▼          ▼
+     ENTRAR    ¿PULLBACK?
+                    │
+                   SI
+                    │
+                    ▼
+                 ENTRAR
 
- IMPORTANTE
 
- El martingale NO decide la dirección del mercado.
- El botEngine/riskManager continúa manejando el riesgo.
+ TIPOS DE ENTRADA:
+
+ CROSS
+ PULLBACK
+ NONE
+
+
+ MA10 = movimiento rápido
+ MA50 = estructura principal
+
+ La distancia entre las medias se normaliza
+ utilizando el rango promedio de las últimas velas.
+
+ Ejemplo:
+
+ MA10 = 42300
+ MA50 = 42100
+ distancia = 200
+
+ avgRange = 100
+
+ normalizedDistance = 200 / 100 = 2.0
+
+ Si > 1.5:
+    NO entrar inmediatamente.
+    Esperar pullback.
+
 ============================================================
 */
 
 
 const CONFIG = {
 
-    HISTORY_MIN: 50,
+    // --------------------------------------------------------
+    // MEDIAS
+    // --------------------------------------------------------
 
-    PATTERN_MIN: 10,
+    FAST_MA: 10,
 
-    REQUIRE_HISTORY: true,
+    SLOW_MA: 50,
 
-    HISTORY_MIN_EDGE: 15,
 
-    // Medias
-    MA_FAST: 10,
-    MA_SLOW: 50,
+    // --------------------------------------------------------
+    // RANGO PROMEDIO
+    // --------------------------------------------------------
 
-    // Velas utilizadas para calcular pendiente
-    MA_SLOPE_LOOKBACK: 3,
+    RANGE_PERIOD: 10,
 
-    // Rango medio
-    RANGE_LOOKBACK: 10,
 
-    // Extensión respecto a MA50
-    EXTENSION_MIN: 1.50,
+    // --------------------------------------------------------
+    // DISTANCIA MÁXIMA PARA ENTRADA TEMPRANA
+    //
+    // distancia MA10-MA50 / avgRange
+    // --------------------------------------------------------
 
-    // Precio considerado cerca de MA10
-    MA10_NEAR_MULTIPLIER: 0.35,
+    MAX_EARLY_DISTANCE: 1.5,
 
-    // Fuerza mínima de última vela
-    MIN_LAST_STRENGTH: 0.55,
 
-    // BOS
-    BOS_LOOKBACK: 6,
+    // --------------------------------------------------------
+    // CUÁNTAS VELAS DESPUÉS DEL CRUCE TODAVÍA
+    // CONSIDERAMOS QUE ESTAMOS EN LA FASE INICIAL
+    // --------------------------------------------------------
 
-    // Compatibilidad con botEngine
-    MAX_MARTINGALE: 3,
-    MAX_CONSECUTIVE_LOSSES: 3,
-    COOLDOWN_MS: 5 * 60 * 1000,
+    MAX_CROSS_AGE: 2,
 
-    // Reversiones
-    ENABLE_REVERSAL: true,
-    REVERSAL_EXTENSION: 1.50,
+
+    // --------------------------------------------------------
+    // PULLBACK
+    //
+    // Qué tan cerca debe estar el precio de MA10.
+    // --------------------------------------------------------
+
+    PULLBACK_DISTANCE: 0.50,
+
+
+    // --------------------------------------------------------
+    // FUERZA MÍNIMA DE LA VELA
+    // --------------------------------------------------------
+
+    MIN_CANDLE_STRENGTH: 0.50,
+
+
+    // --------------------------------------------------------
+    // PENDIENTE MÍNIMA
+    // --------------------------------------------------------
+
+    MIN_SLOPE: 0,
+
+
+    // --------------------------------------------------------
+    // LOOKBACK PARA MEDIR EXPANSIÓN
+    // --------------------------------------------------------
+
+    DISTANCE_LOOKBACK: 2,
+
+
+    // --------------------------------------------------------
+    // DEBUG
+    // --------------------------------------------------------
 
     DEBUG: true
 };
 
 
 // ============================================================
-// UTILIDADES
+// NUMBER
 // ============================================================
 
-function num(value, fallback = 0) {
+function number(value, fallback = 0) {
 
     const n = Number(value);
 
@@ -97,6 +150,10 @@ function num(value, fallback = 0) {
 }
 
 
+// ============================================================
+// ROUND
+// ============================================================
+
 function round(value, decimals = 4) {
 
     const n = Number(value);
@@ -105,7 +162,9 @@ function round(value, decimals = 4) {
         return 0;
     }
 
-    return Number(n.toFixed(decimals));
+    return Number(
+        n.toFixed(decimals)
+    );
 }
 
 
@@ -113,7 +172,7 @@ function round(value, decimals = 4) {
 // SMA
 // ============================================================
 
-function sma(candles, period) {
+function calculateSMA(candles, period) {
 
     if (
         !Array.isArray(candles) ||
@@ -122,13 +181,69 @@ function sma(candles, period) {
         return null;
     }
 
-    const slice = candles.slice(-period);
+    let sum = 0;
+
+    const start =
+        candles.length - period;
+
+    for (
+        let i = start;
+        i < candles.length;
+        i++
+    ) {
+
+        const close =
+            Number(candles[i]?.close);
+
+        if (!Number.isFinite(close)) {
+            return null;
+        }
+
+        sum += close;
+    }
+
+    return sum / period;
+}
+
+
+// ============================================================
+// SMA EN UNA POSICIÓN ESPECÍFICA
+//
+// Necesario para detectar exactamente cuándo ocurrió
+// el cruce.
+// ============================================================
+
+function smaAt(
+    candles,
+    index,
+    period
+) {
+
+    if (
+        !Array.isArray(candles)
+    ) {
+        return null;
+    }
+
+    if (
+        index < period - 1
+    ) {
+        return null;
+    }
 
     let sum = 0;
 
-    for (const candle of slice) {
+    const start =
+        index - period + 1;
 
-        const close = Number(candle?.close);
+    for (
+        let i = start;
+        i <= index;
+        i++
+    ) {
+
+        const close =
+            Number(candles[i]?.close);
 
         if (!Number.isFinite(close)) {
             return null;
@@ -145,7 +260,10 @@ function sma(candles, period) {
 // RANGO PROMEDIO
 // ============================================================
 
-function averageRange(candles, period) {
+function averageRange(
+    candles,
+    period
+) {
 
     if (
         !Array.isArray(candles) ||
@@ -154,15 +272,24 @@ function averageRange(candles, period) {
         return null;
     }
 
-    const slice = candles.slice(-period);
+    const start =
+        candles.length - period;
 
     let total = 0;
+
     let count = 0;
 
-    for (const candle of slice) {
+    for (
+        let i = start;
+        i < candles.length;
+        i++
+    ) {
 
-        const high = Number(candle?.high);
-        const low = Number(candle?.low);
+        const high =
+            Number(candles[i]?.high);
+
+        const low =
+            Number(candles[i]?.low);
 
         if (
             !Number.isFinite(high) ||
@@ -171,13 +298,79 @@ function averageRange(candles, period) {
             continue;
         }
 
-        const range = high - low;
+        const range =
+            high - low;
 
         if (range <= 0) {
             continue;
         }
 
         total += range;
+
+        count++;
+    }
+
+    if (!count) {
+        return null;
+    }
+
+    return total / count;
+}
+
+
+// ============================================================
+// RANGO PROMEDIO EN UNA POSICIÓN
+//
+// Para calcular distancia histórica correctamente.
+// ============================================================
+
+function averageRangeAt(
+    candles,
+    index,
+    period
+) {
+
+    if (
+        index < period - 1
+    ) {
+        return null;
+    }
+
+    let total = 0;
+
+    let count = 0;
+
+    const start =
+        index - period + 1;
+
+    for (
+        let i = start;
+        i <= index;
+        i++
+    ) {
+
+        const high =
+            Number(candles[i]?.high);
+
+        const low =
+            Number(candles[i]?.low);
+
+        if (
+            !Number.isFinite(high) ||
+            !Number.isFinite(low)
+        ) {
+            continue;
+        }
+
+        const range =
+            high - low;
+
+        if (range <= 0) {
+            continue;
+        }
+
+        total += range;
+
         count++;
     }
 
@@ -188,7 +381,7 @@ function averageRange(candles, period) {
 
 
 // ============================================================
-// FUERZA DE VELA
+// CANDLE STRENGTH
 // ============================================================
 
 function candleStrength(candle) {
@@ -197,10 +390,17 @@ function candleStrength(candle) {
         return 0;
     }
 
-    const open = Number(candle.open);
-    const close = Number(candle.close);
-    const high = Number(candle.high);
-    const low = Number(candle.low);
+    const open =
+        Number(candle.open);
+
+    const close =
+        Number(candle.close);
+
+    const high =
+        Number(candle.high);
+
+    const low =
+        Number(candle.low);
 
     if (
         !Number.isFinite(open) ||
@@ -211,7 +411,8 @@ function candleStrength(candle) {
         return 0;
     }
 
-    const range = high - low;
+    const range =
+        high - low;
 
     if (range <= 0) {
         return 0;
@@ -225,131 +426,587 @@ function candleStrength(candle) {
 
 
 // ============================================================
-// COLOR DE VELA
+// BULLISH / BEARISH
 // ============================================================
 
-function candleColor(candle) {
+function isBullish(candle) {
 
-    const open = Number(candle?.open);
-    const close = Number(candle?.close);
+    return (
+        Number(candle?.close) >
+        Number(candle?.open)
+    );
+}
+
+
+function isBearish(candle) {
+
+    return (
+        Number(candle?.close) <
+        Number(candle?.open)
+    );
+}
+
+
+// ============================================================
+// DISTANCIA MA10 / MA50
+// ============================================================
+
+function getMAData(
+    candles,
+    index
+) {
+
+    const ma10 =
+        smaAt(
+            candles,
+            index,
+            CONFIG.FAST_MA
+        );
+
+    const ma50 =
+        smaAt(
+            candles,
+            index,
+            CONFIG.SLOW_MA
+        );
 
     if (
-        !Number.isFinite(open) ||
-        !Number.isFinite(close)
-    ) {
-        return "N";
-    }
-
-    if (close > open) {
-        return "G";
-    }
-
-    if (close < open) {
-        return "R";
-    }
-
-    return "N";
-}
-
-
-function bullish(candle) {
-
-    return Number(candle?.close) >
-           Number(candle?.open);
-}
-
-
-function bearish(candle) {
-
-    return Number(candle?.close) <
-           Number(candle?.open);
-}
-
-
-// ============================================================
-// PENDIENTE DE MA
-// ============================================================
-
-function maSlope(candles, period, lookback) {
-
-    if (
-        !Array.isArray(candles) ||
-        candles.length <
-        period + lookback
+        ma10 === null ||
+        ma50 === null
     ) {
         return null;
     }
 
-    const current = sma(
-        candles,
-        period
-    );
-
-    const previous = sma(
-        candles.slice(0, -lookback),
-        period
-    );
+    const avgRange =
+        averageRangeAt(
+            candles,
+            index,
+            CONFIG.RANGE_PERIOD
+        );
 
     if (
-        current === null ||
-        previous === null
+        !avgRange ||
+        avgRange <= 0
     ) {
         return null;
     }
 
-    return current - previous;
+    const distance =
+        Math.abs(
+            ma10 - ma50
+        );
+
+    const normalizedDistance =
+        distance / avgRange;
+
+    return {
+
+        ma10,
+
+        ma50,
+
+        avgRange,
+
+        distance,
+
+        normalizedDistance
+    };
 }
 
 
 // ============================================================
-// SEÑAL NEUTRAL
+// DETECTAR CRUCE
+//
+// Devuelve:
+// CALL = cruce alcista
+// PUT  = cruce bajista
+// null = no hay cruce
 // ============================================================
 
-function neutralSignal(extra = {}) {
+function detectCross(
+    candles,
+    index
+) {
+
+    if (index <= 0) {
+        return null;
+    }
+
+    const current =
+        getMAData(
+            candles,
+            index
+        );
+
+    const previous =
+        getMAData(
+            candles,
+            index - 1
+        );
+
+    if (
+        !current ||
+        !previous
+    ) {
+        return null;
+    }
+
+
+    // --------------------------------------------------------
+    // CROSS ALCISTA
+    // --------------------------------------------------------
+
+    const bullishCross =
+        previous.ma10 <=
+        previous.ma50 &&
+
+        current.ma10 >
+        current.ma50;
+
+
+    if (bullishCross) {
+        return "CALL";
+    }
+
+
+    // --------------------------------------------------------
+    // CROSS BAJISTA
+    // --------------------------------------------------------
+
+    const bearishCross =
+        previous.ma10 >=
+        previous.ma50 &&
+
+        current.ma10 <
+        current.ma50;
+
+
+    if (bearishCross) {
+        return "PUT";
+    }
+
+
+    return null;
+}
+
+
+// ============================================================
+// ENCONTRAR ÚLTIMO CRUCE
+// ============================================================
+
+function findLatestCross(
+    candles
+) {
+
+    const lastIndex =
+        candles.length - 1;
+
+    const start =
+        Math.max(
+            CONFIG.SLOW_MA,
+            lastIndex -
+            CONFIG.MAX_CROSS_AGE -
+            2
+        );
+
+
+    for (
+        let i = lastIndex;
+        i >= start;
+        i--
+    ) {
+
+        const cross =
+            detectCross(
+                candles,
+                i
+            );
+
+        if (cross) {
+
+            return {
+
+                direction:
+                    cross,
+
+                index:
+                    i,
+
+                candlesSinceCross:
+                    lastIndex - i
+            };
+        }
+    }
+
+    return null;
+}
+
+
+// ============================================================
+// ¿DISTANCIA SE ESTÁ EXPANDIENDO?
+//
+// Comparamos distancia actual contra distancia de hace
+// DISTANCE_LOOKBACK velas.
+// ============================================================
+
+function isDistanceExpanding(
+    candles
+) {
+
+    const currentIndex =
+        candles.length - 1;
+
+    const previousIndex =
+        currentIndex -
+        CONFIG.DISTANCE_LOOKBACK;
+
+    if (
+        previousIndex < CONFIG.SLOW_MA
+    ) {
+        return false;
+    }
+
+    const current =
+        getMAData(
+            candles,
+            currentIndex
+        );
+
+    const previous =
+        getMAData(
+            candles,
+            previousIndex
+        );
+
+    if (
+        !current ||
+        !previous
+    ) {
+        return false;
+    }
+
+    return (
+        current.distance >
+        previous.distance
+    );
+}
+
+
+// ============================================================
+// CAMBIO DE DISTANCIA
+// ============================================================
+
+function distanceChange(
+    candles
+) {
+
+    const currentIndex =
+        candles.length - 1;
+
+    const previousIndex =
+        currentIndex -
+        CONFIG.DISTANCE_LOOKBACK;
+
+    if (
+        previousIndex < CONFIG.SLOW_MA
+    ) {
+        return 0;
+    }
+
+    const current =
+        getMAData(
+            candles,
+            currentIndex
+        );
+
+    const previous =
+        getMAData(
+            candles,
+            previousIndex
+        );
+
+    if (
+        !current ||
+        !previous
+    ) {
+        return 0;
+    }
+
+    return (
+        current.distance -
+        previous.distance
+    );
+}
+
+
+// ============================================================
+// PULLBACK
+//
+// Después del cruce y cuando la distancia ya es grande:
+//
+// PUT:
+// precio vuelve hacia MA10 desde abajo
+// y la última vela vuelve a rechazar hacia abajo.
+//
+// CALL:
+// precio vuelve hacia MA10 desde arriba
+// y la última vela vuelve a rechazar hacia arriba.
+// ============================================================
+
+function detectPullback(
+    candles,
+    direction,
+    maData
+) {
+
+    const last =
+        candles.at(-1);
+
+    const previous =
+        candles.at(-2);
+
+    if (
+        !last ||
+        !previous ||
+        !maData
+    ) {
+        return false;
+    }
+
+    const ma10 =
+        maData.ma10;
+
+    const avgRange =
+        maData.avgRange;
+
+    const price =
+        Number(last.close);
+
+    const previousClose =
+        Number(previous.close);
+
+    const distanceToMA10 =
+        Math.abs(
+            price - ma10
+        );
+
+    const normalizedToMA10 =
+        distanceToMA10 /
+        avgRange;
+
+
+    // ========================================================
+    // PULLBACK PUT
+    // ========================================================
+
+    if (
+        direction === "PUT"
+    ) {
+
+        /*
+        Precio estaba debajo de MA10,
+        se acerca a MA10,
+        pero la última vela rechaza hacia abajo.
+        */
+
+        const previousBelowMA10 =
+            previousClose <
+            ma10;
+
+        const priceBelowMA10 =
+            price <
+            ma10;
+
+        const nearMA10 =
+            normalizedToMA10 <=
+            CONFIG.PULLBACK_DISTANCE;
+
+        const bearishRejection =
+            isBearish(last);
+
+        return (
+            previousBelowMA10 &&
+            priceBelowMA10 &&
+            nearMA10 &&
+            bearishRejection
+        );
+    }
+
+
+    // ========================================================
+    // PULLBACK CALL
+    // ========================================================
+
+    if (
+        direction === "CALL"
+    ) {
+
+        const previousAboveMA10 =
+            previousClose >
+            ma10;
+
+        const priceAboveMA10 =
+            price >
+            ma10;
+
+        const nearMA10 =
+            normalizedToMA10 <=
+            CONFIG.PULLBACK_DISTANCE;
+
+        const bullishRejection =
+            isBullish(last);
+
+        return (
+            previousAboveMA10 &&
+            priceAboveMA10 &&
+            nearMA10 &&
+            bullishRejection
+        );
+    }
+
+
+    return false;
+}
+
+
+// ============================================================
+// CONFIRMACIÓN DE DIRECCIÓN
+// ============================================================
+
+function directionConfirmed(
+    candles,
+    direction,
+    maData
+) {
+
+    const last =
+        candles.at(-1);
+
+    if (
+        !last ||
+        !maData
+    ) {
+        return false;
+    }
+
+    const strength =
+        candleStrength(last);
+
+
+    if (
+        strength <
+        CONFIG.MIN_CANDLE_STRENGTH
+    ) {
+        return false;
+    }
+
+
+    // --------------------------------------------------------
+    // CALL
+    // --------------------------------------------------------
+
+    if (
+        direction === "CALL"
+    ) {
+
+        return (
+            maData.ma10 >
+            maData.ma50 &&
+
+            isBullish(last)
+        );
+    }
+
+
+    // --------------------------------------------------------
+    // PUT
+    // --------------------------------------------------------
+
+    if (
+        direction === "PUT"
+    ) {
+
+        return (
+            maData.ma10 <
+            maData.ma50 &&
+
+            isBearish(last)
+        );
+    }
+
+
+    return false;
+}
+
+
+// ============================================================
+// NEUTRAL
+// ============================================================
+
+function neutral(
+    data = {}
+) {
 
     return buildSignal({
 
-        strategy: "synthetic_pro",
+        strategy:
+            "smaStrategy",
 
-        signal: null,
+        signal:
+            null,
 
-        score: 0,
+        score:
+            0,
 
-        trend: false,
+        trend:
+            false,
 
-        bos: false,
+        bos:
+            false,
 
-        pullback: false,
+        pullback:
+            false,
 
-        momentum: false,
+        momentum:
+            false,
 
-        strength: 0,
+        strength:
+            data.strength ?? 0,
 
-        pattern: null,
+        pattern:
+            null,
 
-        pctGreen: null,
+        pctGreen:
+            null,
 
-        pctRed: null,
+        pctRed:
+            null,
 
-        total: 0,
+        total:
+            0,
 
-        historyEdge: 0,
+        historyEdge:
+            0,
 
-        historyDirection: null,
+        historyDirection:
+            null,
 
-        callScore: 0,
+        callScore:
+            0,
 
-        putScore: 0,
+        putScore:
+            0,
 
-        sma: null,
+        sma:
+            data.ma10 ?? null,
 
-        ...extra
+        ...data
     });
 }
 
 
 // ============================================================
-// SYNTHETIC PRO V2
+// SMA STRATEGY
 // ============================================================
 
 function smaStrategy(
@@ -362,1141 +1019,463 @@ function smaStrategy(
     // ========================================================
 
     if (
-        !Array.isArray(candles) ||
-        candles.length < CONFIG.HISTORY_MIN
+        !Array.isArray(candles)
     ) {
 
-        if (CONFIG.DEBUG) {
-
-            console.log(
-                "⛔ SYNTHETIC V2 - HISTORIAL INSUFICIENTE",
-                {
-                    actual: candles?.length || 0,
-                    minimo: CONFIG.HISTORY_MIN
-                }
-            );
-        }
-
-        return neutralSignal({
-            total: candles?.length || 0
-        });
+        return neutral();
     }
 
 
-    // ========================================================
-    // COOLDOWN
-    // ========================================================
-
-    const now = Date.now();
-
-    const cooldownUntil =
-        num(
-            state?.cooldownUntil,
-            0
-        );
-
     if (
-        cooldownUntil > 0 &&
-        now < cooldownUntil
-    ) {
-
-        if (CONFIG.DEBUG) {
-
-            console.log(
-                "⏸️ SYNTHETIC V2 - COOLDOWN"
-            );
-        }
-
-        return neutralSignal();
-    }
-
-
-    // ========================================================
-    // PÉRDIDAS CONSECUTIVAS
-    // ========================================================
-
-    const consecutiveLosses =
-        num(
-            state?.consecutiveLosses,
-            0
-        );
-
-    if (
-        consecutiveLosses >=
-        CONFIG.MAX_CONSECUTIVE_LOSSES
+        candles.length <
+        CONFIG.SLOW_MA + 3
     ) {
 
         console.log(
-            "🛑 SYNTHETIC V2 - MÁXIMO DE PÉRDIDAS",
-            consecutiveLosses
+            "⏳ SMA V2 - ESPERANDO HISTORIAL",
+            {
+                actual:
+                    candles.length,
+
+                necesario:
+                    CONFIG.SLOW_MA + 3
+            }
         );
 
-        return neutralSignal();
+        return neutral();
     }
 
 
-    // ========================================================
-    // MARTINGALE
-    //
-    // SOLO BLOQUEO DE SEGURIDAD.
-    // NO PARTICIPA EN LA DIRECCIÓN.
-    // ========================================================
+    const lastIndex =
+        candles.length - 1;
 
-    const martingale =
-        num(
-            state?.risk?.martingaleStep,
-            0
-        );
 
-    if (
-        martingale >
-        CONFIG.MAX_MARTINGALE
-    ) {
+    const last =
+        candles.at(-1);
 
-        console.log(
-            "🛑 SYNTHETIC V2 - MARTINGALE MÁXIMO",
-            martingale
-        );
-
-        return neutralSignal();
-    }
+    const previous =
+        candles.at(-2);
 
 
     // ========================================================
-    // ÚLTIMAS VELAS
+    // DATOS ACTUALES
     // ========================================================
 
-    const last = candles.at(-1);
-    const prev = candles.at(-2);
-    const prev2 = candles.at(-3);
-    const prev3 = candles.at(-4);
-
-    if (
-        !last ||
-        !prev ||
-        !prev2 ||
-        !prev3
-    ) {
-        return neutralSignal();
-    }
-
-
-    // ========================================================
-    // MA10 / MA50
-    // ========================================================
-
-    const ma10 =
-        sma(
+    const maData =
+        getMAData(
             candles,
-            CONFIG.MA_FAST
+            lastIndex
         );
 
-    const ma50 =
-        sma(
+
+    if (!maData) {
+
+        return neutral();
+    }
+
+
+    const {
+
+        ma10,
+
+        ma50,
+
+        avgRange,
+
+        distance,
+
+        normalizedDistance
+
+    } = maData;
+
+
+    // ========================================================
+    // PENDIENTE MA10
+    // ========================================================
+
+    const previousMA =
+        getMAData(
             candles,
-            CONFIG.MA_SLOW
+            lastIndex - 1
         );
+
+
+    if (!previousMA) {
+
+        return neutral();
+    }
+
 
     const ma10Slope =
-        maSlope(
-            candles,
-            CONFIG.MA_FAST,
-            CONFIG.MA_SLOPE_LOOKBACK
-        );
+        ma10 -
+        previousMA.ma10;
+
 
     const ma50Slope =
-        maSlope(
+        ma50 -
+        previousMA.ma50;
+
+
+    // ========================================================
+    // EXPANSIÓN
+    // ========================================================
+
+    const distanceExpanding =
+        isDistanceExpanding(
+            candles
+        );
+
+
+    const distChange =
+        distanceChange(
+            candles
+        );
+
+
+    // ========================================================
+    // ÚLTIMO CRUCE
+    // ========================================================
+
+    const latestCross =
+        findLatestCross(
+            candles
+        );
+
+
+    // ========================================================
+    // ESTADO DEL MERCADO
+    // ========================================================
+
+    let marketState =
+        "WAIT";
+
+
+    if (
+        ma10 >
+        ma50
+    ) {
+
+        marketState =
+            "BULLISH";
+
+    } else if (
+        ma10 <
+        ma50
+    ) {
+
+        marketState =
+            "BEARISH";
+    }
+
+
+    // ========================================================
+    // DIRECCIÓN DEL CRUCE
+    // ========================================================
+
+    let crossDirection =
+        latestCross?.direction ??
+        null;
+
+
+    let candlesSinceCross =
+        latestCross?.candlesSinceCross ??
+        null;
+
+
+    // ========================================================
+    // CROSS ACTUAL
+    // ========================================================
+
+    const currentCross =
+        detectCross(
             candles,
-            CONFIG.MA_SLOW,
-            CONFIG.MA_SLOPE_LOOKBACK
+            lastIndex
         );
 
-    if (
-        ma10 === null ||
-        ma50 === null ||
-        ma10Slope === null ||
-        ma50Slope === null
-    ) {
-
-        console.log(
-            "⛔ SYNTHETIC V2 - MA NO DISPONIBLES"
-        );
-
-        return neutralSignal();
-    }
-
 
     // ========================================================
-    // PRECIO
-    // ========================================================
-
-    const price =
-        num(last.close);
-
-    const previousPrice =
-        num(prev.close);
-
-
-    // ========================================================
-    // RANGO
-    // ========================================================
-
-    const avgRange =
-        averageRange(
-            candles,
-            CONFIG.RANGE_LOOKBACK
-        );
-
-    if (
-        !avgRange ||
-        avgRange <= 0
-    ) {
-
-        return neutralSignal({
-            sma: ma10
-        });
-    }
-
-
-    // ========================================================
-    // DISTANCIA A MA10 / MA50
-    // ========================================================
-
-    const distanceMA10 =
-        Math.abs(
-            price - ma10
-        );
-
-    const distanceMA50 =
-        Math.abs(
-            price - ma50
-        );
-
-    const normalizedMA10 =
-        distanceMA10 /
-        avgRange;
-
-    const normalizedMA50 =
-        distanceMA50 /
-        avgRange;
-
-
-    // ========================================================
-    // POSICIÓN DEL PRECIO
-    // ========================================================
-
-    const aboveMA10 =
-        price > ma10;
-
-    const belowMA10 =
-        price < ma10;
-
-    const aboveMA50 =
-        price > ma50;
-
-    const belowMA50 =
-        price < ma50;
-
-
-    // ========================================================
-    // ESTRUCTURA ALCISTA
-    // ========================================================
-
-    const bullishStructure =
-        ma10 > ma50 &&
-        ma10Slope > 0;
-
-
-    // ========================================================
-    // ESTRUCTURA BAJISTA
-    // ========================================================
-
-    const bearishStructure =
-        ma10 < ma50 &&
-        ma10Slope < 0;
-
-
-    // ========================================================
-    // TENDENCIA ALCISTA
-    // ========================================================
-
-    const bullishTrend =
-        bullishStructure &&
-        aboveMA10 &&
-        ma50Slope >= 0;
-
-
-    // ========================================================
-    // TENDENCIA BAJISTA
-    // ========================================================
-
-    const bearishTrend =
-        bearishStructure &&
-        belowMA10 &&
-        ma50Slope <= 0;
-
-
-    // ========================================================
-    // EXTENSIÓN
-    // ========================================================
-
-    const bullishExtension =
-        aboveMA50 &&
-        normalizedMA50 >=
-        CONFIG.EXTENSION_MIN;
-
-    const bearishExtension =
-        belowMA50 &&
-        normalizedMA50 >=
-        CONFIG.EXTENSION_MIN;
-
-
-    // ========================================================
-    // EXTENSIÓN DE LA VELA ANTERIOR
+    // ENTRADA CROSS
     //
-    // Esto permite detectar reversión.
-    // ========================================================
-
-    const previousDistanceMA50 =
-        Math.abs(
-            previousPrice - ma50
-        );
-
-    const previousNormalizedMA50 =
-        previousDistanceMA50 /
-        avgRange;
-
-    const previousBullishExtension =
-        previousPrice > ma50 &&
-        previousNormalizedMA50 >=
-        CONFIG.REVERSAL_EXTENSION;
-
-    const previousBearishExtension =
-        previousPrice < ma50 &&
-        previousNormalizedMA50 >=
-        CONFIG.REVERSAL_EXTENSION;
-
-
-    // ========================================================
-    // MOMENTUM
+    // SOLAMENTE SI:
     //
-    // Informativo.
-    // No es requisito de entrada.
+    // 1. El cruce acaba de ocurrir
+    // 2. MA10/MA50 se están separando
+    // 3. distancia < 1.5
+    // 4. vela confirma dirección
     // ========================================================
 
-    const momentumUp =
-        price > previousPrice &&
-        previousPrice >
-        Number(prev2.close);
-
-    const momentumDown =
-        price < previousPrice &&
-        previousPrice <
-        Number(prev2.close);
-
-
-    // ========================================================
-    // PULLBACK HACIA MA10
-    // ========================================================
-
-    const pullbackUp =
-        bullishStructure &&
-        Number(prev.low) <= ma10 &&
-        price > ma10;
-
-    const pullbackDown =
-        bearishStructure &&
-        Number(prev.high) >= ma10 &&
-        price < ma10;
-
-
-    // ========================================================
-    // RECHAZO MA10
-    // ========================================================
-
-    const strengthLast =
-        candleStrength(last);
-
-    const strengthPrev =
-        candleStrength(prev);
-
-    const strengthPrev2 =
-        candleStrength(prev2);
-
-    const avgStrength =
-        (
-            strengthLast +
-            strengthPrev +
-            strengthPrev2
-        ) / 3;
-
-
-    const bullishRejectionMA10 =
-        pullbackUp &&
-        bullish(last) &&
-        price > ma10 &&
-        strengthLast >=
-        CONFIG.MIN_LAST_STRENGTH;
-
-
-    const bearishRejectionMA10 =
-        pullbackDown &&
-        bearish(last) &&
-        price < ma10 &&
-        strengthLast >=
-        CONFIG.MIN_LAST_STRENGTH;
-
-
-    // ========================================================
-    // PROXIMIDAD MA10
-    // ========================================================
-
-    const nearMA10 =
-        normalizedMA10 <=
-        CONFIG.MA10_NEAR_MULTIPLIER;
-
-
-    // ========================================================
-    // BOS
-    // ========================================================
-
-    const bosCandles =
-        candles.slice(
-            -CONFIG.BOS_LOOKBACK,
-            -1
-        );
-
-    let previousHigh = null;
-    let previousLow = null;
-
-    if (bosCandles.length > 0) {
-
-        previousHigh =
-            Math.max(
-                ...bosCandles.map(
-                    candle =>
-                        num(candle.high)
-                )
-            );
-
-        previousLow =
-            Math.min(
-                ...bosCandles.map(
-                    candle =>
-                        num(candle.low)
-                )
-            );
-    }
-
-
-    const bosUp =
-        Number.isFinite(previousHigh) &&
-        price > previousHigh;
-
-
-    const bosDown =
-        Number.isFinite(previousLow) &&
-        price < previousLow;
-
-
-    // ========================================================
-    // PATRÓN
-    // ========================================================
-
-    const pattern =
-        candleColor(prev2) +
-        candleColor(prev) +
-        candleColor(last);
+    let crossEntry =
+        false;
 
 
     if (
-        pattern.includes("N")
+        currentCross
     ) {
 
-        return neutralSignal({
-            pattern,
-            sma: ma10
-        });
-    }
+        const currentDirection =
+            currentCross;
 
 
-    // ========================================================
-    // HISTORIAL
-    // ========================================================
-
-    const stats =
-        state?.stats || {};
-
-    const currentStats =
-        stats?.[pattern] || null;
-
-
-    let historyValid = false;
-
-    let historyTotal = 0;
-
-    let pctGreen = 0;
-
-    let pctRed = 0;
-
-    let historyEdge = 0;
-
-    let historyDirection = null;
-
-
-    if (currentStats) {
-
-        historyTotal =
-            num(
-                currentStats.total,
-                0
-            );
-
-        pctGreen =
-            Number(
-                currentStats.pctGreen
-            );
-
-        pctRed =
-            Number(
-                currentStats.pctRed
+        const directionOk =
+            directionConfirmed(
+                candles,
+                currentDirection,
+                maData
             );
 
 
-        // ----------------------------------------------------
-        // FALLBACK
-        // ----------------------------------------------------
-
         if (
-            !Number.isFinite(pctGreen) ||
-            !Number.isFinite(pctRed)
+            directionOk &&
+            distanceExpanding &&
+            normalizedDistance <
+            CONFIG.MAX_EARLY_DISTANCE
         ) {
 
-            const green =
-                num(
-                    currentStats.green,
-                    0
-                );
+            crossEntry =
+                true;
 
-            const red =
-                num(
-                    currentStats.red,
-                    0
-                );
+            crossDirection =
+                currentDirection;
 
-            const total =
-                green + red;
-
-            if (total > 0) {
-
-                pctGreen =
-                    (green / total) * 100;
-
-                pctRed =
-                    (red / total) * 100;
-
-            } else {
-
-                pctGreen = 0;
-                pctRed = 0;
-            }
-        }
-
-
-        if (
-            historyTotal >=
-            CONFIG.PATTERN_MIN
-        ) {
-
-            historyValid = true;
-        }
-
-
-        if (
-            pctGreen >
-            pctRed
-        ) {
-
-            historyDirection =
-                "CALL";
-
-            historyEdge =
-                pctGreen -
-                pctRed;
-
-        } else if (
-            pctRed >
-            pctGreen
-        ) {
-
-            historyDirection =
-                "PUT";
-
-            historyEdge =
-                pctRed -
-                pctGreen;
-
-        } else {
-
-            historyDirection =
-                null;
-
-            historyEdge =
+            candlesSinceCross =
                 0;
         }
     }
 
 
-    historyEdge =
-        round(
-            historyEdge,
-            2
-        );
-
-    pctGreen =
-        round(
-            pctGreen,
-            2
-        );
-
-    pctRed =
-        round(
-            pctRed,
-            2
-        );
-
-
     // ========================================================
-    // HISTORIAL COMO CONFIRMACIÓN
-    // ========================================================
-
-    const historySupportsCall =
-        historyValid &&
-        historyDirection === "CALL" &&
-        historyEdge >=
-        CONFIG.HISTORY_MIN_EDGE;
-
-
-    const historySupportsPut =
-        historyValid &&
-        historyDirection === "PUT" &&
-        historyEdge >=
-        CONFIG.HISTORY_MIN_EDGE;
-
-
-    // ========================================================
-    // BLOQUEO HISTÓRICO
+    // CROSS RECIENTE
+    //
+    // Permite una confirmación en la siguiente vela.
     // ========================================================
 
     if (
-        CONFIG.REQUIRE_HISTORY &&
-        !historyValid
+        !crossEntry &&
+        latestCross &&
+        candlesSinceCross <=
+        CONFIG.MAX_CROSS_AGE
     ) {
 
-        console.log(
-            "⛔ SYNTHETIC V2 - HISTORIAL INSUFICIENTE",
-            {
-                pattern,
-                historyTotal
-            }
-        );
-
-        return neutralSignal({
-
-            pattern,
-
-            pctGreen,
-
-            pctRed,
-
-            total:
-                historyTotal,
-
-            historyEdge,
-
-            historyDirection,
-
-            strength:
-                avgStrength,
-
-            trend:
-                bullishStructure ||
-                bearishStructure,
-
-            bos:
-                bosUp ||
-                bosDown,
-
-            pullback:
-                pullbackUp ||
-                pullbackDown,
-
-            momentum:
-                momentumUp ||
-                momentumDown,
-
-            sma:
-                ma10
-        });
-    }
+        const direction =
+            latestCross.direction;
 
 
-    if (
-        CONFIG.REQUIRE_HISTORY &&
-        historyEdge <
-        CONFIG.HISTORY_MIN_EDGE
-    ) {
+        const directionOk =
+            directionConfirmed(
+                candles,
+                direction,
+                maData
+            );
 
-        console.log(
-            "⛔ SYNTHETIC V2 - EDGE HISTÓRICO BAJO",
-            {
-                pattern,
-                historyEdge,
-                minimo:
-                    CONFIG.HISTORY_MIN_EDGE
-            }
-        );
 
-        return neutralSignal({
+        if (
+            directionOk &&
+            distanceExpanding &&
+            normalizedDistance <
+            CONFIG.MAX_EARLY_DISTANCE
+        ) {
 
-            pattern,
-
-            pctGreen,
-
-            pctRed,
-
-            total:
-                historyTotal,
-
-            historyEdge,
-
-            historyDirection,
-
-            strength:
-                avgStrength,
-
-            trend:
-                bullishStructure ||
-                bearishStructure,
-
-            bos:
-                bosUp ||
-                bosDown,
-
-            pullback:
-                pullbackUp ||
-                pullbackDown,
-
-            momentum:
-                momentumUp ||
-                momentumDown,
-
-            sma:
-                ma10
-        });
+            crossEntry =
+                true;
+        }
     }
 
 
     // ========================================================
-    // CONTINUACIÓN ALCISTA
+    // PULLBACK
     //
-    // TENDENCIA
-    // +
-    // PULLBACK MA10
-    // +
-    // RECHAZO
-    // +
-    // HISTORIAL CALL
-    // ========================================================
-
-    const continuationCall =
-        bullishTrend &&
-        pullbackUp &&
-        bullishRejectionMA10 &&
-        historySupportsCall;
-
-
-    // ========================================================
-    // CONTINUACIÓN BAJISTA
-    // ========================================================
-
-    const continuationPut =
-        bearishTrend &&
-        pullbackDown &&
-        bearishRejectionMA10 &&
-        historySupportsPut;
-
-
-    // ========================================================
-    // BREAKOUT ALCISTA
+    // Si la distancia ya es > 1.5:
     //
-    // Permite aprovechar movimientos fuertes aunque no exista
-    // un pullback perfecto.
-    // ========================================================
-
-    const breakoutCall =
-        bullishTrend &&
-        bosUp &&
-        bullish(last) &&
-        strengthLast >=
-        CONFIG.MIN_LAST_STRENGTH &&
-        historySupportsCall;
-
-
-    // ========================================================
-    // BREAKOUT BAJISTA
-    // ========================================================
-
-    const breakoutPut =
-        bearishTrend &&
-        bosDown &&
-        bearish(last) &&
-        strengthLast >=
-        CONFIG.MIN_LAST_STRENGTH &&
-        historySupportsPut;
-
-
-    // ========================================================
-    // REVERSIÓN ALCISTA
+    // NO perseguimos el precio.
     //
-    // Precio previamente muy alejado debajo de MA50.
-    //
-    // Luego:
-    //
-    // 1. Recupera MA10
-    // 2. Vela alcista
-    // 3. Fuerza suficiente
-    // 4. Historial CALL
+    // Esperamos que vuelva hacia MA10.
     // ========================================================
 
-    const bullishReversal =
-        CONFIG.ENABLE_REVERSAL &&
-
-        previousBearishExtension &&
-
-        price > ma10 &&
-
-        bullish(last) &&
-
-        strengthLast >=
-        CONFIG.MIN_LAST_STRENGTH &&
-
-        historySupportsCall;
-
-
-    // ========================================================
-    // REVERSIÓN BAJISTA
-    // ========================================================
-
-    const bearishReversal =
-        CONFIG.ENABLE_REVERSAL &&
-
-        previousBullishExtension &&
-
-        price < ma10 &&
-
-        bearish(last) &&
-
-        strengthLast >=
-        CONFIG.MIN_LAST_STRENGTH &&
-
-        historySupportsPut;
-
-
-    // ========================================================
-    // FASE DEL MERCADO
-    // ========================================================
-
-    let marketPhase =
-        "RANGE";
+    let pullbackEntry =
+        false;
 
 
     if (
-        bullishTrend
+        !crossEntry &&
+        latestCross &&
+        latestCross.candlesSinceCross <= 10 &&
+        normalizedDistance >=
+        CONFIG.MAX_EARLY_DISTANCE
     ) {
 
-        marketPhase =
-            bullishExtension
-                ? "BULLISH_EXTENSION"
-                : "BULLISH_TREND";
+        const direction =
+            latestCross.direction;
 
-    } else if (
-        bearishTrend
-    ) {
 
-        marketPhase =
-            bearishExtension
-                ? "BEARISH_EXTENSION"
-                : "BEARISH_TREND";
+        const pullback =
+            detectPullback(
+                candles,
+                direction,
+                maData
+            );
 
-    } else if (
-        bullishStructure
-    ) {
 
-        marketPhase =
-            "BULLISH_TRANSITION";
+        if (
+            pullback
+        ) {
 
-    } else if (
-        bearishStructure
-    ) {
+            pullbackEntry =
+                true;
 
-        marketPhase =
-            "BEARISH_TRANSITION";
-
-    } else if (
-        aboveMA10 &&
-        aboveMA50
-    ) {
-
-        marketPhase =
-            "ABOVE_MA";
-
-    } else if (
-        belowMA10 &&
-        belowMA50
-    ) {
-
-        marketPhase =
-            "BELOW_MA";
+            crossDirection =
+                direction;
+        }
     }
 
 
     // ========================================================
-    // SEÑAL FINAL
+    // RESULTADO
     // ========================================================
 
-    let finalSignal = null;
+    let signal =
+        null;
 
-    let entryType = null;
+
+    let entryType =
+        "NONE";
 
 
-    // --------------------------------------------------------
-    // CONTINUATION CALL
-    // --------------------------------------------------------
+    // ========================================================
+    // CROSS
+    // ========================================================
 
     if (
-        continuationCall
+        crossEntry
     ) {
 
-        finalSignal =
-            "CALL";
+        signal =
+            crossDirection;
 
         entryType =
-            "CONTINUATION";
+            "CROSS";
     }
 
 
-    // --------------------------------------------------------
-    // CONTINUATION PUT
-    // --------------------------------------------------------
+    // ========================================================
+    // PULLBACK
+    // ========================================================
 
     else if (
-        continuationPut
+        pullbackEntry
     ) {
 
-        finalSignal =
-            "PUT";
+        signal =
+            crossDirection;
 
         entryType =
-            "CONTINUATION";
-    }
-
-
-    // --------------------------------------------------------
-    // BREAKOUT CALL
-    // --------------------------------------------------------
-
-    else if (
-        breakoutCall
-    ) {
-
-        finalSignal =
-            "CALL";
-
-        entryType =
-            "BREAKOUT";
-    }
-
-
-    // --------------------------------------------------------
-    // BREAKOUT PUT
-    // --------------------------------------------------------
-
-    else if (
-        breakoutPut
-    ) {
-
-        finalSignal =
-            "PUT";
-
-        entryType =
-            "BREAKOUT";
-    }
-
-
-    // --------------------------------------------------------
-    // REVERSAL CALL
-    // --------------------------------------------------------
-
-    else if (
-        bullishReversal
-    ) {
-
-        finalSignal =
-            "CALL";
-
-        entryType =
-            "REVERSAL";
-    }
-
-
-    // --------------------------------------------------------
-    // REVERSAL PUT
-    // --------------------------------------------------------
-
-    else if (
-        bearishReversal
-    ) {
-
-        finalSignal =
-            "PUT";
-
-        entryType =
-            "REVERSAL";
-    }
-
-
-    // ========================================================
-    // EVITAR CONTRA TENDENCIA
-    // ========================================================
-
-    if (
-        finalSignal === "CALL" &&
-        bearishTrend
-    ) {
-
-        finalSignal = null;
-
-        entryType = null;
-    }
-
-
-    if (
-        finalSignal === "PUT" &&
-        bullishTrend
-    ) {
-
-        finalSignal = null;
-
-        entryType = null;
+            "PULLBACK";
     }
 
 
     // ========================================================
     // SCORE INFORMATIVO
     //
-    // IMPORTANTE:
-    //
-    // El score NO decide la entrada.
-    //
-    // Se mantiene para compatibilidad con:
-    //
-    // - dashboard
-    // - trade_statistics
-    // - botEngine
+    // NO DECIDE LA ENTRADA.
     // ========================================================
 
-    let callScore = 0;
+    let callScore =
+        0;
 
-    let putScore = 0;
+    let putScore =
+        0;
 
 
     if (
-        bullishTrend
+        ma10 >
+        ma50
     ) {
+
         callScore += 3;
     }
 
 
     if (
-        bearishTrend
+        ma10 <
+        ma50
     ) {
+
         putScore += 3;
     }
 
 
     if (
-        pullbackUp
+        ma10Slope >
+        CONFIG.MIN_SLOPE
     ) {
+
         callScore += 2;
     }
 
 
     if (
-        pullbackDown
+        ma10Slope <
+        -CONFIG.MIN_SLOPE
     ) {
+
         putScore += 2;
     }
 
 
     if (
-        bosUp
-    ) {
-        callScore += 2;
-    }
-
-
-    if (
-        bosDown
-    ) {
-        putScore += 2;
-    }
-
-
-    if (
-        bullishReversal
-    ) {
-        callScore += 4;
-    }
-
-
-    if (
-        bearishReversal
-    ) {
-        putScore += 4;
-    }
-
-
-    if (
-        historySupportsCall
-    ) {
-        callScore += 2;
-    }
-
-
-    if (
-        historySupportsPut
-    ) {
-        putScore += 2;
-    }
-
-
-    if (
-        strengthLast >=
-        CONFIG.MIN_LAST_STRENGTH
+        distanceExpanding
     ) {
 
         if (
-            bullish(last)
+            ma10 >
+            ma50
         ) {
 
-            callScore++;
+            callScore += 2;
 
         } else if (
-            bearish(last)
+            ma10 <
+            ma50
         ) {
 
-            putScore++;
+            putScore += 2;
+        }
+    }
+
+
+    if (
+        crossEntry
+    ) {
+
+        if (
+            signal === "CALL"
+        ) {
+
+            callScore += 3;
+
+        } else if (
+            signal === "PUT"
+        ) {
+
+            putScore += 3;
+        }
+    }
+
+
+    if (
+        pullbackEntry
+    ) {
+
+        if (
+            signal === "CALL"
+        ) {
+
+            callScore += 3;
+
+        } else if (
+            signal === "PUT"
+        ) {
+
+            putScore += 3;
         }
     }
 
@@ -1521,7 +1500,7 @@ function smaStrategy(
         );
 
         console.log(
-            "🧠 SYNTHETIC PRO V2"
+            "📊 SMA STRATEGY V2"
         );
 
         console.log(
@@ -1530,17 +1509,22 @@ function smaStrategy(
 
         console.log({
 
-            signal:
-                finalSignal,
+            signal,
 
             entryType,
 
-            marketPhase,
+            marketState,
 
-            pattern,
+            crossDirection,
+
+            currentCross,
+
+            candlesSinceCross,
 
             price:
-                round(price),
+                round(
+                    Number(last.close)
+                ),
 
             ma10:
                 round(ma10),
@@ -1557,73 +1541,33 @@ function smaStrategy(
             avgRange:
                 round(avgRange),
 
-            distanceMA10:
-                round(distanceMA10),
+            maDistance:
+                round(distance),
 
-            distanceMA50:
-                round(distanceMA50),
+            normalizedDistance:
+                round(
+                    normalizedDistance
+                ),
 
-            normalizedMA10:
-                round(normalizedMA10),
+            distanceChange:
+                round(distChange),
 
-            normalizedMA50:
-                round(normalizedMA50),
+            distanceExpanding,
 
-            bullishTrend,
+            crossEntry,
 
-            bearishTrend,
+            pullbackEntry,
 
-            bullishStructure,
-
-            bearishStructure,
-
-            bullishExtension,
-
-            bearishExtension,
-
-            pullbackUp,
-
-            pullbackDown,
-
-            bullishRejectionMA10,
-
-            bearishRejectionMA10,
-
-            bosUp,
-
-            bosDown,
-
-            momentumUp,
-
-            momentumDown,
-
-            strengthLast:
-                round(strengthLast),
-
-            avgStrength:
-                round(avgStrength),
-
-            historyTotal,
-
-            pctGreen,
-
-            pctRed,
-
-            historyDirection,
-
-            historyEdge,
-
-            historySupportsCall,
-
-            historySupportsPut,
+            candleStrength:
+                round(
+                    candleStrength(last)
+                ),
 
             callScore,
 
             putScore,
 
-            martingale,
-
-            consecutiveLosses
+            score
         });
 
         console.log(
@@ -1637,197 +1581,116 @@ function smaStrategy(
     // ========================================================
 
     if (
-        !finalSignal
+        !signal
     ) {
 
         console.log(
-            "⚪ SYNTHETIC V2 → NO TRADE",
+            "⚪ SMA V2 → NO TRADE",
             {
-                marketPhase,
-                pattern,
-                historyDirection,
-                historyEdge,
-                callScore,
-                putScore
+                marketState,
+                normalizedDistance:
+                    round(
+                        normalizedDistance
+                    ),
+                distanceExpanding,
+                latestCross:
+                    latestCross
+                        ? {
+                            direction:
+                                latestCross.direction,
+
+                            candlesSinceCross:
+                                latestCross.candlesSinceCross
+                        }
+                        : null
             }
         );
-
-
-        const result =
-            buildSignal({
-
-                strategy:
-                    "synthetic_pro",
-
-                signal:
-                    null,
-
-                score,
-
-                trend:
-                    bullishStructure ||
-                    bearishStructure,
-
-                bos:
-                    bosUp ||
-                    bosDown,
-
-                pullback:
-                    pullbackUp ||
-                    pullbackDown,
-
-                momentum:
-                    momentumUp ||
-                    momentumDown,
-
-                strength:
-                    avgStrength,
-
-                pattern,
-
-                pctGreen,
-
-                pctRed,
-
-                total:
-                    historyTotal,
-
-                historyEdge,
-
-                historyDirection,
-
-                callScore,
-
-                putScore,
-
-                sma:
-                    ma10
-            });
-
-
-        return {
-
-            ...result,
-
-            ma10:
-                round(ma10),
-
-            ma50:
-                round(ma50),
-
-            ma10Slope:
-                round(ma10Slope),
-
-            ma50Slope:
-                round(ma50Slope),
-
-            avgRange:
-                round(avgRange),
-
-            distanceMA10:
-                round(distanceMA10),
-
-            distanceMA50:
-                round(distanceMA50),
-
-            normalizedMA10:
-                round(normalizedMA10),
-
-            normalizedMA50:
-                round(normalizedMA50),
-
-            marketPhase,
-
-            entryType,
-
-            continuationCall,
-
-            continuationPut,
-
-            breakoutCall,
-
-            breakoutPut,
-
-            bullishReversal,
-
-            bearishReversal,
-
-            bullishExtension,
-
-            bearishExtension,
-
-            nearMA10
-        };
     }
 
 
     // ========================================================
-    // SEÑAL FINAL
+    // TRADE
     // ========================================================
 
-    console.log(
-        finalSignal === "CALL"
-            ? "🟢🟢🟢 SYNTHETIC V2 → CALL"
-            : "🔴🔴🔴 SYNTHETIC V2 → PUT"
-    );
+    if (
+        signal
+    ) {
 
-    console.log(
-        "📌 ENTRY TYPE:",
-        entryType
-    );
+        console.log(
+            signal === "CALL"
+                ? "🟢 SMA V2 → CALL"
+                : "🔴 SMA V2 → PUT"
+        );
 
-    console.log(
-        "📌 MARKET PHASE:",
-        marketPhase
-    );
+        console.log(
+            "🎯 ENTRY TYPE:",
+            entryType
+        );
 
+        console.log(
+            "📏 MA DISTANCE:",
+            round(
+                normalizedDistance
+            )
+        );
+
+        console.log(
+            "⏱️ CANDLES SINCE CROSS:",
+            candlesSinceCross
+        );
+    }
+
+
+    // ========================================================
+    // BUILD SIGNAL
+    // ========================================================
 
     const result =
         buildSignal({
 
             strategy:
-                "synthetic_pro",
+                "smaStrategy",
 
-            signal:
-                finalSignal,
+            signal,
 
             score,
 
             trend:
-                finalSignal === "CALL"
-                    ? bullishStructure
-                    : bearishStructure,
+                signal === "CALL"
+                    ? ma10 > ma50
+                    : signal === "PUT"
+                        ? ma10 < ma50
+                        : false,
 
             bos:
-                finalSignal === "CALL"
-                    ? bosUp
-                    : bosDown,
+                false,
 
             pullback:
-                finalSignal === "CALL"
-                    ? pullbackUp
-                    : pullbackDown,
+                pullbackEntry,
 
             momentum:
-                finalSignal === "CALL"
-                    ? momentumUp
-                    : momentumDown,
+                distanceExpanding,
 
             strength:
-                avgStrength,
+                candleStrength(last),
 
-            pattern,
+            pattern:
+                null,
 
-            pctGreen,
+            pctGreen:
+                null,
 
-            pctRed,
+            pctRed:
+                null,
 
             total:
-                historyTotal,
+                0,
 
-            historyEdge,
+            historyEdge:
+                0,
 
-            historyDirection,
+            historyDirection:
+                null,
 
             callScore,
 
@@ -1838,13 +1701,16 @@ function smaStrategy(
         });
 
 
+    // ========================================================
+    // METADATA
+    //
+    // Estos campos nos servirán para analizar posteriormente
+    // exactamente por qué entró el bot.
+    // ========================================================
+
     return {
 
         ...result,
-
-        // =====================================================
-        // METADATA PARA BOT ENGINE / DASHBOARD / DB
-        // =====================================================
 
         ma10:
             round(ma10),
@@ -1861,39 +1727,37 @@ function smaStrategy(
         avgRange:
             round(avgRange),
 
-        distanceMA10:
-            round(distanceMA10),
+        maDistance:
+            round(distance),
 
-        distanceMA50:
-            round(distanceMA50),
+        normalizedDistance:
+            round(
+                normalizedDistance
+            ),
 
-        normalizedMA10:
-            round(normalizedMA10),
+        distanceChange:
+            round(distChange),
 
-        normalizedMA50:
-            round(normalizedMA50),
+        distanceExpanding,
 
-        marketPhase,
+        marketState,
+
+        crossDirection,
+
+        currentCross,
+
+        candlesSinceCross,
 
         entryType,
 
-        continuationCall,
+        crossEntry,
 
-        continuationPut,
+        pullbackEntry,
 
-        breakoutCall,
-
-        breakoutPut,
-
-        bullishReversal,
-
-        bearishReversal,
-
-        bullishExtension,
-
-        bearishExtension,
-
-        nearMA10
+        candleStrength:
+            round(
+                candleStrength(last)
+            )
     };
 }
 
@@ -1902,5 +1766,4 @@ function smaStrategy(
 // EXPORT
 // ============================================================
 
-module.exports =
-    smaStrategy;
+module.exports = smaStrategy;
