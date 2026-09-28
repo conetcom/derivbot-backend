@@ -2739,10 +2739,8 @@ const startBot = async (
                     historyEdge,
 
                     volatility,
+                    
 
-  entryType:    signal.entryType,
-analysis:
-    signal.analysis,
                     // -----------------------------------------
                     // INTELLIGENCE
                     // -----------------------------------------
