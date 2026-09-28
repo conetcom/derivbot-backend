@@ -7,113 +7,188 @@ const pool = require("../config/db");
 
 async function saveTradeStatistics(data) {
 
-    await pool.query(
+    const analysis =
+        data.analysis || {};
 
-        `
-        INSERT INTO trade_statistics (
+    const result =
+        await pool.query(
+            `
+            INSERT INTO trade_statistics (
+                trade_id,
+                strategy,
+                symbol,
+                signal,
+                score,
+                trend,
+                bos,
+                pullback,
+                momentum,
+                strength,
+                volatility,
+                pattern,
+                pct_green,
+                pct_red,
+                stake,
+                martingale,
+                balance_before,
+                call_score,
+                put_score,
+                sma,
 
-            trade_id,
+                ma10_distance,
+                ma50_distance,
+                ma_distance,
+                ma_distance_ratio,
+                symmetry_class,
 
-            strategy,
+                ma10_slope,
+                ma10_slope_direction,
+                ma10_slope_acceleration,
 
-            symbol,
+                ma50_lateral,
+                ma50_slope,
 
-            signal,
+                candle_sequence_direction,
+                candle_sequence_count,
+                candle_sequence_strength,
 
-            score,
+                direction_change_detected,
+                direction_change_direction,
 
-            trend,
+                entry_type
+            )
 
-            bos,
+            VALUES (
+                $1,$2,$3,$4,$5,
+                $6,$7,$8,$9,$10,
+                $11,$12,$13,$14,$15,
+                $16,$17,$18,$19,$20,
 
-            pullback,
+                $21,$22,$23,$24,$25,
+                $26,$27,$28,
+                $29,$30,
+                $31,$32,$33,
+                $34,$35,
+                $36
+            )
 
-            momentum,
+            RETURNING *
+            `,
+            [
 
-            strength,
+                data.tradeId,
 
-            volatility,
+                data.strategy,
 
-            pattern,
+                data.symbol,
 
-            pct_green,
+                data.signal,
 
-            pct_red,
+                data.score,
 
-            stake,
+                analysis.trend ?? null,
 
-            martingale,
+                analysis.bos ?? null,
 
-            balance_before,
+                analysis.pullback ?? null,
 
-            call_score,
+                analysis.momentum ?? null,
 
-            put_score,
+                analysis.strength ?? null,
 
-            sma
+                analysis.volatility ?? null,
 
-        )
+                analysis.pattern ?? null,
 
-        VALUES (
+                analysis.pctGreen ?? null,
 
-            $1,$2,$3,$4,$5,
+                analysis.pctRed ?? null,
 
-            $6,$7,$8,$9,$10,
+                data.stake,
 
-            $11,$12,$13,$14,$15,
+                data.martingale,
 
-            $16,$17,$18,$19,$20
+                data.balanceBefore,
 
-        )
+                analysis.callScore ?? null,
 
-        `,
+                analysis.putScore ?? null,
 
-        [
+                analysis.sma ?? null,
 
-            data.tradeId,
 
-            data.strategy,
+                // ==========================================
+                // NUEVA INFORMACIÓN SMA
+                // ==========================================
 
-            data.symbol,
+                analysis.ma10Distance ?? null,
 
-            data.signal,
+                analysis.ma50Distance ?? null,
 
-            data.score,
+                analysis.maDistance ?? null,
 
-            data.analysis?.trend ?? null,
+                analysis.maDistanceRatio ?? null,
 
-            data.analysis?.bos ?? false,
+                analysis.symmetryClass ?? null,
 
-            data.analysis?.pullback ?? false,
 
-            data.analysis?.momentum ?? false,
+                analysis.ma10Slope ?? null,
 
-            data.analysis?.strength ?? null,
+                analysis.ma10SlopeDirection ?? null,
 
-            data.analysis?.volatility ?? null,
+                analysis.ma10SlopeAcceleration ?? null,
 
-            data.analysis?.pattern ?? null,
 
-            data.analysis?.pctGreen ?? 0,
+                analysis.ma50Lateral ?? null,
 
-            data.analysis?.pctRed ?? 0,
+                analysis.ma50Slope ?? null,
 
-            data.stake,
 
-            data.martingale,
+                analysis.candleSequenceDirection ?? null,
 
-            data.balanceBefore,
+                analysis.candleSequenceCount ?? null,
 
-            data.analysis?.callScore ?? 0,
+                analysis.candleSequenceStrength ?? null,
 
-            data.analysis?.putScore ?? 0,
 
-            data.analysis?.sma ?? null
+                analysis.directionChangeDetected ?? null,
 
-        ]
+                analysis.directionChangeDirection ?? null,
 
+
+                data.entryType ?? null
+            ]
+        );
+
+
+    console.log(
+        "📊 TRADE STATISTICS SMA:",
+        {
+            tradeId:
+                data.tradeId,
+
+            entryType:
+                data.entryType,
+
+            ma10Distance:
+                analysis.ma10Distance,
+
+            ma50Distance:
+                analysis.ma50Distance,
+
+            maDistance:
+                analysis.maDistance,
+
+            ratio:
+                analysis.maDistanceRatio,
+
+            symmetry:
+                analysis.symmetryClass
+        }
     );
 
+
+    return result.rows[0];
 }
 
 

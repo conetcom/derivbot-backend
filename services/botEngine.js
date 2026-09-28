@@ -2740,6 +2740,9 @@ const startBot = async (
 
                     volatility,
 
+  entryType:    signal.entryType,
+analysis:
+    signal.analysis,
                     // -----------------------------------------
                     // INTELLIGENCE
                     // -----------------------------------------
