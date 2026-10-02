@@ -1658,7 +1658,7 @@ function smaStrategy(candles, state = {}) {
     // ============================================
     // FILTRO MA10 / MA50
     // ============================================
-
+const direction = maData.maDirection;
     if (
         maData.normalizedSeparation <
         CONFIG.MIN_MA_SEPARATION
