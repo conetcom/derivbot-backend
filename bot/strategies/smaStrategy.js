@@ -1685,61 +1685,188 @@ const direction = maData.maDirection;
     // DESDE AQUÍ COMIENZAN LAS ENTRADAS
     // ============================================
 
-    if (CONFIG.MA10_MEAN_REVERSION_ENABLED) {
+   if (CONFIG.MA10_MEAN_REVERSION_ENABLED) {
 
-        const meanReversion =
-            detectMA10MeanReversion(
-                candles,
-                index,
-                direction
-            );
-
-        if (meanReversion.detected) {
-
-            // ...
-        }
-    }
-
-
-    if (CONFIG.MA_REJECTION_ENABLED) {
-
-        const rejection =
-            detectRejection(
-                candles,
-                index,
-                direction
-            );
-
-        if (rejection.detected) {
-
-            // ...
-        }
-    }
-
-
-    const retracement =
-        detectRetracement(
+    const meanReversion =
+        detectMA10MeanReversion(
             candles,
             index,
             direction
         );
 
-    if (retracement.detected) {
+    if (meanReversion.detected) {
 
-        // ...
+        if (!canEnter(index, state)) {
+            return neutral();
+        }
+
+        registerEntry(
+            index,
+            "MA10_MEAN_REVERSION",
+            meanReversion.signal,
+            state
+        );
+
+        return buildResult({
+            signal: meanReversion.signal,
+            trendDirection: direction,
+            score: 8,
+            entryType: "MA10_MEAN_REVERSION",
+
+            ma10: maData.ma10,
+            ma50: maData.ma50,
+            distance: maData.distance,
+
+            strength: meanReversion.currentStrength,
+
+            analysis: buildAnalysis(
+                candles,
+                index,
+                direction
+            )
+        });
+    }
+}
+
+
+   if (CONFIG.MA_REJECTION_ENABLED) {
+
+    const rejection =
+        detectRejection(
+            candles,
+            index,
+            direction
+        );
+
+    if (rejection.detected) {
+
+        if (!canEnter(index, state)) {
+            return neutral();
+        }
+
+        registerEntry(
+            index,
+            "MA_REJECTION",
+            direction,
+            state
+        );
+
+        return buildResult({
+            signal: direction,
+            trendDirection: direction,
+            score: 10,
+            entryType: "MA_REJECTION",
+
+            ma10: maData.ma10,
+            ma50: maData.ma50,
+            distance: maData.distance,
+
+            strength: rejection.strength,
+
+            analysis: buildAnalysis(
+                candles,
+                index,
+                direction
+            )
+        });
+    }
+}
+
+  const retracement =
+    detectRetracement(
+        candles,
+        index,
+        direction
+    );
+
+if (
+    retracement.detected &&
+    directionConfirmed(
+        candles,
+        index,
+        direction
+    )
+) {
+
+    if (!canEnter(index, state)) {
+        return neutral();
     }
 
+    registerEntry(
+        index,
+        "PULLBACK",
+        direction,
+        state
+    );
 
-    if (
-        detectContinuation(
+    return buildResult({
+        signal: direction,
+        trendDirection: direction,
+        score: 8,
+        entryType: "PULLBACK",
+
+        ma10: maData.ma10,
+        ma50: maData.ma50,
+        distance: maData.distance,
+
+        strength: candleStrength(
+            candles[index]
+        ),
+
+        analysis: buildAnalysis(
             candles,
             index,
             direction
         )
-    ) {
+    });
+}
 
-        // ...
+
+   if (
+    detectContinuation(
+        candles,
+        index,
+        direction
+    ) &&
+    directionConfirmed(
+        candles,
+        index,
+        direction
+    )
+) {
+
+    if (!canEnter(index, state)) {
+        return neutral();
     }
+
+    registerEntry(
+        index,
+        "CONTINUATION",
+        direction,
+        state
+    );
+
+    return buildResult({
+        signal: direction,
+        trendDirection: direction,
+        score: 7,
+        entryType: "CONTINUATION",
+
+        ma10: maData.ma10,
+        ma50: maData.ma50,
+        distance: maData.distance,
+
+        strength: candleStrength(
+            candles[index]
+        ),
+
+        analysis: buildAnalysis(
+            candles,
+            index,
+            direction
+        )
+    });
+}
 
 
     return neutral();
