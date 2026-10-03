@@ -1,27 +1,24 @@
 // ============================================================
-// SMA STRATEGY V5 (CORREGIDA)
+// SMA STRATEGY V5 (CORREGIDA + FILTRO DE SEPARACIÓN MA)
 // ============================================================
 //
-// CAMBIOS RESPECTO A LA VERSIÓN ANTERIOR:
+// CAMBIOS:
 //
-// 1. FIX: getMAData ahora devuelve `distance` (CLOSE->MA10
-//    normalizada por avgRange). Antes MA_REJECTION y PULLBACK
-//    nunca se disparaban porque distance era undefined.
+// 1. FIX: getMAData devuelve `distance` (CLOSE->MA10 normalizada).
+// 2. FIX: MEAN_REVERSION y PRE_REJECTION pueden ir CONTRA la
+//    tendencia (flags en CONFIG).
+// 3. FIX: "extended" exige también distancia a MA10 en rangos.
+// 4. FIX: índices absolutos (ventana deslizante).
+// 5. LIMPIEZA: caché de getMAData, DEBUG apagado.
 //
-// 2. FIX: MEAN_REVERSION y PRE_REJECTION ahora pueden emitir
-//    señal CONTRA la tendencia (flags en CONFIG). Antes el
-//    nombre decía "volver a MA10" pero la señal seguía la
-//    tendencia.
+// 6. NUEVO: FILTRO DE SEPARACIÓN MA10/MA50
 //
-// 3. FIX: "extended" ya no depende solo del ratio (que era una
-//    tautología: ratio = 1 + ma10Distance / maDistance).
-//    Ahora exige además distancia a MA10 en unidades de rango.
+//    separación normalizada = |MA10 - MA50| / avgRange
 //
-// 4. FIX: índices absolutos. canEnter / MIN_CANDLES_BETWEEN_TRADES
-//    funcionan aunque pases una ventana deslizante de tamaño fijo.
-//
-// 5. LIMPIEZA: sin import sin usar, DEBUG apagado por defecto,
-//    caché de getMAData por llamada.
+//    Si es menor que MIN_MA_SEPARATION, las medias están
+//    "pegadas" (mercado lateral / cruces falsos) y NO se
+//    permite ninguna entrada. La tendencia sigue
+//    actualizándose para no perder los cruces.
 //
 // ============================================================
 
@@ -68,6 +65,17 @@ const CONFIG = {
     MIN_SEQUENCE_STRENGTH: 0.30,
 
     // --------------------------------------------------------
+    // FILTRO SEPARACIÓN MA10 / MA50  (NUEVO)
+    // --------------------------------------------------------
+
+    // true  => bloquea entradas si las medias están muy juntas
+    MA_SEPARATION_FILTER_ENABLED: true,
+
+    // Separación mínima |MA10-MA50| en unidades de avgRange.
+    // Valor inicial, NO calibrado: ajústalo con tus datos.
+    MIN_MA_SEPARATION: 0.20,
+
+    // --------------------------------------------------------
     // EXTENSIÓN
     // --------------------------------------------------------
 
@@ -75,8 +83,6 @@ const CONFIG = {
     MA50_SYMMETRY_STRONG: 1.50,
     MA50_SYMMETRY_EXTREME: 2.00,
 
-    // NUEVO: distancia mínima CLOSE->MA10 (en unidades de
-    // avgRange) para considerar el precio "extendido".
     MA10_EXTENSION_MIN_NORMALIZED: 1.00,
 
     // --------------------------------------------------------
@@ -88,7 +94,7 @@ const CONFIG = {
     MA10_MEAN_REVERSION_MIN_STRENGTH: 0.20,
 
     // true  => la señal va CONTRA la tendencia (vuelta a MA10)
-    // false => la señal sigue la tendencia (comportamiento viejo)
+    // false => la señal sigue la tendencia
     MA10_MEAN_REVERSION_COUNTER_TREND: true,
 
     // --------------------------------------------------------
@@ -251,8 +257,8 @@ function classifyMA50Symmetry(ratio) {
 // ma50Distance = CLOSE -> MA50
 // ratio        = ma50Distance / maDistance
 //
-// `distance` = ma10DistanceNormalized (compatibilidad con
-// getDistance / detectRetracement / detectRejection).
+// `distance`   = ma10DistanceNormalized
+// `maSeparationNormalized` = maDistanceNormalized (para el filtro)
 //
 // ============================================================
 
@@ -340,13 +346,58 @@ function computeMAData(candles, index) {
         ma50DistanceNormalized: round(ma50DistanceNormalized, 4),
         maDistanceNormalized: round(maDistanceNormalized, 4),
 
-        // FIX: campo que faltaba
+        // Separación MA10-MA50 en rangos (usada por el filtro)
+        maSeparationNormalized: round(maDistanceNormalized, 4),
+
         distance: round(ma10DistanceNormalized, 4),
 
         aboveMA10: close > ma10,
         belowMA10: close < ma10,
         aboveMA50: close > ma50,
         belowMA50: close < ma50
+    };
+}
+
+
+// ============================================================
+// FILTRO: SEPARACIÓN MA10 / MA50  (NUEVO)
+// ============================================================
+
+function checkMASeparation(candles, index) {
+
+    if (!CONFIG.MA_SEPARATION_FILTER_ENABLED) {
+
+        return {
+
+            passed: true,
+            enabled: false
+        };
+    }
+
+    const data = getMAData(candles, index);
+
+    if (!data) {
+
+        return {
+
+            passed: false,
+            enabled: true,
+            reason: "NO_MA_DATA"
+        };
+    }
+
+    const separation = data.maSeparationNormalized;
+
+    return {
+
+        passed: separation >= CONFIG.MIN_MA_SEPARATION,
+        enabled: true,
+        separation,
+        minRequired: CONFIG.MIN_MA_SEPARATION,
+        reason:
+            separation >= CONFIG.MIN_MA_SEPARATION
+                ? null
+                : "MA_TOO_CLOSE"
     };
 }
 
@@ -666,16 +717,6 @@ function detectDirectionChange(candles, index) {
 // ============================================================
 // EXTENSIÓN / SIMETRÍA MA50
 // ============================================================
-//
-// FIX: con close más allá de MA10 se cumple
-//
-//   ratio = 1 + ma10Distance / maDistance
-//
-// por lo que el ratio solo no aporta información nueva.
-// Ahora `extended` exige TAMBIÉN que el precio esté a
-// >= MA10_EXTENSION_MIN_NORMALIZED rangos de la MA10.
-//
-// ============================================================
 
 function detectMA50Symmetry(candles, index) {
 
@@ -745,11 +786,6 @@ function detectMA50Symmetry(candles, index) {
 
 // ============================================================
 // MEAN REVERSION HACIA MA10
-// ============================================================
-//
-// `direction` = dirección de la TENDENCIA.
-// `signal`    = dirección de la operación (puede ser contraria).
-//
 // ============================================================
 
 function detectMA10MeanReversion(candles, index, direction) {
@@ -1242,7 +1278,6 @@ function initializeState(state) {
 
         state.smaStrategy = {
 
-            // Contador absoluto de velas (FIX ventana deslizante)
             absoluteIndex: -1,
             lastCandleKey: null,
 
@@ -1259,7 +1294,11 @@ function initializeState(state) {
             lastMA50Distance: null,
             lastMADistance: null,
             lastMADistanceRatio: null,
-            lastAnalysis: null
+            lastAnalysis: null,
+
+            // NUEVO: estadística del filtro
+            lastSeparationCheck: null,
+            blockedBySeparation: 0
         };
     }
 
@@ -1269,13 +1308,6 @@ function initializeState(state) {
 
 // ============================================================
 // ÍNDICE ABSOLUTO
-// ============================================================
-//
-// Si la vela trae timestamp (epoch/time/timestamp) solo
-// incrementa cuando la vela cambia; así llamar dos veces con
-// la misma vela (vela en formación) no cuenta doble.
-// Si no trae timestamp, incrementa en cada llamada.
-//
 // ============================================================
 
 function advanceAbsoluteIndex(state, candle) {
@@ -1446,6 +1478,7 @@ function buildAnalysis(candles, index, direction) {
         ma10DistanceNormalized: ma.ma10DistanceNormalized,
         ma50DistanceNormalized: ma.ma50DistanceNormalized,
         maDistanceNormalized: ma.maDistanceNormalized,
+        maSeparationNormalized: ma.maSeparationNormalized,
 
         ma10Slope: slope.slope,
         ma10SlopeDirection: slope.direction,
@@ -1472,7 +1505,7 @@ function buildAnalysis(candles, index, direction) {
 // NEUTRAL
 // ============================================================
 
-function neutral() {
+function neutral(analysis = {}) {
 
     return {
 
@@ -1480,7 +1513,7 @@ function neutral() {
         score: 0,
         strategy: "sma",
         entryType: null,
-        analysis: {}
+        analysis
     };
 }
 
@@ -1508,7 +1541,6 @@ function buildResult({
         strategy: "sma",
         entryType,
 
-        // Tendencia del mercado (no necesariamente igual a signal)
         trend: trendDirection === "CALL" ? "UP" : "DOWN",
         counterTrend: signal !== trendDirection,
 
@@ -1535,13 +1567,14 @@ function smaStrategy(candles, state = {}) {
         return neutral();
     }
 
-    // Caché de MAs válida solo para esta llamada
     resetCache(candles);
 
     const index = candles.length - 1;
 
     const absIndex = advanceAbsoluteIndex(state, candles[index]);
 
+    // La tendencia SIEMPRE se actualiza (aunque el filtro bloquee),
+    // para no perder cruces ni reiniciar contadores tarde.
     const s = updateTrendState(candles, index, absIndex, state);
 
     const direction = s.trendDirection;
@@ -1568,6 +1601,41 @@ function smaStrategy(candles, state = {}) {
     s.lastMADistanceRatio = current.maDistanceRatio;
     s.lastSymmetryClass = current.symmetryClass;
     s.lastAnalysis = commonAnalysis;
+
+    // ========================================================
+    // FILTRO: MA10 MUY CERCA DE MA50  (NUEVO)
+    // ========================================================
+    //
+    // Se evalúa ANTES de cualquier detector de entrada.
+    // Si las medias están pegadas, no se opera.
+    //
+    // ========================================================
+
+    const separationCheck = checkMASeparation(candles, index);
+
+    s.lastSeparationCheck = separationCheck;
+
+    if (!separationCheck.passed) {
+
+        s.blockedBySeparation++;
+
+        if (CONFIG.DEBUG) {
+
+            console.log("⛔ FILTRO MA SEPARATION:", {
+                absIndex,
+                ...separationCheck
+            });
+        }
+
+        return neutral({
+
+            ...commonAnalysis,
+
+            filter: "MA_SEPARATION",
+            filterBlocked: true,
+            separationCheck
+        });
+    }
 
     if (!canEnter(absIndex, state)) {
 
@@ -1606,7 +1674,7 @@ function smaStrategy(candles, state = {}) {
                 ma50: current.ma50,
                 distance: current.distance,
                 strength,
-                analysis: { ...commonAnalysis, preRejection }
+                analysis: { ...commonAnalysis, preRejection, separationCheck }
             });
         }
     }
@@ -1643,7 +1711,7 @@ function smaStrategy(candles, state = {}) {
                 ma50: current.ma50,
                 distance: current.distance,
                 strength,
-                analysis: { ...commonAnalysis, meanReversion }
+                analysis: { ...commonAnalysis, meanReversion, separationCheck }
             });
         }
     }
@@ -1674,7 +1742,7 @@ function smaStrategy(candles, state = {}) {
                 ma50: rejection.ma50,
                 distance: rejection.distance,
                 strength: rejection.strength,
-                analysis: { ...commonAnalysis, rejection }
+                analysis: { ...commonAnalysis, rejection, separationCheck }
             });
         }
     }
@@ -1701,7 +1769,7 @@ function smaStrategy(candles, state = {}) {
             ma50: current.ma50,
             distance: current.distance,
             strength,
-            analysis: { ...commonAnalysis, retracement }
+            analysis: { ...commonAnalysis, retracement, separationCheck }
         });
     }
 
@@ -1725,7 +1793,7 @@ function smaStrategy(candles, state = {}) {
             ma50: current.ma50,
             distance: current.distance,
             strength,
-            analysis: { ...commonAnalysis, continuation: true }
+            analysis: { ...commonAnalysis, continuation: true, separationCheck }
         });
     }
 
