@@ -47,7 +47,7 @@ const CONFIG = {
     CONTINUATION_LOOKBACK: 3,
 
     MA_REJECTION_ENABLED: true,
-    MA_REJECTION_MIN_STRENGTH: 0.20,
+    MA_REJECTION_MIN_STRENGTH: 0.50,
     MA_REJECTION_REQUIRE_TOUCH: false,
 
     MA10_SLOPE_LOOKBACK: 3,
@@ -1796,6 +1796,7 @@ function smaStrategy(candles, state = {}) {
             analysis: { ...commonAnalysis, continuation: true, separationCheck }
         });
     }
+
 
     return neutral();
 }
