@@ -64,7 +64,7 @@ const ENGINE_CONFIG = {
   LOSS_COOLDOWN_MS:
     5 * 60 * 1000,
 
-  MAX_MARTINGALE: 3,
+  MAX_MARTINGALE: 8,
 
   // ----------------------------------------------------------
   // CONTRATO
