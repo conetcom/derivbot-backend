@@ -20,6 +20,16 @@
 //    permite ninguna entrada. La tendencia sigue
 //    actualizándose para no perder los cruces.
 //
+// 7. NUEVO: ENTRADA MA50_BREAKOUT
+//
+//    Una vela fuerte cruza la MA50 mientras la MA10 TODAVÍA
+//    está del lado contrario (el cruce de medias aún no
+//    ocurrió). Se entra N velas después (por defecto 2) si
+//    el precio sostiene el lado nuevo de la MA50.
+//    Es independiente de la tendencia MA10/MA50 y, por
+//    defecto, ignora el filtro de separación (las medias
+//    están cerca justamente en este patrón).
+//
 // ============================================================
 
 
@@ -47,7 +57,7 @@ const CONFIG = {
     CONTINUATION_LOOKBACK: 3,
 
     MA_REJECTION_ENABLED: true,
-    MA_REJECTION_MIN_STRENGTH: 0.50,
+    MA_REJECTION_MIN_STRENGTH: 0.60,
     MA_REJECTION_REQUIRE_TOUCH: false,
 
     MA10_SLOPE_LOOKBACK: 3,
@@ -74,6 +84,55 @@ const CONFIG = {
     // Separación mínima |MA10-MA50| en unidades de avgRange.
     // Valor inicial, NO calibrado: ajústalo con tus datos.
     MIN_MA_SEPARATION: 0.20,
+
+    // --------------------------------------------------------
+    // MA50 BREAKOUT (NUEVO)
+    // --------------------------------------------------------
+    //
+    // vela N      = vela que cruza la MA50 con fuerza
+    // vela N+1    = primera vela después
+    // vela N+2    = segunda vela después  <- aquí sale la señal
+    //
+    // (la operación se abre en la apertura de la vela N+3)
+    //
+    // --------------------------------------------------------
+
+    MA50_BREAKOUT_ENABLED: true,
+
+    // Velas después de la vela de cruce en que se emite la señal
+    BREAKOUT_ENTRY_CANDLES_AFTER: 1,
+
+    // Vela de cruce: cuerpo / rango mínimo
+    BREAKOUT_MIN_STRENGTH: 0.50,
+
+    // Vela de cruce: tamaño del cuerpo en rangos promedio
+    // (rango medido ANTES de la vela de cruce)
+    BREAKOUT_MIN_BODY_NORMALIZED: 1.00,
+
+    // Vela de cruce: cierre al menos X rangos más allá de MA50
+    BREAKOUT_MIN_CLOSE_BEYOND_MA50: 0.20,
+
+    // true => exige que MA10 siga del lado contrario de MA50
+    // (el cruce de medias todavía no ocurrió)
+    BREAKOUT_REQUIRE_MA10_NOT_CROSSED: true,
+
+    // MA10 debe apuntar en la dirección del breakout
+    BREAKOUT_MIN_MA10_SLOPE: 0.05,
+
+    // Máximo retroceso permitido (fracción del cuerpo de la
+    // vela de cruce) en las velas posteriores
+    BREAKOUT_MAX_RETRACE: 0.50,
+
+    // La vela de entrada debe ir en la dirección del breakout
+    BREAKOUT_REQUIRE_ENTRY_CANDLE_DIRECTION: true,
+    BREAKOUT_MIN_ENTRY_STRENGTH: 0.20,
+
+    // No entrar si el precio ya está muy lejos de la MA50
+    // (en rangos promedio)
+    BREAKOUT_MAX_EXTENSION_FROM_MA50: 4.00,
+
+    // true => esta entrada ignora el filtro MIN_MA_SEPARATION
+    BREAKOUT_BYPASS_SEPARATION_FILTER: true,
 
     // --------------------------------------------------------
     // EXTENSIÓN
@@ -398,6 +457,278 @@ function checkMASeparation(candles, index) {
             separation >= CONFIG.MIN_MA_SEPARATION
                 ? null
                 : "MA_TOO_CLOSE"
+    };
+}
+
+
+// ============================================================
+// MA50 BREAKOUT (NUEVO)
+// ============================================================
+//
+// Busca una vela de cruce de MA50 exactamente N velas atrás
+// (N = BREAKOUT_ENTRY_CANDLES_AFTER) y valida que:
+//
+//  - la vela de cruce sea fuerte y cierre más allá de MA50
+//  - MA10 todavía NO haya cruzado MA50 (opcional)
+//  - MA10 apunte en la dirección del breakout
+//  - las velas siguientes sostengan el nuevo lado de MA50
+//    y no retrocedan más de BREAKOUT_MAX_RETRACE
+//  - la vela actual (de entrada) vaya en la dirección
+//  - el precio no esté demasiado extendido
+//
+// Como solo se evalúa cuando index === crossIndex + N,
+// cada breakout genera como máximo UNA señal.
+//
+// ============================================================
+
+function detectMA50Breakout(candles, index) {
+
+    if (!CONFIG.MA50_BREAKOUT_ENABLED) {
+
+        return { detected: false };
+    }
+
+    const after = CONFIG.BREAKOUT_ENTRY_CANDLES_AFTER;
+
+    const crossIdx = index - after;
+
+    if (crossIdx < CONFIG.SLOW_MA + 1) {
+
+        return { detected: false, reason: "NOT_ENOUGH_DATA" };
+    }
+
+    const crossCandle = candles[crossIdx];
+    const prevCandle = candles[crossIdx - 1];
+
+    const crossMA = getMAData(candles, crossIdx);
+    const prevMA = getMAData(candles, crossIdx - 1);
+    const current = getMAData(candles, index);
+
+    if (!crossMA || !prevMA || !current) {
+
+        return { detected: false, reason: "NO_MA_DATA" };
+    }
+
+    const crossOpen = number(crossCandle.open);
+    const crossClose = number(crossCandle.close);
+    const prevClose = number(prevCandle.close);
+
+    // --------------------------------------------------------
+    // ¿LA VELA N CRUZÓ LA MA50?
+    // --------------------------------------------------------
+
+    let direction = null;
+
+    if (
+        prevClose <= prevMA.ma50 &&
+        crossClose > crossMA.ma50
+    ) {
+
+        direction = "CALL";
+
+    } else if (
+        prevClose >= prevMA.ma50 &&
+        crossClose < crossMA.ma50
+    ) {
+
+        direction = "PUT";
+    }
+
+    if (!direction) {
+
+        return { detected: false, reason: "NO_CROSS_CANDLE" };
+    }
+
+    // --------------------------------------------------------
+    // FUERZA DE LA VELA DE CRUCE
+    // --------------------------------------------------------
+
+    // Rango medido antes de la vela de cruce, para que la
+    // propia vela no infle la referencia.
+    const refRange = prevMA.avgRange;
+
+    const body = Math.abs(crossClose - crossOpen);
+
+    const crossStrength = candleStrength(crossCandle);
+
+    const bodyNormalized = body / refRange;
+
+    const crossDirectionOk =
+        direction === "CALL"
+            ? isBullish(crossCandle)
+            : isBearish(crossCandle);
+
+    const closeBeyondMA50 =
+        (
+            direction === "CALL"
+                ? crossClose - crossMA.ma50
+                : crossMA.ma50 - crossClose
+        ) / refRange;
+
+    const strongCross =
+        crossDirectionOk &&
+        crossStrength >= CONFIG.BREAKOUT_MIN_STRENGTH &&
+        bodyNormalized >= CONFIG.BREAKOUT_MIN_BODY_NORMALIZED &&
+        closeBeyondMA50 >= CONFIG.BREAKOUT_MIN_CLOSE_BEYOND_MA50;
+
+    if (!strongCross) {
+
+        return {
+            detected: false,
+            reason: "WEAK_CROSS_CANDLE",
+            direction,
+            crossStrength: round(crossStrength, 4),
+            bodyNormalized: round(bodyNormalized, 4),
+            closeBeyondMA50: round(closeBeyondMA50, 4)
+        };
+    }
+
+    // --------------------------------------------------------
+    // MA10 TODAVÍA NO CRUZÓ MA50
+    // --------------------------------------------------------
+
+    const ma10NotCrossed =
+        direction === "CALL"
+            ? current.ma10 < current.ma50
+            : current.ma10 > current.ma50;
+
+    if (
+        CONFIG.BREAKOUT_REQUIRE_MA10_NOT_CROSSED &&
+        !ma10NotCrossed
+    ) {
+
+        return {
+            detected: false,
+            reason: "MA10_ALREADY_CROSSED",
+            direction
+        };
+    }
+
+    // --------------------------------------------------------
+    // PENDIENTE MA10 A FAVOR
+    // --------------------------------------------------------
+
+    const slope = detectMA10Slope(candles, index);
+
+    const slopeOk =
+        direction === "CALL"
+            ? slope.slope >= CONFIG.BREAKOUT_MIN_MA10_SLOPE
+            : slope.slope <= -CONFIG.BREAKOUT_MIN_MA10_SLOPE;
+
+    if (!slopeOk) {
+
+        return {
+            detected: false,
+            reason: "MA10_SLOPE_AGAINST",
+            direction,
+            slope
+        };
+    }
+
+    // --------------------------------------------------------
+    // VELAS POSTERIORES SOSTIENEN EL NUEVO LADO
+    // --------------------------------------------------------
+
+    const retraceLevel =
+        direction === "CALL"
+            ? crossClose - CONFIG.BREAKOUT_MAX_RETRACE * body
+            : crossClose + CONFIG.BREAKOUT_MAX_RETRACE * body;
+
+    for (let i = crossIdx + 1; i <= index; i++) {
+
+        const ma = getMAData(candles, i);
+
+        if (!ma) {
+
+            return { detected: false, reason: "NO_MA_DATA" };
+        }
+
+        const close = number(candles[i].close);
+
+        const heldMA50 =
+            direction === "CALL"
+                ? close > ma.ma50
+                : close < ma.ma50;
+
+        const heldRetrace =
+            direction === "CALL"
+                ? close >= retraceLevel
+                : close <= retraceLevel;
+
+        if (!heldMA50 || !heldRetrace) {
+
+            return {
+                detected: false,
+                reason: !heldMA50
+                    ? "LOST_MA50"
+                    : "RETRACE_TOO_DEEP",
+                direction,
+                failedAt: i - crossIdx
+            };
+        }
+    }
+
+    // --------------------------------------------------------
+    // VELA DE ENTRADA
+    // --------------------------------------------------------
+
+    const entryCandle = candles[index];
+
+    const entryStrength = candleStrength(entryCandle);
+
+    const entryDirectionOk =
+        direction === "CALL"
+            ? isBullish(entryCandle)
+            : isBearish(entryCandle);
+
+    if (
+        CONFIG.BREAKOUT_REQUIRE_ENTRY_CANDLE_DIRECTION &&
+        (
+            !entryDirectionOk ||
+            entryStrength < CONFIG.BREAKOUT_MIN_ENTRY_STRENGTH
+        )
+    ) {
+
+        return {
+            detected: false,
+            reason: "ENTRY_CANDLE_INVALID",
+            direction,
+            entryStrength: round(entryStrength, 4)
+        };
+    }
+
+    // --------------------------------------------------------
+    // NO PERSEGUIR PRECIO EXTENDIDO
+    // --------------------------------------------------------
+
+    const extension =
+        Math.abs(current.close - current.ma50) /
+        current.avgRange;
+
+    if (extension > CONFIG.BREAKOUT_MAX_EXTENSION_FROM_MA50) {
+
+        return {
+            detected: false,
+            reason: "TOO_EXTENDED",
+            direction,
+            extension: round(extension, 4)
+        };
+    }
+
+    return {
+
+        detected: true,
+        direction,
+        type: "MA50_BREAKOUT",
+        crossIndexOffset: after,
+        crossStrength: round(crossStrength, 4),
+        bodyNormalized: round(bodyNormalized, 4),
+        closeBeyondMA50: round(closeBeyondMA50, 4),
+        ma10NotCrossed,
+        ma10Slope: slope.slope,
+        entryStrength: round(entryStrength, 4),
+        extension: round(extension, 4),
+        maSeparationNormalized: current.maSeparationNormalized
     };
 }
 
@@ -1603,6 +1934,58 @@ function smaStrategy(candles, state = {}) {
     s.lastAnalysis = commonAnalysis;
 
     // ========================================================
+    // 0. MA50 BREAKOUT (NUEVO)
+    // ========================================================
+    //
+    // Se evalúa ANTES del filtro de separación: este patrón
+    // ocurre justo cuando MA10 y MA50 están cerca.
+    // No depende de la tendencia MA10/MA50 (que aún es la
+    // contraria), por eso la señal puede salir marcada como
+    // counterTrend respecto a la tendencia de medias.
+    //
+    // ========================================================
+
+    if (CONFIG.MA50_BREAKOUT_ENABLED) {
+
+        const breakout = detectMA50Breakout(candles, index);
+
+        if (CONFIG.DEBUG) {
+
+            console.log("💥 MA50 BREAKOUT:", breakout);
+        }
+
+        const separationOk =
+            CONFIG.BREAKOUT_BYPASS_SEPARATION_FILTER ||
+            checkMASeparation(candles, index).passed;
+
+        if (
+            breakout.detected &&
+            separationOk &&
+            canEnter(absIndex, state)
+        ) {
+
+            registerEntry(
+                absIndex,
+                "MA50_BREAKOUT",
+                breakout.direction,
+                state
+            );
+
+            return buildResult({
+                signal: breakout.direction,
+                trendDirection: direction,
+                score: 9,
+                entryType: "MA50_BREAKOUT",
+                ma10: current.ma10,
+                ma50: current.ma50,
+                distance: current.distance,
+                strength,
+                analysis: { ...commonAnalysis, breakout }
+            });
+        }
+    }
+
+    // ========================================================
     // FILTRO: MA10 MUY CERCA DE MA50  (NUEVO)
     // ========================================================
     //
@@ -1796,7 +2179,6 @@ function smaStrategy(candles, state = {}) {
             analysis: { ...commonAnalysis, continuation: true, separationCheck }
         });
     }
-
 
     return neutral();
 }
