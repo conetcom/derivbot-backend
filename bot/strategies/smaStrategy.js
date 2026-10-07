@@ -699,54 +699,18 @@ function checkMASeparation(
 //
 // ============================================================
 
-function detectMA50Breakout(
-    candles,
-    index
-) {
+function detectMA50Breakout(candles, index) {
 
     if (
-        !CONFIG.MA50_BREAKOUT_ENABLED
+        !Array.isArray(candles) ||
+        index < 1
     ) {
-
         return {
-
             detected: false,
-
-            reason:
-                "DISABLED"
+            direction: null,
+            crossed: false
         };
     }
-
-    const after =
-        CONFIG.BREAKOUT_ENTRY_CANDLES_AFTER;
-
-    const breakoutIndex =
-        index - after;
-
-    if (
-        breakoutIndex < CONFIG.SLOW_MA + 2
-    ) {
-
-        return {
-
-            detected: false,
-
-            reason:
-                "INSUFFICIENT_HISTORY"
-        };
-    }
-
-    const breakout =
-        getMAData(
-            candles,
-            breakoutIndex
-        );
-
-    const previous =
-        getMAData(
-            candles,
-            breakoutIndex - 1
-        );
 
     const current =
         getMAData(
@@ -754,597 +718,103 @@ function detectMA50Breakout(
             index
         );
 
-    if (
-        !breakout ||
-        !previous ||
-        !current
-    ) {
-
-        return {
-
-            detected: false,
-
-            reason:
-                "NO_MA_DATA"
-        };
-    }
-
-    const breakoutCandle =
-        candles[breakoutIndex];
-
-    const entryCandle =
-        candles[index];
-
-    if (
-        !breakoutCandle ||
-        !entryCandle
-    ) {
-
-        return {
-
-            detected: false,
-
-            reason:
-                "NO_CANDLE"
-        };
-    }
-
-    const avgRangeBefore =
-        averageRangeAt(
-            candles,
-            breakoutIndex - 1,
-            CONFIG.RANGE_PERIOD
-        );
-
-    if (
-        !avgRangeBefore ||
-        avgRangeBefore <= 0
-    ) {
-
-        return {
-
-            detected: false,
-
-            reason:
-                "NO_RANGE"
-        };
-    }
-
-    const body =
-        Math.abs(
-            number(
-                breakoutCandle.close
-            ) -
-            number(
-                breakoutCandle.open
-            )
-        );
-
-    const bodyNormalized =
-        body /
-        avgRangeBefore;
-
-    const strength =
-        candleStrength(
-            breakoutCandle
-        );
-
-    if (
-        strength <
-        CONFIG.BREAKOUT_MIN_STRENGTH
-    ) {
-
-        return {
-
-            detected: false,
-
-            reason:
-                "BREAKOUT_CANDLE_WEAK",
-
-            strength:
-                round(
-                    strength,
-                    4
-                )
-        };
-    }
-
-    if (
-        bodyNormalized <
-        CONFIG.BREAKOUT_MIN_BODY_NORMALIZED
-    ) {
-
-        return {
-
-            detected: false,
-
-            reason:
-                "BREAKOUT_BODY_SMALL",
-
-            bodyNormalized:
-                round(
-                    bodyNormalized,
-                    4
-                )
-        };
-    }
-
-    let direction =
-        null;
-
-    if (
-        number(
-            previous.close
-        ) <=
-        number(
-            previous.ma50
-        ) &&
-
-        number(
-            breakoutCandle.close
-        ) >
-        number(
-            breakout.ma50
-        )
-    ) {
-
-        direction =
-            "CALL";
-    }
-
-    else if (
-        number(
-            previous.close
-        ) >=
-        number(
-            previous.ma50
-        ) &&
-
-        number(
-            breakoutCandle.close
-        ) <
-        number(
-            breakout.ma50
-        )
-    ) {
-
-        direction =
-            "PUT";
-    }
-
-    if (!direction) {
-
-        return {
-
-            detected: false,
-
-            reason:
-                "NO_MA50_CROSS"
-        };
-    }
-
-    const closeBeyond =
-        direction === "CALL"
-
-            ? (
-                number(
-                    breakoutCandle.close
-                ) -
-                breakout.ma50
-            )
-
-            : (
-                breakout.ma50 -
-                number(
-                    breakoutCandle.close
-                )
-            );
-
-    const closeBeyondNormalized =
-        closeBeyond /
-        avgRangeBefore;
-
-    if (
-        closeBeyondNormalized <
-        CONFIG.BREAKOUT_MIN_CLOSE_BEYOND_MA50
-    ) {
-
-        return {
-
-            detected: false,
-
-            reason:
-                "CLOSE_NOT_BEYOND_MA50",
-
-            closeBeyondNormalized:
-                round(
-                    closeBeyondNormalized,
-                    4
-                )
-        };
-    }
-
-    // --------------------------------------------------------
-    // MA10 NO HA CRUZADO MA50
-    // --------------------------------------------------------
-
-    if (
-        CONFIG.BREAKOUT_REQUIRE_MA10_NOT_CROSSED
-    ) {
-
-        const ma10OldSide =
-            direction === "CALL"
-                ? breakout.ma10 <= breakout.ma50
-                : breakout.ma10 >= breakout.ma50;
-
-        if (!ma10OldSide) {
-
-            return {
-
-                detected: false,
-
-                reason:
-                    "MA10_ALREADY_CROSSED"
-            };
-        }
-    }
-
-    // --------------------------------------------------------
-    // PENDIENTE MA10
-    // --------------------------------------------------------
-
-    const ma10Previous =
+    const previous =
         getMAData(
             candles,
-            Math.max(
-                0,
-                breakoutIndex -
-                CONFIG.MA10_SLOPE_LOOKBACK
-            )
+            index - 1
         );
 
-    let ma10Slope = 0;
-
-    if (
-        ma10Previous
-    ) {
-
-        ma10Slope =
-            (
-                breakout.ma10 -
-                ma10Previous.ma10
-            ) /
-            avgRangeBefore;
-    }
-
-    if (
-        direction === "CALL" &&
-        ma10Slope <
-        CONFIG.BREAKOUT_MIN_MA10_SLOPE
-    ) {
+    if (!current || !previous) {
 
         return {
-
             detected: false,
-
-            reason:
-                "MA10_SLOPE_NOT_BULLISH",
-
-            ma10Slope:
-                round(
-                    ma10Slope,
-                    4
-                )
+            direction: null,
+            crossed: false
         };
     }
 
-    if (
-        direction === "PUT" &&
-        ma10Slope >
-        -CONFIG.BREAKOUT_MIN_MA10_SLOPE
-    ) {
-
-        return {
-
-            detected: false,
-
-            reason:
-                "MA10_SLOPE_NOT_BEARISH",
-
-            ma10Slope:
-                round(
-                    ma10Slope,
-                    4
-                )
-        };
-    }
-
-    // --------------------------------------------------------
-    // VALIDAR VELAS POSTERIORES
-    // --------------------------------------------------------
-
-    const breakoutBody =
-        Math.abs(
-            number(
-                breakoutCandle.close
-            ) -
-            number(
-                breakoutCandle.open
-            )
+    const currentClose =
+        Number(
+            candles[index]?.close
         );
 
-    const maxRetrace =
-        breakoutBody *
-        CONFIG.BREAKOUT_MAX_RETRACE;
+    const previousClose =
+        Number(
+            candles[index - 1]?.close
+        );
 
-    for (
-        let i =
-            breakoutIndex + 1;
-        i <= index;
-        i++
-    ) {
+    const currentMA50 =
+        Number(
+            current.ma50
+        );
 
-        const candle =
-            candles[i];
-
-        if (!candle) {
-
-            return {
-
-                detected: false,
-
-                reason:
-                    "MISSING_POST_BREAKOUT_CANDLE"
-            };
-        }
-
-        const close =
-            number(
-                candle.close
-            );
-
-        if (
-            direction === "CALL"
-        ) {
-
-            const retrace =
-                number(
-                    breakoutCandle.close
-                ) -
-                close;
-
-            if (
-                retrace >
-                maxRetrace
-            ) {
-
-                return {
-
-                    detected: false,
-
-                    reason:
-                        "BREAKOUT_RETRACE_TOO_DEEP",
-
-                    retrace:
-                        round(
-                            retrace,
-                            6
-                        )
-                };
-            }
-
-            if (
-                close <=
-                number(
-                    candle.low
-                ) &&
-                false
-            ) {
-
-                return {
-
-                    detected: false,
-
-                    reason:
-                        "INVALID"
-                };
-            }
-        }
-
-        else {
-
-            const retrace =
-                close -
-                number(
-                    breakoutCandle.close
-                );
-
-            if (
-                retrace >
-                maxRetrace
-            ) {
-
-                return {
-
-                    detected: false,
-
-                    reason:
-                        "BREAKOUT_RETRACE_TOO_DEEP",
-
-                    retrace:
-                        round(
-                            retrace,
-                            6
-                        )
-                };
-            }
-        }
-    }
-
-    // --------------------------------------------------------
-    // PRECIO ACTUAL DEBE MANTENERSE DEL LADO NUEVO
-    // --------------------------------------------------------
-
-    if (
-        direction === "CALL" &&
-        current.close <= current.ma50
-    ) {
-
-        return {
-
-            detected: false,
-
-            reason:
-                "PRICE_LOST_MA50_CALL"
-        };
-    }
-
-    if (
-        direction === "PUT" &&
-        current.close >= current.ma50
-    ) {
-
-        return {
-
-            detected: false,
-
-            reason:
-                "PRICE_LOST_MA50_PUT"
-        };
-    }
-
-    // --------------------------------------------------------
-    // EXTENSIÓN DESDE MA50
-    // --------------------------------------------------------
-
-    const currentExtension =
-        current.ma50Distance /
-        current.avgRange;
-
-    if (
-        currentExtension >
-        CONFIG.BREAKOUT_MAX_EXTENSION_FROM_MA50
-    ) {
-
-        return {
-
-            detected: false,
-
-            reason:
-                "BREAKOUT_ALREADY_EXTENDED",
-
-            extension:
-                round(
-                    currentExtension,
-                    4
-                )
-        };
-    }
-
-    // --------------------------------------------------------
-    // VELA DE ENTRADA
-    // --------------------------------------------------------
-
-    const entryStrength =
-        candleStrength(
-            entryCandle
+    const previousMA50 =
+        Number(
+            previous.ma50
         );
 
     if (
-        entryStrength <
-        CONFIG.BREAKOUT_MIN_ENTRY_STRENGTH
+        !Number.isFinite(currentClose) ||
+        !Number.isFinite(previousClose) ||
+        !Number.isFinite(currentMA50) ||
+        !Number.isFinite(previousMA50)
     ) {
 
         return {
-
             detected: false,
-
-            reason:
-                "ENTRY_CANDLE_WEAK",
-
-            entryStrength:
-                round(
-                    entryStrength,
-                    4
-                )
+            direction: null,
+            crossed: false
         };
     }
 
-    if (
-        CONFIG.BREAKOUT_REQUIRE_ENTRY_CANDLE_DIRECTION
-    ) {
+    const crossedUp =
+        previousClose <= previousMA50 &&
+        currentClose > currentMA50;
 
-        if (
-            direction === "CALL" &&
-            !isBullish(entryCandle)
-        ) {
+    const crossedDown =
+        previousClose >= previousMA50 &&
+        currentClose < currentMA50;
 
-            return {
+    if (crossedUp) {
 
-                detected: false,
+        return {
+            detected: true,
+            direction: "CALL",
+            crossed: true,
 
-                reason:
-                    "ENTRY_CANDLE_WRONG_DIRECTION"
-            };
-        }
+            price:
+                currentClose,
 
-        if (
-            direction === "PUT" &&
-            !isBearish(entryCandle)
-        ) {
+            ma50:
+                currentMA50
+        };
+    }
 
-            return {
+    if (crossedDown) {
 
-                detected: false,
+        return {
+            detected: true,
+            direction: "PUT",
+            crossed: true,
 
-                reason:
-                    "ENTRY_CANDLE_WRONG_DIRECTION"
-            };
-        }
+            price:
+                currentClose,
+
+            ma50:
+                currentMA50
+        };
     }
 
     return {
+        detected: false,
+        direction: null,
+        crossed: false,
 
-        detected: true,
+        price:
+            currentClose,
 
-        direction,
-
-        breakoutIndex,
-
-        entryIndex: index,
-
-        candlesAfter:
-            after,
-
-        strength:
-            round(
-                strength,
-                4
-            ),
-
-        bodyNormalized:
-            round(
-                bodyNormalized,
-                4
-            ),
-
-        closeBeyondNormalized:
-            round(
-                closeBeyondNormalized,
-                4
-            ),
-
-        ma10Slope:
-            round(
-                ma10Slope,
-                4
-            ),
-
-        currentExtension:
-            round(
-                currentExtension,
-                4
-            )
+        ma50:
+            currentMA50
     };
 }
 
