@@ -56,9 +56,8 @@ const CONFIG = {
     RETRACEMENT_LOOKBACK: 4,
     CONTINUATION_LOOKBACK: 3,
 
-
     MA_REJECTION_ENABLED: true,
-    MA_REJECTION_MIN_STRENGTH: 0.60,
+    MA_REJECTION_MIN_STRENGTH: 0.20,
     MA_REJECTION_REQUIRE_TOUCH: false,
 
     MA10_SLOPE_LOOKBACK: 3,
@@ -76,40 +75,104 @@ const CONFIG = {
     MIN_SEQUENCE_STRENGTH: 0.30,
 
     // --------------------------------------------------------
-    // FILTRO SEPARACIÓN MA10 / MA50
+    // FILTRO SEPARACIÓN MA10 / MA50  (NUEVO)
     // --------------------------------------------------------
 
+    // true  => bloquea entradas si las medias están muy juntas
     MA_SEPARATION_FILTER_ENABLED: true,
 
+    // Separación mínima |MA10-MA50| en unidades de avgRange.
+    // Valor inicial, NO calibrado: ajústalo con tus datos.
     MIN_MA_SEPARATION: 0.20,
 
     // --------------------------------------------------------
-    // MA50 BREAKOUT
+    // MA50 BREAKOUT (NUEVO)
+    // --------------------------------------------------------
+    //
+    // vela N      = vela que cruza la MA50 con fuerza
+    // vela N+1    = primera vela después
+    // vela N+2    = segunda vela después  <- aquí sale la señal
+    //
+    // (la operación se abre en la apertura de la vela N+3)
+    //
     // --------------------------------------------------------
 
     MA50_BREAKOUT_ENABLED: true,
 
+    // Velas después de la vela de cruce en que se emite la señal
     BREAKOUT_ENTRY_CANDLES_AFTER: 2,
 
+    // Vela de cruce: cuerpo / rango mínimo
     BREAKOUT_MIN_STRENGTH: 0.50,
 
+    // Vela de cruce: tamaño del cuerpo en rangos promedio
+    // (rango medido ANTES de la vela de cruce)
     BREAKOUT_MIN_BODY_NORMALIZED: 1.00,
 
+    // Vela de cruce: cierre al menos X rangos más allá de MA50
     BREAKOUT_MIN_CLOSE_BEYOND_MA50: 0.20,
 
+    // true => exige que MA10 siga del lado contrario de MA50
+    // (el cruce de medias todavía no ocurrió)
     BREAKOUT_REQUIRE_MA10_NOT_CROSSED: true,
 
+    // MA10 debe apuntar en la dirección del breakout
     BREAKOUT_MIN_MA10_SLOPE: 0.05,
 
+    // Máximo retroceso permitido (fracción del cuerpo de la
+    // vela de cruce) en las velas posteriores
     BREAKOUT_MAX_RETRACE: 0.50,
 
+    // La vela de entrada debe ir en la dirección del breakout
     BREAKOUT_REQUIRE_ENTRY_CANDLE_DIRECTION: true,
-
     BREAKOUT_MIN_ENTRY_STRENGTH: 0.20,
 
+    // No entrar si el precio ya está muy lejos de la MA50
+    // (en rangos promedio)
     BREAKOUT_MAX_EXTENSION_FROM_MA50: 4.00,
 
+    // true => esta entrada ignora el filtro MIN_MA_SEPARATION
     BREAKOUT_BYPASS_SEPARATION_FILTER: true,
+
+    // --------------------------------------------------------
+    // RÉGIMEN DE MERCADO (LATERAL / TRANSICIÓN / TENDENCIA)
+    // --------------------------------------------------------
+    //
+    // IMPORTANTE: el régimen necesita historial. Requiere
+    // índice >= SLOW_MA + max(lookbacks) + 3 (= 59 con estos
+    // valores). Si tu ventana de velas es menor, el régimen
+    // sale UNKNOWN y (con el filtro activo) NUNCA operará.
+    //
+    // --------------------------------------------------------
+
+    REGIME_FILTER_ENABLED: true,
+
+    // Umbral estricto para considerar MA50 "plana"
+    MA50_LATERAL_BLOCK: 0.12,
+
+    // Velas consecutivas con MA50 plana para confirmar lateral
+    MA50_LATERAL_CONFIRM_CANDLES: 2,
+
+    // Separación mínima MA10/MA50 (en rangos) para tendencia real
+    MIN_TREND_SEPARATION: 0.35,
+
+    // Cuántas velas atrás se mira para saber si venía lateral
+    LATERAL_LOOKBACK: 6,
+
+    // Pendiente MA50 mínima para considerar que sale de lateral
+    MA50_EMERGING_SLOPE: 0.12,
+
+    // Separación mínima para validar salida de lateralidad
+    EMERGING_MIN_SEPARATION: 0.15,
+
+    // MA10 debe acompañar la nueva dirección
+    EMERGING_MIN_MA10_SLOPE: 0.05,
+
+    // true => no se opera en TRANSITION
+    BLOCK_TRANSITION_ENTRIES: true,
+
+    // Entrada de reversión al salir de lateral
+    MA50_REVERSAL_ENABLED: true,
 
     // --------------------------------------------------------
     // EXTENSIÓN
@@ -129,6 +192,8 @@ const CONFIG = {
     MA10_MEAN_REVERSION_MIN_RATIO: 1.25,
     MA10_MEAN_REVERSION_MIN_STRENGTH: 0.20,
 
+    // true  => la señal va CONTRA la tendencia (vuelta a MA10)
+    // false => la señal sigue la tendencia
     MA10_MEAN_REVERSION_COUNTER_TREND: true,
 
     // --------------------------------------------------------
@@ -139,39 +204,6 @@ const CONFIG = {
     MA10_PRE_REJECTION_MIN_RATIO: 1.25,
     MA10_PRE_REJECTION_MIN_STRENGTH: 0.20,
     MA10_PRE_REJECTION_COUNTER_TREND: true,
-
-    // --------------------------------------------------------
-    // RÉGIMEN DE MERCADO / SALIDA DE LATERALIDAD
-    // --------------------------------------------------------
-
-    MA50_SLOPE_LOOKBACK: 5,
-    MA50_LATERAL_MAX: 0.18,
-
-    // Umbral más estricto para bloquear lateralidad real
-    MA50_LATERAL_BLOCK: 0.12,
-
-    // Número de velas laterales consecutivas requeridas
-    MA50_LATERAL_CONFIRM_CANDLES: 2,
-
-    // Separación mínima para considerar tendencia real
-    MIN_TREND_SEPARATION: 0.35,
-
-    // Ventana para detectar lateralidad inmediatamente anterior
-    // a una nueva tendencia.
-    LATERAL_LOOKBACK: 6,
-
-    // Pendiente MA50 mínima para considerar que está saliendo
-    // de una lateralidad.
-    MA50_EMERGING_SLOPE: 0.12,
-
-    // Separación mínima para validar salida de lateralidad
-    EMERGING_MIN_SEPARATION: 0.15,
-
-    // MA10 debe acompañar la nueva dirección
-    EMERGING_MIN_MA10_SLOPE: 0.05,
-
-    // Durante transición no se permiten entradas normales
-    BLOCK_TRANSITION_ENTRIES: true,
 
     DEBUG: false
 };
@@ -185,9 +217,7 @@ function number(value, fallback = 0) {
 
     const n = Number(value);
 
-    return Number.isFinite(n)
-        ? n
-        : fallback;
+    return Number.isFinite(n) ? n : fallback;
 }
 
 
@@ -195,23 +225,14 @@ function round(value, decimals = 4) {
 
     const factor = Math.pow(10, decimals);
 
-    return Math.round(
-        number(value) * factor
-    ) / factor;
+    return Math.round(number(value) * factor) / factor;
 }
 
 
 function oppositeDirection(direction) {
 
-    if (direction === "CALL") {
-
-        return "PUT";
-    }
-
-    if (direction === "PUT") {
-
-        return "CALL";
-    }
+    if (direction === "CALL") return "PUT";
+    if (direction === "PUT") return "CALL";
 
     return null;
 }
@@ -221,31 +242,18 @@ function oppositeDirection(direction) {
 // SMA
 // ============================================================
 
-function smaAt(
-    candles,
-    index,
-    period
-) {
+function smaAt(candles, index, period) {
 
-    if (
-        !Array.isArray(candles) ||
-        index < period - 1
-    ) {
+    if (!Array.isArray(candles) || index < period - 1) {
 
         return null;
     }
 
     let sum = 0;
 
-    for (
-        let i = index - period + 1;
-        i <= index;
-        i++
-    ) {
+    for (let i = index - period + 1; i <= index; i++) {
 
-        sum += number(
-            candles[i]?.close
-        );
+        sum += number(candles[i]?.close);
     }
 
     return sum / period;
@@ -256,34 +264,19 @@ function smaAt(
 // RANGO PROMEDIO
 // ============================================================
 
-function averageRangeAt(
-    candles,
-    index,
-    period = 10
-) {
+function averageRangeAt(candles, index, period = 10) {
 
-    if (
-        !Array.isArray(candles) ||
-        index < 0
-    ) {
+    if (!Array.isArray(candles) || index < 0) {
 
         return 0;
     }
 
-    const start =
-        Math.max(
-            0,
-            index - period + 1
-        );
+    const start = Math.max(0, index - period + 1);
 
     let total = 0;
     let count = 0;
 
-    for (
-        let i = start;
-        i <= index;
-        i++
-    ) {
+    for (let i = start; i <= index; i++) {
 
         const range =
             number(candles[i]?.high) -
@@ -296,9 +289,7 @@ function averageRangeAt(
         }
     }
 
-    return count
-        ? total / count
-        : 0;
+    return count ? total / count : 0;
 }
 
 
@@ -308,47 +299,31 @@ function averageRangeAt(
 
 function candleStrength(candle) {
 
-    const open =
-        number(candle?.open);
+    const open = number(candle?.open);
+    const close = number(candle?.close);
+    const high = number(candle?.high);
+    const low = number(candle?.low);
 
-    const close =
-        number(candle?.close);
-
-    const high =
-        number(candle?.high);
-
-    const low =
-        number(candle?.low);
-
-    const range =
-        high - low;
+    const range = high - low;
 
     if (range <= 0) {
 
         return 0;
     }
 
-    return Math.abs(
-        close - open
-    ) / range;
+    return Math.abs(close - open) / range;
 }
 
 
 function isBullish(candle) {
 
-    return (
-        number(candle?.close) >
-        number(candle?.open)
-    );
+    return number(candle?.close) > number(candle?.open);
 }
 
 
 function isBearish(candle) {
 
-    return (
-        number(candle?.close) <
-        number(candle?.open)
-    );
+    return number(candle?.close) < number(candle?.open);
 }
 
 
@@ -358,37 +333,18 @@ function isBearish(candle) {
 
 function classifyMA50Symmetry(ratio) {
 
-    if (ratio < 0.80) {
-
-        return "NORMAL";
-    }
-
-    if (ratio < 1.00) {
-
-        return "NEAR_MA10";
-    }
-
-    if (ratio < 1.25) {
-
-        return "EXTENSION_LOW";
-    }
-
-    if (ratio < 1.50) {
-
-        return "EXTENSION_MEDIUM";
-    }
-
-    if (ratio < 2.00) {
-
-        return "EXTENSION_HIGH";
-    }
+    if (ratio < 0.80) return "NORMAL";
+    if (ratio < 1.00) return "NEAR_MA10";
+    if (ratio < 1.25) return "EXTENSION_LOW";
+    if (ratio < 1.50) return "EXTENSION_MEDIUM";
+    if (ratio < 2.00) return "EXTENSION_HIGH";
 
     return "EXTENSION_EXTREME";
 }
 
 
 // ============================================================
-// DATOS PRINCIPALES MA
+// DATOS PRINCIPALES MA (CON CACHÉ POR LLAMADA)
 // ============================================================
 //
 // CLOSE
@@ -400,422 +356,479 @@ function classifyMA50Symmetry(ratio) {
 // ma50Distance = CLOSE -> MA50
 // ratio        = ma50Distance / maDistance
 //
-// distance = ma10DistanceNormalized
-// maSeparationNormalized = separación MA10-MA50 normalizada
+// `distance`   = ma10DistanceNormalized
+// `maSeparationNormalized` = maDistanceNormalized (para el filtro)
 //
 // ============================================================
 
-let maCache =
-    new Map();
-
-let maCacheCandles =
-    null;
+let maCache = new Map();
+let maCacheCandles = null;
 
 
 function resetCache(candles) {
 
-    maCache =
-        new Map();
-
-    maCacheCandles =
-        candles;
+    maCache = new Map();
+    maCacheCandles = candles;
 }
 
 
-function getMAData(
-    candles,
-    index
-) {
+function getMAData(candles, index) {
 
-    if (
-        candles === maCacheCandles &&
-        maCache.has(index)
-    ) {
+    if (candles === maCacheCandles && maCache.has(index)) {
 
         return maCache.get(index);
     }
 
-    const result =
-        computeMAData(
-            candles,
-            index
-        );
+    const result = computeMAData(candles, index);
 
-    if (
-        candles === maCacheCandles
-    ) {
+    if (candles === maCacheCandles) {
 
-        maCache.set(
-            index,
-            result
-        );
+        maCache.set(index, result);
     }
 
     return result;
 }
 
 
-function computeMAData(
-    candles,
-    index
-) {
+function computeMAData(candles, index) {
 
-    const ma10 =
-        smaAt(
-            candles,
-            index,
-            CONFIG.FAST_MA
-        );
+    const ma10 = smaAt(candles, index, CONFIG.FAST_MA);
+    const ma50 = smaAt(candles, index, CONFIG.SLOW_MA);
 
-    const ma50 =
-        smaAt(
-            candles,
-            index,
-            CONFIG.SLOW_MA
-        );
-
-    if (
-        ma10 == null ||
-        ma50 == null
-    ) {
+    if (ma10 == null || ma50 == null) {
 
         return null;
     }
 
-    const avgRange =
-        averageRangeAt(
-            candles,
-            index,
-            CONFIG.RANGE_PERIOD
-        );
+    const avgRange = averageRangeAt(
+        candles,
+        index,
+        CONFIG.RANGE_PERIOD
+    );
 
     if (!avgRange) {
 
         return null;
     }
 
-    const close =
-        number(
-            candles[index]?.close
-        );
+    const close = number(candles[index]?.close);
 
-    const ma10Distance =
-        Math.abs(
-            close - ma10
-        );
-
-    const ma50Distance =
-        Math.abs(
-            close - ma50
-        );
-
-    const maDistance =
-        Math.abs(
-            ma10 - ma50
-        );
+    const ma10Distance = Math.abs(close - ma10);
+    const ma50Distance = Math.abs(close - ma50);
+    const maDistance = Math.abs(ma10 - ma50);
 
     const maDistanceRatio =
         maDistance > 0
             ? ma50Distance / maDistance
             : 0;
 
-    const ma10DistanceNormalized =
-        ma10Distance / avgRange;
-
-    const ma50DistanceNormalized =
-        ma50Distance / avgRange;
-
-    const maDistanceNormalized =
-        maDistance / avgRange;
+    const ma10DistanceNormalized = ma10Distance / avgRange;
+    const ma50DistanceNormalized = ma50Distance / avgRange;
+    const maDistanceNormalized = maDistance / avgRange;
 
     return {
 
         ma10,
-
         ma50,
-
         close,
-
         avgRange,
 
-        ma10Distance:
-            round(
-                ma10Distance,
-                6
-            ),
+        ma10Distance: round(ma10Distance, 6),
+        ma50Distance: round(ma50Distance, 6),
+        maDistance: round(maDistance, 6),
 
-        ma50Distance:
-            round(
-                ma50Distance,
-                6
-            ),
+        maDistanceRatio: round(maDistanceRatio, 4),
 
-        maDistance:
-            round(
-                maDistance,
-                6
-            ),
+        symmetryClass: classifyMA50Symmetry(maDistanceRatio),
 
-        maDistanceRatio:
-            round(
-                maDistanceRatio,
-                4
-            ),
+        ma10DistanceNormalized: round(ma10DistanceNormalized, 4),
+        ma50DistanceNormalized: round(ma50DistanceNormalized, 4),
+        maDistanceNormalized: round(maDistanceNormalized, 4),
 
-        symmetryClass:
-            classifyMA50Symmetry(
-                maDistanceRatio
-            ),
+        // Separación MA10-MA50 en rangos (usada por el filtro)
+        maSeparationNormalized: round(maDistanceNormalized, 4),
 
-        ma10DistanceNormalized:
-            round(
-                ma10DistanceNormalized,
-                4
-            ),
+        distance: round(ma10DistanceNormalized, 4),
 
-        ma50DistanceNormalized:
-            round(
-                ma50DistanceNormalized,
-                4
-            ),
-
-        maDistanceNormalized:
-            round(
-                maDistanceNormalized,
-                4
-            ),
-
-        maSeparationNormalized:
-            round(
-                maDistanceNormalized,
-                4
-            ),
-
-        // Alias utilizado por la lógica V5
-        distance:
-            round(
-                ma10DistanceNormalized,
-                4
-            ),
-
-        aboveMA10:
-            close > ma10,
-
-        belowMA10:
-            close < ma10,
-
-        aboveMA50:
-            close > ma50,
-
-        belowMA50:
-            close < ma50
+        aboveMA10: close > ma10,
+        belowMA10: close < ma10,
+        aboveMA50: close > ma50,
+        belowMA50: close < ma50
     };
 }
 
 
 // ============================================================
-// FILTRO SEPARACIÓN MA10 / MA50
+// FILTRO: SEPARACIÓN MA10 / MA50  (NUEVO)
 // ============================================================
 
-function checkMASeparation(
-    candles,
-    index
-) {
+function checkMASeparation(candles, index) {
 
-    if (
-        !CONFIG.MA_SEPARATION_FILTER_ENABLED
-    ) {
+    if (!CONFIG.MA_SEPARATION_FILTER_ENABLED) {
 
         return {
 
             passed: true,
-
             enabled: false
         };
     }
 
-    const data =
-        getMAData(
-            candles,
-            index
-        );
+    const data = getMAData(candles, index);
 
     if (!data) {
 
         return {
 
             passed: false,
-
             enabled: true,
-
-            reason:
-                "NO_MA_DATA"
+            reason: "NO_MA_DATA"
         };
     }
 
-    const separation =
-        data.maSeparationNormalized;
+    const separation = data.maSeparationNormalized;
 
     return {
 
-        passed:
-            separation >=
-            CONFIG.MIN_MA_SEPARATION,
-
+        passed: separation >= CONFIG.MIN_MA_SEPARATION,
         enabled: true,
-
         separation,
-
-        minRequired:
-            CONFIG.MIN_MA_SEPARATION,
-
+        minRequired: CONFIG.MIN_MA_SEPARATION,
         reason:
-            separation >=
-            CONFIG.MIN_MA_SEPARATION
-
+            separation >= CONFIG.MIN_MA_SEPARATION
                 ? null
-
                 : "MA_TOO_CLOSE"
     };
 }
 
 
 // ============================================================
-// MA50 BREAKOUT
+// MA50 BREAKOUT (NUEVO)
 // ============================================================
 //
-// Busca una vela de cruce de MA50 exactamente N velas atrás.
+// Busca una vela de cruce de MA50 exactamente N velas atrás
+// (N = BREAKOUT_ENTRY_CANDLES_AFTER) y valida que:
 //
-// N = BREAKOUT_ENTRY_CANDLES_AFTER
+//  - la vela de cruce sea fuerte y cierre más allá de MA50
+//  - MA10 todavía NO haya cruzado MA50 (opcional)
+//  - MA10 apunte en la dirección del breakout
+//  - las velas siguientes sostengan el nuevo lado de MA50
+//    y no retrocedan más de BREAKOUT_MAX_RETRACE
+//  - la vela actual (de entrada) vaya en la dirección
+//  - el precio no esté demasiado extendido
 //
-// Valida:
-//
-// 1. Vela de cruce fuerte.
-// 2. Cierre más allá de MA50.
-// 3. MA10 todavía del lado contrario.
-// 4. MA10 acompañando el movimiento.
-// 5. Retroceso posterior limitado.
-// 6. Vela actual confirma dirección.
+// Como solo se evalúa cuando index === crossIndex + N,
+// cada breakout genera como máximo UNA señal.
 //
 // ============================================================
 
 function detectMA50Breakout(candles, index) {
 
-    if (
-        !Array.isArray(candles) ||
-        index < 1
-    ) {
-        return {
-            detected: false,
-            direction: null,
-            crossed: false
-        };
+    if (!CONFIG.MA50_BREAKOUT_ENABLED) {
+
+        return { detected: false };
     }
 
-    const current =
-        getMAData(
-            candles,
-            index
-        );
+    const after = CONFIG.BREAKOUT_ENTRY_CANDLES_AFTER;
 
-    const previous =
-        getMAData(
-            candles,
-            index - 1
-        );
+    const crossIdx = index - after;
 
-    if (!current || !previous) {
+    if (crossIdx < CONFIG.SLOW_MA + 1) {
 
-        return {
-            detected: false,
-            direction: null,
-            crossed: false
-        };
+        return { detected: false, reason: "NOT_ENOUGH_DATA" };
     }
 
-    const currentClose =
-        Number(
-            candles[index]?.close
-        );
+    const crossCandle = candles[crossIdx];
+    const prevCandle = candles[crossIdx - 1];
 
-    const previousClose =
-        Number(
-            candles[index - 1]?.close
-        );
+    const crossMA = getMAData(candles, crossIdx);
+    const prevMA = getMAData(candles, crossIdx - 1);
+    const current = getMAData(candles, index);
 
-    const currentMA50 =
-        Number(
-            current.ma50
-        );
+    if (!crossMA || !prevMA || !current) {
 
-    const previousMA50 =
-        Number(
-            previous.ma50
-        );
+        return { detected: false, reason: "NO_MA_DATA" };
+    }
+
+    const crossOpen = number(crossCandle.open);
+    const crossClose = number(crossCandle.close);
+    const prevClose = number(prevCandle.close);
+
+    // --------------------------------------------------------
+    // ¿LA VELA N CRUZÓ LA MA50?
+    // --------------------------------------------------------
+
+    let direction = null;
 
     if (
-        !Number.isFinite(currentClose) ||
-        !Number.isFinite(previousClose) ||
-        !Number.isFinite(currentMA50) ||
-        !Number.isFinite(previousMA50)
+        prevClose <= prevMA.ma50 &&
+        crossClose > crossMA.ma50
+    ) {
+
+        direction = "CALL";
+
+    } else if (
+        prevClose >= prevMA.ma50 &&
+        crossClose < crossMA.ma50
+    ) {
+
+        direction = "PUT";
+    }
+
+    if (!direction) {
+
+        return { detected: false, reason: "NO_CROSS_CANDLE" };
+    }
+
+    // --------------------------------------------------------
+    // FUERZA DE LA VELA DE CRUCE
+    // --------------------------------------------------------
+
+    // Rango medido antes de la vela de cruce, para que la
+    // propia vela no infle la referencia.
+    const refRange = prevMA.avgRange;
+
+    const body = Math.abs(crossClose - crossOpen);
+
+    const crossStrength = candleStrength(crossCandle);
+
+    const bodyNormalized = body / refRange;
+
+    const crossDirectionOk =
+        direction === "CALL"
+            ? isBullish(crossCandle)
+            : isBearish(crossCandle);
+
+    const closeBeyondMA50 =
+        (
+            direction === "CALL"
+                ? crossClose - crossMA.ma50
+                : crossMA.ma50 - crossClose
+        ) / refRange;
+
+    const strongCross =
+        crossDirectionOk &&
+        crossStrength >= CONFIG.BREAKOUT_MIN_STRENGTH &&
+        bodyNormalized >= CONFIG.BREAKOUT_MIN_BODY_NORMALIZED &&
+        closeBeyondMA50 >= CONFIG.BREAKOUT_MIN_CLOSE_BEYOND_MA50;
+
+    if (!strongCross) {
+
+        return {
+            detected: false,
+            reason: "WEAK_CROSS_CANDLE",
+            direction,
+            crossStrength: round(crossStrength, 4),
+            bodyNormalized: round(bodyNormalized, 4),
+            closeBeyondMA50: round(closeBeyondMA50, 4)
+        };
+    }
+
+    // --------------------------------------------------------
+    // MA10 TODAVÍA NO CRUZÓ MA50
+    // --------------------------------------------------------
+
+    const ma10NotCrossed =
+        direction === "CALL"
+            ? current.ma10 < current.ma50
+            : current.ma10 > current.ma50;
+
+    if (
+        CONFIG.BREAKOUT_REQUIRE_MA10_NOT_CROSSED &&
+        !ma10NotCrossed
     ) {
 
         return {
             detected: false,
-            direction: null,
-            crossed: false
+            reason: "MA10_ALREADY_CROSSED",
+            direction
         };
     }
 
-    const crossedUp =
-        previousClose <= previousMA50 &&
-        currentClose > currentMA50;
+    // --------------------------------------------------------
+    // PENDIENTE MA10 A FAVOR
+    // --------------------------------------------------------
 
-    const crossedDown =
-        previousClose >= previousMA50 &&
-        currentClose < currentMA50;
+    const slope = detectMA10Slope(candles, index);
 
-    if (crossedUp) {
+    const slopeOk =
+        direction === "CALL"
+            ? slope.slope >= CONFIG.BREAKOUT_MIN_MA10_SLOPE
+            : slope.slope <= -CONFIG.BREAKOUT_MIN_MA10_SLOPE;
+
+    if (!slopeOk) {
 
         return {
-            detected: true,
-            direction: "CALL",
-            crossed: true,
-
-            price:
-                currentClose,
-
-            ma50:
-                currentMA50
+            detected: false,
+            reason: "MA10_SLOPE_AGAINST",
+            direction,
+            slope
         };
     }
 
-    if (crossedDown) {
+    // --------------------------------------------------------
+    // VELAS POSTERIORES SOSTIENEN EL NUEVO LADO
+    // --------------------------------------------------------
+
+    const retraceLevel =
+        direction === "CALL"
+            ? crossClose - CONFIG.BREAKOUT_MAX_RETRACE * body
+            : crossClose + CONFIG.BREAKOUT_MAX_RETRACE * body;
+
+    for (let i = crossIdx + 1; i <= index; i++) {
+
+        const ma = getMAData(candles, i);
+
+        if (!ma) {
+
+            return { detected: false, reason: "NO_MA_DATA" };
+        }
+
+        const close = number(candles[i].close);
+
+        const heldMA50 =
+            direction === "CALL"
+                ? close > ma.ma50
+                : close < ma.ma50;
+
+        const heldRetrace =
+            direction === "CALL"
+                ? close >= retraceLevel
+                : close <= retraceLevel;
+
+        if (!heldMA50 || !heldRetrace) {
+
+            return {
+                detected: false,
+                reason: !heldMA50
+                    ? "LOST_MA50"
+                    : "RETRACE_TOO_DEEP",
+                direction,
+                failedAt: i - crossIdx
+            };
+        }
+    }
+
+    // --------------------------------------------------------
+    // VELA DE ENTRADA
+    // --------------------------------------------------------
+
+    const entryCandle = candles[index];
+
+    const entryStrength = candleStrength(entryCandle);
+
+    const entryDirectionOk =
+        direction === "CALL"
+            ? isBullish(entryCandle)
+            : isBearish(entryCandle);
+
+    if (
+        CONFIG.BREAKOUT_REQUIRE_ENTRY_CANDLE_DIRECTION &&
+        (
+            !entryDirectionOk ||
+            entryStrength < CONFIG.BREAKOUT_MIN_ENTRY_STRENGTH
+        )
+    ) {
 
         return {
-            detected: true,
-            direction: "PUT",
-            crossed: true,
+            detected: false,
+            reason: "ENTRY_CANDLE_INVALID",
+            direction,
+            entryStrength: round(entryStrength, 4)
+        };
+    }
 
-            price:
-                currentClose,
+    // --------------------------------------------------------
+    // NO PERSEGUIR PRECIO EXTENDIDO
+    // --------------------------------------------------------
 
-            ma50:
-                currentMA50
+    const extension =
+        Math.abs(current.close - current.ma50) /
+        current.avgRange;
+
+    if (extension > CONFIG.BREAKOUT_MAX_EXTENSION_FROM_MA50) {
+
+        return {
+            detected: false,
+            reason: "TOO_EXTENDED",
+            direction,
+            extension: round(extension, 4)
         };
     }
 
     return {
-        detected: false,
-        direction: null,
-        crossed: false,
 
-        price:
-            currentClose,
-
-        ma50:
-            currentMA50
+        detected: true,
+        direction,
+        type: "MA50_BREAKOUT",
+        crossIndexOffset: after,
+        crossStrength: round(crossStrength, 4),
+        bodyNormalized: round(bodyNormalized, 4),
+        closeBeyondMA50: round(closeBeyondMA50, 4),
+        ma10NotCrossed,
+        ma10Slope: slope.slope,
+        entryStrength: round(entryStrength, 4),
+        extension: round(extension, 4),
+        maSeparationNormalized: current.maSeparationNormalized
     };
+}
+
+
+// ============================================================
+// CROSS MA10 / MA50
+// ============================================================
+
+function detectCross(candles, index) {
+
+    if (index < CONFIG.SLOW_MA) {
+
+        return null;
+    }
+
+    const current = getMAData(candles, index);
+    const previous = getMAData(candles, index - 1);
+
+    if (!current || !previous) {
+
+        return null;
+    }
+
+    if (
+        previous.ma10 <= previous.ma50 &&
+        current.ma10 > current.ma50
+    ) {
+
+        return "CALL";
+    }
+
+    if (
+        previous.ma10 >= previous.ma50 &&
+        current.ma10 < current.ma50
+    ) {
+
+        return "PUT";
+    }
+
+    return null;
+}
+
+
+// ============================================================
+// TENDENCIA
+// ============================================================
+
+function getTrend(candles, index) {
+
+    const data = getMAData(candles, index);
+
+    if (!data) {
+
+        return null;
+    }
+
+    if (data.ma10 > data.ma50) return "CALL";
+    if (data.ma10 < data.ma50) return "PUT";
+
+    return null;
 }
 
 
@@ -823,154 +836,76 @@ function detectMA50Breakout(candles, index) {
 // PENDIENTE MA10
 // ============================================================
 
-function detectMA10Slope(
-    candles,
-    index
-) {
+const FLAT_SLOPE = {
 
-    const lookback =
-        CONFIG.MA10_SLOPE_LOOKBACK;
+    direction: "FLAT",
+    slope: 0,
+    previousSlope: 0,
+    acceleration: 0,
+    strong: false
+};
 
-    if (
-        index <
-        CONFIG.FAST_MA +
-        lookback
-    ) {
 
-        return {
+function detectMA10Slope(candles, index) {
 
-            direction: null,
+    const lookback = CONFIG.MA10_SLOPE_LOOKBACK;
 
-            slope: 0,
+    if (index < CONFIG.FAST_MA + lookback) {
 
-            previousSlope: 0,
-
-            acceleration: 0,
-
-            strong: false
-        };
+        return { ...FLAT_SLOPE };
     }
 
-    const currentMA =
-        smaAt(
-            candles,
-            index,
-            CONFIG.FAST_MA
-        );
-
-    const previousMA =
-        smaAt(
-            candles,
-            index - lookback,
-            CONFIG.FAST_MA
-        );
-
-    const previous2MA =
-        smaAt(
-            candles,
-            index - lookback - 1,
-            CONFIG.FAST_MA
-        );
-
-    const avgRange =
-        averageRangeAt(
-            candles,
-            index,
-            CONFIG.RANGE_PERIOD
-        );
+    const currentMA = smaAt(candles, index, CONFIG.FAST_MA);
+    const previousMA = smaAt(candles, index - lookback, CONFIG.FAST_MA);
+    const previousCurrent = smaAt(candles, index - 1, CONFIG.FAST_MA);
+    const previousPrevious = smaAt(candles, index - 1 - lookback, CONFIG.FAST_MA);
 
     if (
         currentMA == null ||
         previousMA == null ||
-        !avgRange
+        previousCurrent == null ||
+        previousPrevious == null
     ) {
 
-        return {
-
-            direction: null,
-
-            slope: 0,
-
-            previousSlope: 0,
-
-            acceleration: 0,
-
-            strong: false
-        };
+        return { ...FLAT_SLOPE };
     }
 
-    const slope =
-        (
-            currentMA -
-            previousMA
-        ) /
-        avgRange;
+    const avgRange = averageRangeAt(
+        candles,
+        index,
+        CONFIG.RANGE_PERIOD
+    );
 
-    let previousSlope = 0;
+    if (!avgRange) {
 
-    if (
-        previous2MA != null
-    ) {
-
-        previousSlope =
-            (
-                previousMA -
-                previous2MA
-            ) /
-            avgRange;
+        return { ...FLAT_SLOPE };
     }
 
-    const acceleration =
-        slope -
-        previousSlope;
+    const slope = (currentMA - previousMA) / avgRange;
 
-    let direction =
-        null;
+    const previousSlope =
+        (previousCurrent - previousPrevious) / avgRange;
 
-    if (
-        slope >=
-        CONFIG.MA10_SLOPE_MIN
-    ) {
+    const acceleration = slope - previousSlope;
 
-        direction =
-            "CALL";
+    let direction = "FLAT";
 
-    }
+    if (slope >= CONFIG.MA10_SLOPE_MIN) {
 
-    else if (
-        slope <=
-        -CONFIG.MA10_SLOPE_MIN
-    ) {
+        direction = "CALL";
 
-        direction =
-            "PUT";
+    } else if (slope <= -CONFIG.MA10_SLOPE_MIN) {
+
+        direction = "PUT";
     }
 
     return {
 
         direction,
-
-        slope:
-            round(
-                slope,
-                4
-            ),
-
-        previousSlope:
-            round(
-                previousSlope,
-                4
-            ),
-
-        acceleration:
-            round(
-                acceleration,
-                4
-            ),
-
-        strong:
-            Math.abs(slope) >=
-            CONFIG.MA10_STRONG_SLOPE
+        slope: round(slope, 4),
+        previousSlope: round(previousSlope, 4),
+        acceleration: round(acceleration, 4),
+        strong: Math.abs(slope) >= CONFIG.MA10_STRONG_SLOPE
     };
 }
 
@@ -979,93 +914,41 @@ function detectMA10Slope(
 // LATERALIDAD MA50
 // ============================================================
 
-function detectMA50Lateral(
-    candles,
-    index
-) {
+function detectMA50Lateral(candles, index) {
 
-    const lookback =
-        CONFIG.MA50_SLOPE_LOOKBACK;
+    const lookback = CONFIG.MA50_SLOPE_LOOKBACK;
 
-    if (
-        index <
-        CONFIG.SLOW_MA +
-        lookback
-    ) {
+    if (index < CONFIG.SLOW_MA + lookback) {
 
-        return {
-
-            lateral: false,
-
-            slope: 0
-        };
+        return { lateral: false, slope: 0 };
     }
 
-    const currentMA =
-        smaAt(
-            candles,
-            index,
-            CONFIG.SLOW_MA
-        );
+    const currentMA = smaAt(candles, index, CONFIG.SLOW_MA);
+    const previousMA = smaAt(candles, index - lookback, CONFIG.SLOW_MA);
 
-    const previousMA =
-        smaAt(
-            candles,
-            index - lookback,
-            CONFIG.SLOW_MA
-        );
+    if (currentMA == null || previousMA == null) {
 
-    if (
-        currentMA == null ||
-        previousMA == null
-    ) {
-
-        return {
-
-            lateral: false,
-
-            slope: 0
-        };
+        return { lateral: false, slope: 0 };
     }
 
-    const avgRange =
-        averageRangeAt(
-            candles,
-            index,
-            CONFIG.RANGE_PERIOD
-        );
+    const avgRange = averageRangeAt(
+        candles,
+        index,
+        CONFIG.RANGE_PERIOD
+    );
 
     if (!avgRange) {
 
-        return {
-
-            lateral: false,
-
-            slope: 0
-        };
+        return { lateral: false, slope: 0 };
     }
 
-    const slope =
-        (
-            currentMA -
-            previousMA
-        ) /
-        avgRange;
+    const slope = (currentMA - previousMA) / avgRange;
 
     return {
 
-        lateral:
-            Math.abs(slope) <=
-            CONFIG.MA50_LATERAL_MAX,
-
-        slope:
-            round(
-                slope,
-                4
-            ),
-
-        ma50:
-            currentMA
+        lateral: Math.abs(slope) <= CONFIG.MA50_LATERAL_MAX,
+        slope: round(slope, 4),
+        ma50: currentMA
     };
 }
 
@@ -1074,127 +957,78 @@ function detectMA50Lateral(
 // SECUENCIA DE VELAS
 // ============================================================
 
-function detectCandleSequence(
-    candles,
-    index
-) {
+function detectCandleSequence(candles, index) {
 
     if (index < 1) {
 
         return {
 
             direction: null,
-
             count: 0,
-
             averageStrength: 0,
-
             valid: false,
-
             sequence: []
         };
     }
 
-    let direction =
-        null;
+    let direction = null;
+    let count = 0;
+    let totalStrength = 0;
 
-    let count =
-        0;
-
-    let totalStrength =
-        0;
-
-    const sequence =
-        [];
+    const sequence = [];
 
     for (
         let i = index;
-
-        i >= 0 &&
-        count <
-        CONFIG.MAX_SEQUENCE;
-
+        i >= 0 && count < CONFIG.MAX_SEQUENCE;
         i--
     ) {
 
-        const candle =
-            candles[i];
+        const candle = candles[i];
 
-        let candleDirection =
-            null;
+        let candleDirection = null;
 
-        if (
-            isBullish(candle)
-        ) {
+        if (isBullish(candle)) {
 
-            candleDirection =
-                "CALL";
+            candleDirection = "CALL";
 
-        }
+        } else if (isBearish(candle)) {
 
-        else if (
-            isBearish(candle)
-        ) {
+            candleDirection = "PUT";
 
-            candleDirection =
-                "PUT";
-
-        }
-
-        else {
+        } else {
 
             break;
         }
 
         if (!direction) {
 
-            direction =
-                candleDirection;
+            direction = candleDirection;
         }
 
-        if (
-            candleDirection !==
-            direction
-        ) {
+        if (candleDirection !== direction) {
 
             break;
         }
 
-        totalStrength +=
-            candleStrength(
-                candle
-            );
+        totalStrength += candleStrength(candle);
 
-        sequence.push(
-            candleDirection
-        );
+        sequence.push(candleDirection);
 
         count++;
     }
 
     const averageStrength =
-        count > 0
-            ? totalStrength / count
-            : 0;
+        count > 0 ? totalStrength / count : 0;
 
     return {
 
         direction,
-
         count,
-
-        averageStrength:
-            round(
-                averageStrength,
-                4
-            ),
+        averageStrength: round(averageStrength, 4),
 
         valid:
-            count >=
-            CONFIG.MIN_SEQUENCE &&
-
-            averageStrength >=
-            CONFIG.MIN_SEQUENCE_STRENGTH,
+            count >= CONFIG.MIN_SEQUENCE &&
+            averageStrength >= CONFIG.MIN_SEQUENCE_STRENGTH,
 
         sequence
     };
@@ -1205,145 +1039,63 @@ function detectCandleSequence(
 // CAMBIO DE DIRECCIÓN
 // ============================================================
 
-function detectDirectionChange(
-    candles,
-    index
-) {
+function detectDirectionChange(candles, index) {
 
-    if (
-        index <
-        CONFIG.FAST_MA +
-        5
-    ) {
+    if (index < CONFIG.FAST_MA + 5) {
 
-        return {
-
-            detected: false,
-
-            direction: null
-        };
+        return { detected: false, direction: null };
     }
 
-    const current =
-        detectMA10Slope(
-            candles,
-            index
-        );
+    const current = detectMA10Slope(candles, index);
+    const previous = detectMA10Slope(candles, index - 1);
+    const previous2 = detectMA10Slope(candles, index - 2);
 
-    const previous =
-        detectMA10Slope(
-            candles,
-            index - 1
-        );
+    const min = CONFIG.DIRECTION_CHANGE_MIN_SLOPE;
 
-    if (
-        !current ||
-        !previous
-    ) {
+    const toPut =
+        previous2.slope > min &&
+        previous.slope >= -min &&
+        current.slope <= -min;
 
-        return {
+    const toCall =
+        previous2.slope < -min &&
+        previous.slope <= min &&
+        current.slope >= min;
 
-            detected: false,
-
-            direction: null
-        };
-    }
-
-    const currentDirection =
-        current.direction;
-
-    const previousDirection =
-        previous.direction;
-
-    if (
-        !currentDirection ||
-        !previousDirection
-    ) {
+    if (toPut || toCall) {
 
         return {
 
-            detected: false,
-
-            direction: null
-        };
-    }
-
-    if (
-        currentDirection ===
-        previousDirection
-    ) {
-
-        return {
-
-            detected: false,
-
-            direction:
-                currentDirection
-        };
-    }
-
-    if (
-        Math.abs(
-            current.slope
-        ) <
-        CONFIG.DIRECTION_CHANGE_MIN_SLOPE
-    ) {
-
-        return {
-
-            detected: false,
-
-            direction:
-                currentDirection
+            detected: true,
+            direction: toPut ? "PUT" : "CALL",
+            previousSlope: previous2.slope,
+            currentSlope: current.slope,
+            acceleration: current.acceleration
         };
     }
 
     return {
 
-        detected: true,
-
-        direction:
-            currentDirection,
-
-        previousDirection,
-
-        currentSlope:
-            current.slope,
-
-        previousSlope:
-            previous.slope
+        detected: false,
+        direction: null,
+        previousSlope: previous.slope,
+        currentSlope: current.slope,
+        acceleration: current.acceleration
     };
 }
+
+
 // ============================================================
 // EXTENSIÓN / SIMETRÍA MA50
-// ============================================================
-//
-// El ratio por sí solo no determina extensión.
-//
-// Cuando el precio está más allá de MA10:
-//
-//     ratio = ma50Distance / maDistance
-//
-// Por eso además exigimos una distancia mínima normalizada
-// respecto a MA10.
-//
 // ============================================================
 
 function detectMA50Symmetry(candles, index) {
 
-    const current =
-        getMAData(
-            candles,
-            index
-        );
+    const current = getMAData(candles, index);
 
     if (!current) {
 
-        return {
-            valid: false,
-            extended: false,
-            direction: null
-        };
+        return { valid: false, extended: false, direction: null };
     }
 
     const {
@@ -1358,78 +1110,46 @@ function detectMA50Symmetry(candles, index) {
         symmetryClass
     } = current;
 
-    if (
-        maDistance <= 0
-    ) {
+    if (maDistance <= 0) {
 
-        return {
-            valid: false,
-            extended: false,
-            direction: null
-        };
+        return { valid: false, extended: false, direction: null };
     }
 
     let direction = null;
 
-    if (
-        ma10 > ma50 &&
-        close > ma50
-    ) {
+    if (ma10 > ma50 && close > ma50) {
 
         direction = "CALL";
 
-    } else if (
-        ma10 < ma50 &&
-        close < ma50
-    ) {
+    } else if (ma10 < ma50 && close < ma50) {
 
         direction = "PUT";
     }
 
     const beyondMA10 =
-        (
-            direction === "CALL" &&
-            close > ma10
-        ) ||
-        (
-            direction === "PUT" &&
-            close < ma10
-        );
+        (direction === "CALL" && close > ma10) ||
+        (direction === "PUT" && close < ma10);
 
     const extended =
         direction !== null &&
         beyondMA10 &&
-        maDistanceRatio >=
-            CONFIG.MA50_SYMMETRY_THRESHOLD &&
-        ma10DistanceNormalized >=
-            CONFIG.MA10_EXTENSION_MIN_NORMALIZED;
+        maDistanceRatio >= CONFIG.MA50_SYMMETRY_THRESHOLD &&
+        ma10DistanceNormalized >= CONFIG.MA10_EXTENSION_MIN_NORMALIZED;
 
     return {
 
         valid: true,
-
         extended,
-
         direction,
-
         close,
-
         ma10,
-
         ma50,
-
         ma10Distance,
-
         ma50Distance,
-
         maDistance,
-
         maDistanceRatio,
-
         ma10DistanceNormalized,
-
         symmetryClass,
-
         beyondMA10
     };
 }
@@ -1438,257 +1158,121 @@ function detectMA50Symmetry(candles, index) {
 // ============================================================
 // MEAN REVERSION HACIA MA10
 // ============================================================
-//
-// direction = tendencia actual
-// signal    = dirección de la operación
-//
-// Puede operar contra tendencia cuando:
-//
-// MA10_MEAN_REVERSION_COUNTER_TREND = true
-//
-// ============================================================
 
-function detectMA10MeanReversion(
-    candles,
-    index,
-    direction
-) {
+function detectMA10MeanReversion(candles, index, direction) {
 
-    if (
-        !CONFIG.MA10_MEAN_REVERSION_ENABLED ||
-        index < 1
-    ) {
+    if (!CONFIG.MA10_MEAN_REVERSION_ENABLED || index < 1) {
 
-        return {
-            detected: false
-        };
+        return { detected: false };
     }
 
-    const symmetry =
-        detectMA50Symmetry(
-            candles,
-            index
-        );
+    const symmetry = detectMA50Symmetry(candles, index);
 
-    if (
-        !symmetry.valid ||
-        !symmetry.extended
-    ) {
+    if (!symmetry.valid || !symmetry.extended) {
+
+        return { detected: false, symmetry };
+    }
+
+    if (symmetry.direction !== direction) {
 
         return {
             detected: false,
+            reason: "DIRECTION_MISMATCH",
             symmetry
         };
     }
 
-    if (
-        symmetry.direction !==
-        direction
-    ) {
+    const current = candles[index];
+    const previous = candles[index - 1];
+
+    const currentStrength = candleStrength(current);
+    const previousStrength = candleStrength(previous);
+
+    if (currentStrength < CONFIG.MA10_MEAN_REVERSION_MIN_STRENGTH) {
 
         return {
-
             detected: false,
-
-            reason:
-                "DIRECTION_MISMATCH",
-
+            reason: "WEAK_CANDLE",
             symmetry
         };
     }
 
-    const current =
-        candles[index];
-
-    const previous =
-        candles[index - 1];
-
-    const currentStrength =
-        candleStrength(
-            current
-        );
-
-    const previousStrength =
-        candleStrength(
-            previous
-        );
-
-    if (
-        currentStrength <
-        CONFIG.MA10_MEAN_REVERSION_MIN_STRENGTH
-    ) {
-
-        return {
-
-            detected: false,
-
-            reason:
-                "WEAK_CANDLE",
-
-            symmetry
-        };
-    }
-
-    const losingStrength =
-        currentStrength <
-        previousStrength;
+    const losingStrength = currentStrength < previousStrength;
 
     const colorChange =
         direction === "PUT"
+            ? (isBearish(previous) && isBullish(current))
+            : (isBullish(previous) && isBearish(current));
 
-            ? (
-                isBearish(previous) &&
-                isBullish(current)
-            )
-
-            : (
-                isBullish(previous) &&
-                isBearish(current)
-            );
-
-    const previousMA =
-        getMAData(
-            candles,
-            index - 1
-        );
+    const previousMA = getMAData(candles, index - 1);
 
     if (!previousMA) {
 
-        return {
-
-            detected: false,
-
-            symmetry
-        };
+        return { detected: false, symmetry };
     }
 
     const currentMA10Distance =
-        Math.abs(
-            number(current.close) -
-            symmetry.ma10
-        );
+        Math.abs(number(current.close) - symmetry.ma10);
 
     const previousMA10Distance =
-        Math.abs(
-            number(previous.close) -
-            previousMA.ma10
-        );
+        Math.abs(number(previous.close) - previousMA.ma10);
 
     const approachingMA10 =
-        currentMA10Distance <
-        previousMA10Distance;
+        currentMA10Distance < previousMA10Distance;
 
-    const slope =
-        detectMA10Slope(
-            candles,
-            index
-        );
+    const slope = detectMA10Slope(candles, index);
 
     const detected =
         symmetry.maDistanceRatio >=
             CONFIG.MA10_MEAN_REVERSION_MIN_RATIO &&
-
-        (
-            losingStrength ||
-            colorChange ||
-            approachingMA10
-        );
+        (losingStrength || colorChange || approachingMA10);
 
     const signal =
         CONFIG.MA10_MEAN_REVERSION_COUNTER_TREND
-
-            ? oppositeDirection(
-                direction
-            )
-
+            ? oppositeDirection(direction)
             : direction;
 
     return {
 
         detected,
-
         direction,
-
         signal,
-
         symmetry,
-
         currentStrength,
-
         previousStrength,
-
         losingStrength,
-
         colorChange,
-
         approachingMA10,
-
         currentMA10Distance,
-
         previousMA10Distance,
-
         slope
     };
 }
 
 
 // ============================================================
-// PRE-REJECTION MA10
-// ============================================================
-//
-// Detecta agotamiento antes de una posible reacción sobre MA10.
-//
-// IMPORTANTE:
-// Esta detección NO debe convertirse en un bloqueo global.
-// El filtro global de lateralidad se ejecutará posteriormente
-// en smaStrategy().
-//
+// PRE REJECTION MA10
 // ============================================================
 
-function detectMA10PreRejection(
-    candles,
-    index,
-    direction
-) {
+function detectMA10PreRejection(candles, index, direction) {
 
-    if (
-        !CONFIG.MA10_PRE_REJECTION_ENABLED ||
-        index < 3
-    ) {
+    if (!CONFIG.MA10_PRE_REJECTION_ENABLED || index < 3) {
 
-        return {
-            detected: false
-        };
+        return { detected: false };
     }
 
-    const symmetry =
-        detectMA50Symmetry(
-            candles,
-            index
-        );
+    const symmetry = detectMA50Symmetry(candles, index);
 
     if (!symmetry.valid) {
 
-        return {
-
-            detected: false,
-
-            symmetry
-        };
+        return { detected: false, symmetry };
     }
 
-    if (
-        symmetry.direction !==
-        direction
-    ) {
+    if (symmetry.direction !== direction) {
 
         return {
-
             detected: false,
-
-            reason:
-                "DIRECTION_MISMATCH",
-
+            reason: "DIRECTION_MISMATCH",
             symmetry
         };
     }
@@ -1699,146 +1283,77 @@ function detectMA10PreRejection(
     ) {
 
         return {
-
             detected: false,
-
-            reason:
-                "RATIO_TOO_LOW",
-
+            reason: "RATIO_TOO_LOW",
             symmetry
         };
     }
 
-    const current =
-        candles[index];
+    const current = candles[index];
+    const previous = candles[index - 1];
 
-    const previous =
-        candles[index - 1];
+    const sequence = detectCandleSequence(candles, index);
+    const slope = detectMA10Slope(candles, index);
+    const ma50 = detectMA50Lateral(candles, index);
 
-    const sequence =
-        detectCandleSequence(
-            candles,
-            index
-        );
+    const strength = candleStrength(current);
 
-    const slope =
-        detectMA10Slope(
-            candles,
-            index
-        );
-
-    const ma50 =
-        detectMA50Lateral(
-            candles,
-            index
-        );
-
-    const strength =
-        candleStrength(
-            current
-        );
-
-    if (
-        strength <
-        CONFIG.MA10_PRE_REJECTION_MIN_STRENGTH
-    ) {
+    if (strength < CONFIG.MA10_PRE_REJECTION_MIN_STRENGTH) {
 
         return {
-
             detected: false,
-
-            reason:
-                "WEAK_CANDLE",
-
+            reason: "WEAK_CANDLE",
             symmetry,
-
             sequence,
-
             slope,
-
             ma50
         };
     }
 
-    if (
-        sequence.count <
-        CONFIG.MIN_SEQUENCE
-    ) {
+    if (sequence.count < CONFIG.MIN_SEQUENCE) {
 
         return {
-
             detected: false,
-
-            reason:
-                "SHORT_SEQUENCE",
-
+            reason: "SHORT_SEQUENCE",
             symmetry,
-
             sequence,
-
             slope,
-
             ma50
         };
     }
 
-    if (
-        sequence.direction !==
-        direction
-    ) {
+    if (sequence.direction !== direction) {
 
         return {
-
             detected: false,
-
-            reason:
-                "SEQUENCE_MISMATCH",
-
+            reason: "SEQUENCE_MISMATCH",
             symmetry,
-
             sequence,
-
             slope,
-
             ma50
         };
     }
 
     const losingAcceleration =
         direction === "PUT"
-
             ? slope.acceleration > 0
-
             : slope.acceleration < 0;
 
-    const currentMA10Distance =
-        symmetry.ma10Distance;
+    const currentMA10Distance = symmetry.ma10Distance;
 
-    const previousMA =
-        getMAData(
-            candles,
-            index - 1
-        );
+    const previousMA = getMAData(candles, index - 1);
 
     const previousMA10Distance =
         previousMA
-
-            ? Math.abs(
-                number(previous.close) -
-                previousMA.ma10
-            )
-
+            ? Math.abs(number(previous.close) - previousMA.ma10)
             : currentMA10Distance;
 
     const approachingMA10 =
-        currentMA10Distance <
-        previousMA10Distance;
+        currentMA10Distance < previousMA10Distance;
 
     const detected =
         symmetry.extended &&
-
         sequence.valid &&
-
         (
             losingAcceleration ||
             approachingMA10 ||
@@ -1847,40 +1362,23 @@ function detectMA10PreRejection(
 
     const signal =
         CONFIG.MA10_PRE_REJECTION_COUNTER_TREND
-
-            ? oppositeDirection(
-                direction
-            )
-
+            ? oppositeDirection(direction)
             : direction;
 
     return {
 
         detected,
-
         direction,
-
         signal,
-
-        type:
-            "MA10_PRE_REJECTION",
-
+        type: "MA10_PRE_REJECTION",
         symmetry,
-
         sequence,
-
         slope,
-
         ma50,
-
         strength,
-
         losingAcceleration,
-
         approachingMA10,
-
         currentMA10Distance,
-
         previousMA10Distance
     };
 }
@@ -1890,143 +1388,59 @@ function detectMA10PreRejection(
 // RETRACEMENT
 // ============================================================
 
-function detectRetracement(
-    candles,
-    index,
-    direction
-) {
+function detectRetracement(candles, index, direction) {
 
-    if (
-        index < 3
-    ) {
+    if (index < 3) {
 
-        return {
-            detected: false
-        };
+        return { detected: false };
     }
 
-    const current =
-        getMAData(
-            candles,
-            index
-        );
+    const current = getMAData(candles, index);
+    const previous = getMAData(candles, index - 1);
+    const previous2 = getMAData(candles, index - 2);
+    const previous3 = getMAData(candles, index - 3);
 
-    const previous =
-        getMAData(
-            candles,
-            index - 1
-        );
+    if (!current || !previous || !previous2 || !previous3) {
 
-    const previous2 =
-        getMAData(
-            candles,
-            index - 2
-        );
-
-    const previous3 =
-        getMAData(
-            candles,
-            index - 3
-        );
-
-    if (
-        !current ||
-        !previous ||
-        !previous2 ||
-        !previous3
-    ) {
-
-        return {
-            detected: false
-        };
+        return { detected: false };
     }
 
     const trend =
         direction === "CALL"
-
-            ? current.ma10 >
-              current.ma50
-
-            : current.ma10 <
-              current.ma50;
+            ? current.ma10 > current.ma50
+            : current.ma10 < current.ma50;
 
     if (!trend) {
 
-        return {
-
-            detected: false,
-
-            reason:
-                "NO_TREND"
-        };
+        return { detected: false, reason: "NO_TREND" };
     }
 
-    const d0 =
-        current.distance;
+    const d0 = current.distance;
+    const d1 = previous.distance;
+    const d2 = previous2.distance;
+    const d3 = previous3.distance;
 
-    const d1 =
-        previous.distance;
-
-    const d2 =
-        previous2.distance;
-
-    const d3 =
-        previous3.distance;
-
-    const approaching =
-        d1 < d2 ||
-        d2 < d3;
+    const approaching = d1 < d2 || d2 < d3;
 
     const nearMA10 =
-        Math.min(
-            d0,
-            d1,
-            d2
-        ) <=
-        CONFIG.MA10_ZONE_DISTANCE;
+        Math.min(d0, d1, d2) <= CONFIG.MA10_ZONE_DISTANCE;
 
     const nearMA50 =
-        Math.abs(
-            current.close -
-            current.ma50
-        ) /
+        Math.abs(current.close - current.ma50) /
         current.avgRange <=
         CONFIG.MA50_ZONE_DISTANCE;
 
     return {
 
-        detected:
-            approaching &&
-            (
-                nearMA10 ||
-                nearMA50
-            ),
-
+        detected: approaching && (nearMA10 || nearMA50),
         trend,
-
         approaching,
-
         nearMA10,
-
         nearMA50,
-
-        distance:
-            round(
-                d0,
-                3
-            ),
-
-        previousDistance:
-            round(
-                d1,
-                3
-            ),
-
-        ma10:
-            current.ma10,
-
-        ma50:
-            current.ma50
+        distance: round(d0, 3),
+        previousDistance: round(d1, 3),
+        ma10: current.ma10,
+        ma50: current.ma50
     };
 }
 
@@ -2035,51 +1449,18 @@ function detectRetracement(
 // REJECTION MA10
 // ============================================================
 
-function detectRejection(
-    candles,
-    index,
-    direction
-) {
+function detectRejection(candles, index, direction) {
 
-    if (
-        !CONFIG.MA_REJECTION_ENABLED ||
-        index < 4
-    ) {
+    if (!CONFIG.MA_REJECTION_ENABLED || index < 4) {
 
-        return {
-            detected: false
-        };
+        return { detected: false };
     }
 
-    const current =
-        getMAData(
-            candles,
-            index
-        );
-
-    const previous =
-        getMAData(
-            candles,
-            index - 1
-        );
-
-    const previous2 =
-        getMAData(
-            candles,
-            index - 2
-        );
-
-    const previous3 =
-        getMAData(
-            candles,
-            index - 3
-        );
-
-    const previous4 =
-        getMAData(
-            candles,
-            index - 4
-        );
+    const current = getMAData(candles, index);
+    const previous = getMAData(candles, index - 1);
+    const previous2 = getMAData(candles, index - 2);
+    const previous3 = getMAData(candles, index - 3);
+    const previous4 = getMAData(candles, index - 4);
 
     if (
         !current ||
@@ -2089,123 +1470,63 @@ function detectRejection(
         !previous4
     ) {
 
-        return {
-            detected: false
-        };
+        return { detected: false };
     }
 
-    const d0 =
-        current.distance;
-
-    const d1 =
-        previous.distance;
-
-    const d2 =
-        previous2.distance;
-
-    const d3 =
-        previous3.distance;
-
-    const d4 =
-        previous4.distance;
+    const d0 = current.distance;
+    const d1 = previous.distance;
+    const d2 = previous2.distance;
+    const d3 = previous3.distance;
+    const d4 = previous4.distance;
 
     const trend =
         direction === "CALL"
-
-            ? current.ma10 >
-              current.ma50
-
-            : current.ma10 <
-              current.ma50;
+            ? current.ma10 > current.ma50
+            : current.ma10 < current.ma50;
 
     if (!trend) {
 
-        return {
-
-            detected: false,
-
-            reason:
-                "TREND_INVALID"
-        };
+        return { detected: false, reason: "TREND_INVALID" };
     }
 
-    const minDistance =
-        Math.min(
-            d1,
-            d2,
-            d3
-        );
+    const minDistance = Math.min(d1, d2, d3);
 
     const nearMA =
-        minDistance <=
-        CONFIG.RETRACEMENT_MAX_DISTANCE;
+        minDistance <= CONFIG.RETRACEMENT_MAX_DISTANCE;
 
-    const approaching =
-        d2 < d3 ||
-        d3 < d4;
+    const approaching = d2 < d3 || d3 < d4;
 
-    const recovering =
-        d0 > d1;
+    const recovering = d0 > d1;
 
-    const recoveryFromMinimum =
-        d1 <= d2 ||
-        d1 <= d3;
+    const recoveryFromMinimum = d1 <= d2 || d1 <= d3;
 
-    const currentCandle =
-        candles[index];
+    const currentCandle = candles[index];
 
     const directionCandle =
         direction === "CALL"
+            ? isBullish(currentCandle)
+            : isBearish(currentCandle);
 
-            ? isBullish(
-                currentCandle
-            )
-
-            : isBearish(
-                currentCandle
-            );
-
-    const strength =
-        candleStrength(
-            currentCandle
-        );
+    const strength = candleStrength(currentCandle);
 
     const strengthValid =
-        strength >=
-        CONFIG.MA_REJECTION_MIN_STRENGTH;
+        strength >= CONFIG.MA_REJECTION_MIN_STRENGTH;
 
     const priceDistanceToMA50 =
-        Math.abs(
-            current.close -
-            current.ma50
-        ) /
+        Math.abs(current.close - current.ma50) /
         current.avgRange;
 
     const nearMA50 =
-        priceDistanceToMA50 <=
-        CONFIG.MA50_ZONE_DISTANCE;
+        priceDistanceToMA50 <= CONFIG.MA50_ZONE_DISTANCE;
 
     const touchedMA =
         direction === "CALL"
+            ? currentCandle.low <= current.ma10
+            : currentCandle.high >= current.ma10;
 
-            ? currentCandle.low <=
-              current.ma10
+    if (CONFIG.MA_REJECTION_REQUIRE_TOUCH && !touchedMA) {
 
-            : currentCandle.high >=
-              current.ma10;
-
-    if (
-        CONFIG.MA_REJECTION_REQUIRE_TOUCH &&
-        !touchedMA
-    ) {
-
-        return {
-
-            detected: false,
-
-            reason:
-                "NO_TOUCH"
-        };
+        return { detected: false, reason: "NO_TOUCH" };
     }
 
     const detected =
@@ -2219,61 +1540,24 @@ function detectRejection(
     return {
 
         detected,
-
         direction,
-
         trend,
-
         approaching,
-
         nearMA,
-
         nearMA50,
-
         recovering,
-
         recoveryFromMinimum,
-
         directionCandle,
-
         touchedMA,
-
         strengthValid,
-
         strength,
-
-        ma10:
-            current.ma10,
-
-        ma50:
-            current.ma50,
-
-        close:
-            current.close,
-
-        distance:
-            round(
-                d0,
-                3
-            ),
-
-        previousDistance:
-            round(
-                d1,
-                3
-            ),
-
-        minDistance:
-            round(
-                minDistance,
-                3
-            ),
-
-        priceDistanceToMA50:
-            round(
-                priceDistanceToMA50,
-                3
-            )
+        ma10: current.ma10,
+        ma50: current.ma50,
+        close: current.close,
+        distance: round(d0, 3),
+        previousDistance: round(d1, 3),
+        minDistance: round(minDistance, 3),
+        priceDistanceToMA50: round(priceDistanceToMA50, 3)
     };
 }
 
@@ -2282,71 +1566,38 @@ function detectRejection(
 // CONTINUATION
 // ============================================================
 
-function detectContinuation(
-    candles,
-    index,
-    direction
-) {
+function detectContinuation(candles, index, direction) {
 
-    if (
-        index < 3
-    ) {
+    if (index < 3) {
 
         return false;
     }
 
-    const current =
-        candles[index];
+    const current = candles[index];
+    const previous = candles[index - 1];
 
-    const previous =
-        candles[index - 1];
-
-    const ma =
-        getMAData(
-            candles,
-            index
-        );
+    const ma = getMAData(candles, index);
 
     if (!ma) {
 
         return false;
     }
 
-    if (
-        direction === "CALL"
-    ) {
+    if (direction === "CALL") {
 
         return (
-
-            ma.ma10 >
-            ma.ma50 &&
-
-            ma.close >
-            ma.ma10 &&
-
-            (
-                isBullish(current) ||
-                isBullish(previous)
-            )
+            ma.ma10 > ma.ma50 &&
+            ma.close > ma.ma10 &&
+            (isBullish(current) || isBullish(previous))
         );
     }
 
-    if (
-        direction === "PUT"
-    ) {
+    if (direction === "PUT") {
 
         return (
-
-            ma.ma10 <
-            ma.ma50 &&
-
-            ma.close <
-            ma.ma10 &&
-
-            (
-                isBearish(current) ||
-                isBearish(previous)
-            )
+            ma.ma10 < ma.ma50 &&
+            ma.close < ma.ma10 &&
+            (isBearish(current) || isBearish(previous))
         );
     }
 
@@ -2358,64 +1609,30 @@ function detectContinuation(
 // CONFIRMAR DIRECCIÓN
 // ============================================================
 
-function directionConfirmed(
-    candles,
-    index,
-    direction
-) {
+function directionConfirmed(candles, index, direction) {
 
-    const current =
-        candles[index];
+    const current = candles[index];
 
-    const ma =
-        getMAData(
-            candles,
-            index
-        );
+    const ma = getMAData(candles, index);
 
     if (!ma) {
 
         return false;
     }
 
-    if (
-        candleStrength(
-            current
-        ) <
-        CONFIG.MIN_CANDLE_STRENGTH
-    ) {
+    if (candleStrength(current) < CONFIG.MIN_CANDLE_STRENGTH) {
 
         return false;
     }
 
-    if (
-        direction === "CALL"
-    ) {
+    if (direction === "CALL") {
 
-        return (
-
-            ma.ma10 >
-            ma.ma50 &&
-
-            isBullish(
-                current
-            )
-        );
+        return ma.ma10 > ma.ma50 && isBullish(current);
     }
 
-    if (
-        direction === "PUT"
-    ) {
+    if (direction === "PUT") {
 
-        return (
-
-            ma.ma10 <
-            ma.ma50 &&
-
-            isBearish(
-                current
-            )
-        );
+        return ma.ma10 < ma.ma50 && isBearish(current);
     }
 
     return false;
@@ -2423,110 +1640,401 @@ function directionConfirmed(
 
 
 // ============================================================
-// DETECTAR CRUCE MA10 / MA50
+// RÉGIMEN DE MERCADO
+// ============================================================
+//
+// LATERAL        MA50 plana durante N velas        -> NO operar
+// TRANSITION     ya no es lateral pero sin          -> NO operar
+//                estructura suficiente                (configurable)
+// EMERGING_TREND sale de lateral con alineación     -> solo REVERSAL
+// TREND          tendencia confirmada               -> entradas normales
+// UNKNOWN        sin datos suficientes              -> NO operar
+//
 // ============================================================
 
-function detectCross(
-    candles,
-    index
-) {
+function regimeResult(regime, reason, extra) {
 
-    if (
-        index < 1
-    ) {
+    return {
 
-        return null;
+        regime,
+        reason,
+        direction: null,
+        tradable: false,
+        allowReversal: false,
+        ma50Slope: 0,
+        ma10Slope: 0,
+        separation: 0,
+        lateralCount: 0,
+        previousLateralCount: 0,
+        recentlyLateral: false,
+
+        ...extra
+    };
+}
+
+
+function detectMarketRegime(candles, index) {
+
+    const minRequired =
+        CONFIG.SLOW_MA +
+        Math.max(
+            CONFIG.MA50_SLOPE_LOOKBACK,
+            CONFIG.MA10_SLOPE_LOOKBACK,
+            CONFIG.LATERAL_LOOKBACK
+        ) + 3;
+
+    if (!Array.isArray(candles) || index < minRequired) {
+
+        return regimeResult("UNKNOWN", "INSUFFICIENT_DATA");
     }
 
-    const current =
-        getMAData(
-            candles,
-            index
+    const current = getMAData(candles, index);
+
+    if (!current) {
+
+        return regimeResult("UNKNOWN", "NO_MA_DATA");
+    }
+
+    const ma50Slope = detectMA50Lateral(candles, index).slope;
+    const ma10Slope = detectMA10Slope(candles, index).slope;
+    const separation = current.maSeparationNormalized;
+
+    const direction =
+        ma50Slope > 0 ? "CALL" :
+        ma50Slope < 0 ? "PUT" : null;
+
+    const limit = CONFIG.MA50_LATERAL_BLOCK;
+
+    const confirm = Math.max(1, CONFIG.MA50_LATERAL_CONFIRM_CANDLES);
+
+    // detectMA50Lateral devuelve slope 0 si no hay historial;
+    // por eso nunca se mira antes de este índice.
+    const firstValid = CONFIG.SLOW_MA + CONFIG.MA50_SLOPE_LOOKBACK;
+
+    let lateralCount = 0;
+
+    for (
+        let i = index;
+        i >= firstValid && lateralCount < confirm;
+        i--
+    ) {
+
+        if (Math.abs(detectMA50Lateral(candles, i).slope) <= limit) {
+
+            lateralCount++;
+
+        } else {
+
+            break;
+        }
+    }
+
+    let previousLateralCount = 0;
+
+    for (let off = 1; off <= CONFIG.LATERAL_LOOKBACK; off++) {
+
+        const i = index - off;
+
+        if (i < firstValid) break;
+
+        if (Math.abs(detectMA50Lateral(candles, i).slope) <= limit) {
+
+            previousLateralCount++;
+
+        } else {
+
+            break;
+        }
+    }
+
+    const recentlyLateral = previousLateralCount >= confirm;
+
+    const base = {
+
+        direction,
+        ma50Slope: round(ma50Slope, 4),
+        ma10Slope: round(ma10Slope, 4),
+        separation: round(separation, 4),
+        lateralCount,
+        previousLateralCount,
+        recentlyLateral
+    };
+
+    // ---------------- LATERAL ----------------
+
+    if (lateralCount >= confirm) {
+
+        return regimeResult("LATERAL", "MA50_LATERAL", {
+            ...base,
+            direction: null
+        });
+    }
+
+    // ---------------- EMERGING ----------------
+
+    const close = number(candles[index]?.close);
+
+    const ma10Aligned =
+        direction === "CALL"
+            ? ma10Slope >= CONFIG.EMERGING_MIN_MA10_SLOPE
+            : direction === "PUT"
+                ? ma10Slope <= -CONFIG.EMERGING_MIN_MA10_SLOPE
+                : false;
+
+    const priceAligned =
+        direction === "CALL"
+            ? close > current.ma50
+            : direction === "PUT"
+                ? close < current.ma50
+                : false;
+
+    const emergingSlope =
+        Math.abs(ma50Slope) >= CONFIG.MA50_EMERGING_SLOPE;
+
+    if (
+        recentlyLateral &&
+        emergingSlope &&
+        separation >= CONFIG.EMERGING_MIN_SEPARATION &&
+        ma10Aligned &&
+        priceAligned
+    ) {
+
+        return regimeResult(
+            "EMERGING_TREND",
+            "EXITING_LATERAL_WITH_ALIGNMENT",
+            { ...base, allowReversal: true }
         );
+    }
 
-    const previous =
-        getMAData(
-            candles,
-            index - 1
+    // ---------------- TRANSITION ----------------
+
+    const weakMA50 =
+        Math.abs(ma50Slope) <= CONFIG.MA50_LATERAL_MAX;
+
+    const weakSeparation =
+        separation < CONFIG.MIN_TREND_SEPARATION;
+
+    if (weakMA50 || weakSeparation) {
+
+        return regimeResult(
+            "TRANSITION",
+            weakMA50
+                ? "MA50_TRANSITION"
+                : "INSUFFICIENT_TREND_SEPARATION",
+            {
+                ...base,
+                tradable: !CONFIG.BLOCK_TRANSITION_ENTRIES,
+                allowReversal: recentlyLateral && emergingSlope
+            }
         );
-
-    if (
-        !current ||
-        !previous
-    ) {
-
-        return null;
     }
 
-    const bullishCross =
-        previous.ma10 <=
-        previous.ma50 &&
+    // ---------------- TREND ----------------
 
-        current.ma10 >
-        current.ma50;
+    if (direction) {
 
-    if (
-        bullishCross
-    ) {
-
-        return "CALL";
+        return regimeResult("TREND", "TREND_CONFIRMED", {
+            ...base,
+            tradable: true
+        });
     }
 
-    const bearishCross =
-        previous.ma10 >=
-        previous.ma50 &&
-
-        current.ma10 <
-        current.ma50;
-
-    if (
-        bearishCross
-    ) {
-
-        return "PUT";
-    }
-
-    return null;
+    return regimeResult("UNKNOWN", "NO_VALID_MARKET_STRUCTURE", base);
 }
 
 
 // ============================================================
-// OBTENER TENDENCIA
+// MOMENTUM FIRMADO Y DEBILITAMIENTO
+// ============================================================
+//
+// FIX: la versión anterior leía `sequence.strength`, que no
+// existe (el campo es averageStrength) y no tiene signo; por
+// eso siempre daba 0 y "nearZero" quedaba SIEMPRE en true.
+//
+// Aquí el momentum es el promedio de (fuerza de vela con signo)
+// de las últimas N velas: alcista = +, bajista = -.
+//
 // ============================================================
 
-function getTrend(
-    candles,
-    index
-) {
+function signedMomentum(candles, endIndex, n = 3) {
 
-    const ma =
-        getMAData(
-            candles,
-            index
-        );
+    let sum = 0;
+    let count = 0;
 
-    if (!ma) {
+    for (let i = endIndex; i > endIndex - n && i >= 0; i--) {
 
-        return null;
+        const k = candles[i];
+
+        const st = candleStrength(k);
+
+        sum += isBullish(k) ? st : isBearish(k) ? -st : 0;
+
+        count++;
     }
 
-    if (
-        ma.ma10 >
-        ma.ma50
-    ) {
+    return count ? sum / count : 0;
+}
 
-        return "CALL";
+
+function detectTrendWeakening(candles, index) {
+
+    if (!Array.isArray(candles) || index < 4) {
+
+        return {
+            weakening: false,
+            direction: null,
+            nearZero: false,
+            signChanged: false,
+            reason: "NO_DATA"
+        };
     }
 
-    if (
-        ma.ma10 <
-        ma.ma50
-    ) {
+    const cur = signedMomentum(candles, index, 3);
+    const prev = signedMomentum(candles, index - 1, 3);
 
-        return "PUT";
+    const direction =
+        prev > 0 ? "CALL" : prev < 0 ? "PUT" : null;
+
+    const weakening =
+        (prev > 0 && cur < prev) ||
+        (prev < 0 && cur > prev);
+
+    const signChanged =
+        (prev > 0 && cur < 0) ||
+        (prev < 0 && cur > 0);
+
+    const nearZero = Math.abs(cur) <= 0.20;
+
+    return {
+
+        weakening,
+        direction,
+        currentMomentum: round(cur, 4),
+        previousMomentum: round(prev, 4),
+        nearZero,
+        signChanged,
+
+        reason:
+            signChanged ? "MOMENTUM_SIGN_CHANGE" :
+            (nearZero && weakening) ? "MOMENTUM_NEAR_ZERO" :
+            weakening ? "MOMENTUM_WEAKENING" : "STABLE"
+    };
+}
+
+
+// ============================================================
+// CONTEXTO DE REVERSIÓN
+// ============================================================
+//
+// Cruce de MA50 por el precio EN ESTA VELA + debilitamiento
+// previo. (El "mantiene el lado nuevo" es trivial en la propia
+// vela de cruce; la confirmación real son las velas siguientes
+// y se cuenta en confirmationCandles.)
+//
+// ============================================================
+
+function detectReversalContext(candles, index) {
+
+    const result = {
+
+        detected: false,
+        reversalDirection: null,
+        strengthWeakening: false,
+        strengthNearZero: false,
+        strengthSignChanged: false,
+        priceCrossedMA50: false,
+        priceHoldingMA50: false,
+        confirmationCandles: 0,
+        reason: "NO_REVERSAL"
+    };
+
+    if (!Array.isArray(candles) || index < CONFIG.SLOW_MA + 5) {
+
+        return result;
     }
 
-    return null;
+    const current = getMAData(candles, index);
+    const previous = getMAData(candles, index - 1);
+
+    if (!current || !previous) {
+
+        return result;
+    }
+
+    // El debilitamiento se mide ANTES de la vela de cruce.
+    const weak = detectTrendWeakening(candles, index - 1);
+
+    result.strengthWeakening = weak.weakening;
+    result.strengthNearZero = weak.nearZero && weak.weakening;
+    result.strengthSignChanged = weak.signChanged;
+
+    const close = number(candles[index].close);
+    const prevClose = number(candles[index - 1].close);
+
+    if (prevClose <= previous.ma50 && close > current.ma50) {
+
+        result.priceCrossedMA50 = true;
+        result.reversalDirection = "CALL";
+
+    } else if (prevClose >= previous.ma50 && close < current.ma50) {
+
+        result.priceCrossedMA50 = true;
+        result.reversalDirection = "PUT";
+    }
+
+    if (result.reversalDirection) {
+
+        result.priceHoldingMA50 =
+            result.reversalDirection === "CALL"
+                ? close > current.ma50
+                : close < current.ma50;
+
+        let conf = 0;
+
+        for (let i = index; i >= 0 && conf < 3; i--) {
+
+            const ma = getMAData(candles, i);
+
+            if (!ma) break;
+
+            const c = number(candles[i].close);
+
+            const ok =
+                result.reversalDirection === "CALL"
+                    ? c > ma.ma50
+                    : c < ma.ma50;
+
+            if (!ok) break;
+
+            conf++;
+        }
+
+        result.confirmationCandles = conf;
+    }
+
+    result.detected =
+        (
+            result.strengthWeakening ||
+            result.strengthNearZero ||
+            result.strengthSignChanged
+        ) &&
+        result.priceCrossedMA50 &&
+        result.priceHoldingMA50;
+
+    result.reason =
+        result.detected
+            ? (
+                result.strengthSignChanged
+                    ? "MOMENTUM_CHANGE_MA50_CROSS"
+                    : "WEAKENING_MA50_CROSS"
+            )
+            : (
+                result.priceCrossedMA50
+                    ? "MA50_CROSS_WITHOUT_CONFIRMATION"
+                    : "NO_REVERSAL"
+            );
+
+    return result;
 }
 
 
@@ -2536,81 +2044,31 @@ function getTrend(
 
 function initializeState(state) {
 
-    if (
-        !state.smaStrategy
-    ) {
+    if (!state.smaStrategy) {
 
         state.smaStrategy = {
 
-            absoluteIndex:
-                -1,
+            absoluteIndex: -1,
+            lastCandleKey: null,
 
-            lastCandleKey:
-                null,
+            trendDirection: null,
+            trendStartIndex: null,
+            lastCrossIndex: null,
+            lastEntryIndex: null,
+            lastEntryType: null,
+            tradesInTrend: 0,
+            lastSignalIndex: null,
 
-            trendDirection:
-                null,
+            lastSymmetryClass: null,
+            lastMA10Distance: null,
+            lastMA50Distance: null,
+            lastMADistance: null,
+            lastMADistanceRatio: null,
+            lastAnalysis: null,
 
-            trendStartIndex:
-                null,
-
-            lastCrossIndex:
-                null,
-
-            lastEntryIndex:
-                null,
-
-            lastEntryType:
-                null,
-
-            tradesInTrend:
-                0,
-
-            lastSignalIndex:
-                null,
-
-            lastSymmetryClass:
-                null,
-
-            lastMA10Distance:
-                null,
-
-            lastMA50Distance:
-                null,
-
-            lastMADistance:
-                null,
-
-            lastMADistanceRatio:
-                null,
-
-            lastAnalysis:
-                null,
-
-            lastSeparationCheck:
-                null,
-
-            blockedBySeparation:
-                0,
-
-            // =================================================
-            // NUEVO ESTADO DE RÉGIMEN
-            // =================================================
-
-            lastMarketRegime:
-                null,
-
-            marketRegime:
-                "UNKNOWN",
-
-            blockedByLateral:
-                0,
-
-            blockedByTransition:
-                0,
-
-            lastReversalIndex:
-                null
+            // NUEVO: estadística del filtro
+            lastSeparationCheck: null,
+            blockedBySeparation: 0
         };
     }
 
@@ -2621,24 +2079,10 @@ function initializeState(state) {
 // ============================================================
 // ÍNDICE ABSOLUTO
 // ============================================================
-//
-// IMPORTANTE:
-//
-// candles normalmente llegan como ventana deslizante.
-// Por eso NO debemos utilizar candles.length como índice
-// histórico de operaciones.
-//
-// ============================================================
 
-function advanceAbsoluteIndex(
-    state,
-    candle
-) {
+function advanceAbsoluteIndex(state, candle) {
 
-    const s =
-        initializeState(
-            state
-        );
+    const s = initializeState(state);
 
     const key =
         candle?.epoch ??
@@ -2646,16 +2090,10 @@ function advanceAbsoluteIndex(
         candle?.timestamp ??
         null;
 
-    if (
-        key == null ||
-        key !==
-        s.lastCandleKey
-    ) {
+    if (key == null || key !== s.lastCandleKey) {
 
         s.absoluteIndex++;
-
-        s.lastCandleKey =
-            key;
+        s.lastCandleKey = key;
     }
 
     return s.absoluteIndex;
@@ -2666,115 +2104,53 @@ function advanceAbsoluteIndex(
 // ACTUALIZAR TENDENCIA
 // ============================================================
 
-function updateTrendState(
-    candles,
-    index,
-    absIndex,
-    state
-) {
+function updateTrendState(candles, index, absIndex, state) {
 
-    const s =
-        initializeState(
-            state
-        );
+    const s = initializeState(state);
 
-    const cross =
-        detectCross(
-            candles,
-            index
-        );
-
-    const trend =
-        getTrend(
-            candles,
-            index
-        );
+    const cross = detectCross(candles, index);
+    const trend = getTrend(candles, index);
 
     if (cross) {
 
-        s.trendDirection =
-            cross;
+        s.trendDirection = cross;
+        s.trendStartIndex = absIndex;
+        s.lastCrossIndex = absIndex;
+        s.tradesInTrend = 0;
+        s.lastEntryIndex = null;
+        s.lastEntryType = null;
 
-        s.trendStartIndex =
-            absIndex;
+        if (CONFIG.DEBUG) {
 
-        s.lastCrossIndex =
-            absIndex;
-
-        s.tradesInTrend =
-            0;
-
-        s.lastEntryIndex =
-            null;
-
-        s.lastEntryType =
-            null;
-
-        if (
-            CONFIG.DEBUG
-        ) {
-
-            console.log(
-                "🔄 SMA CROSS:",
-                {
-                    absIndex,
-                    direction:
-                        cross
-                }
-            );
+            console.log("🔄 SMA CROSS:", { absIndex, direction: cross });
         }
     }
 
-    if (
-        !s.trendDirection
-    ) {
+    if (!s.trendDirection) {
 
-        s.trendDirection =
-            trend;
+        s.trendDirection = trend;
 
-        if (
-            trend
-        ) {
+        if (trend) {
 
-            s.trendStartIndex =
-                absIndex;
+            s.trendStartIndex = absIndex;
         }
     }
 
     if (
         trend &&
         s.trendDirection &&
-        trend !==
-        s.trendDirection
+        trend !== s.trendDirection
     ) {
 
-        s.trendDirection =
-            trend;
+        s.trendDirection = trend;
+        s.trendStartIndex = absIndex;
+        s.tradesInTrend = 0;
+        s.lastEntryIndex = null;
+        s.lastEntryType = null;
 
-        s.trendStartIndex =
-            absIndex;
+        if (CONFIG.DEBUG) {
 
-        s.tradesInTrend =
-            0;
-
-        s.lastEntryIndex =
-            null;
-
-        s.lastEntryType =
-            null;
-
-        if (
-            CONFIG.DEBUG
-        ) {
-
-            console.log(
-                "🔄 SMA TREND CAMBIÓ:",
-                {
-                    absIndex,
-                    direction:
-                        trend
-                }
-            );
+            console.log("🔄 SMA TREND CAMBIÓ:", { absIndex, direction: trend });
         }
     }
 
@@ -2783,26 +2159,17 @@ function updateTrendState(
 
 
 // ============================================================
-// CAN ENTER
+// CAN ENTER (usa índice ABSOLUTO)
 // ============================================================
 
-function canEnter(
-    absIndex,
-    state
-) {
+function canEnter(absIndex, state) {
 
-    const s =
-        initializeState(
-            state
-        );
+    const s = initializeState(state);
 
-    if (
-        s.lastEntryIndex != null
-    ) {
+    if (s.lastEntryIndex != null) {
 
         if (
-            absIndex -
-            s.lastEntryIndex <
+            absIndex - s.lastEntryIndex <
             CONFIG.MIN_CANDLES_BETWEEN_TRADES
         ) {
 
@@ -2812,9 +2179,7 @@ function canEnter(
 
     if (
         CONFIG.MAX_TRADES_PER_TREND != null &&
-
-        s.tradesInTrend >=
-        CONFIG.MAX_TRADES_PER_TREND
+        s.tradesInTrend >= CONFIG.MAX_TRADES_PER_TREND
     ) {
 
         return false;
@@ -2828,2278 +2193,593 @@ function canEnter(
 // REGISTER ENTRY
 // ============================================================
 
-function registerEntry(
-    absIndex,
-    entryType,
-    signal,
-    state
-) {
+function registerEntry(absIndex, entryType, signal, state) {
 
-    const s =
-        initializeState(
-            state
-        );
+    const s = initializeState(state);
 
-    s.lastEntryIndex =
-        absIndex;
-
-    s.lastEntryType =
-        entryType;
-
+    s.lastEntryIndex = absIndex;
+    s.lastEntryType = entryType;
     s.tradesInTrend++;
+    s.lastSignalIndex = absIndex;
 
-    s.lastSignalIndex =
-        absIndex;
+    if (CONFIG.DEBUG) {
 
-    if (
-        CONFIG.DEBUG
-    ) {
-
-        console.log(
-            "📈 SMA V5 ENTRY:",
-            {
-                absIndex,
-                signal,
-                entryType,
-                tradesInTrend:
-                    s.tradesInTrend
-            }
-        );
+        console.log("📈 SMA V5 ENTRY:", {
+            absIndex,
+            signal,
+            entryType,
+            tradesInTrend: s.tradesInTrend
+        });
     }
 }
+
+
 // ============================================================
-// DETECCIÓN DE RÉGIMEN DE MERCADO
-// ============================================================
-// Objetivo:
-//
-// LATERAL
-//   → MA50 prácticamente plana.
-//   → NO operar.
-//
-// TRANSITION
-//   → El mercado está saliendo/entrando de lateralidad,
-//     pero todavía no existe suficiente estructura.
-//   → NO operar normalmente.
-//
-// EMERGING_TREND
-//   → El mercado acaba de salir de lateralidad.
-//   → Existe pendiente suficiente de MA50.
-//   → Existe separación entre MA10/MA50.
-//   → MA10 y precio empiezan a alinearse.
-//   → NO hacer continuación todavía.
-//   → SÍ permitir detector de REVERSAL/BREAKOUT.
-//
-// TREND
-//   → Tendencia suficientemente confirmada.
-//   → Se permiten las entradas normales.
-//
-// UNKNOWN
-//   → No hay suficiente información.
+// ANALYSIS COMÚN
 // ============================================================
 
-function detectMarketRegime(candles, index) {
+function buildAnalysis(candles, index, direction) {
 
-    const neutralResult = {
-        regime: "UNKNOWN",
-        reason: "INSUFFICIENT_DATA",
-        direction: null,
-        tradable: false,
-        allowReversal: false,
+    const ma = getMAData(candles, index);
 
-        ma50Slope: 0,
-        ma10Slope: 0,
-        separation: 0,
+    if (!ma) {
 
-        lateralCount: 0,
-        previousLateralCount: 0,
-
-        recentlyLateral: false
-    };
-
-    if (!Array.isArray(candles)) {
-        return neutralResult;
+        return {};
     }
 
-    if (index < 0 || index >= candles.length) {
-        return neutralResult;
-    }
-
-    /*
-     * Necesitamos suficiente historial para:
-     *
-     * MA50
-     * + slope MA50
-     * + slope MA10
-     * + lookback de lateralidad
-     */
-    const minimumRequired =
-        CONFIG.SLOW_MA +
-        Math.max(
-            CONFIG.MA50_SLOPE_LOOKBACK || 5,
-            CONFIG.MA10_SLOPE_LOOKBACK || 3,
-            CONFIG.LATERAL_LOOKBACK || 6
-        ) +
-        3;
-
-    if (index < minimumRequired) {
-        return neutralResult;
-    }
-
-    // --------------------------------------------------------
-    // DATOS MA ACTUALES
-    // --------------------------------------------------------
-
-    const current = getMAData(candles, index);
-
-    if (!current) {
-        return neutralResult;
-    }
-
-    const ma50Detection = detectMA50Lateral(candles, index);
-
-    const ma10Detection = detectMA10Slope(candles, index);
-
-    if (!ma50Detection || !ma10Detection) {
-        return neutralResult;
-    }
-
-    const ma50Slope = Number(ma50Detection.slope) || 0;
-    const ma10Slope = Number(ma10Detection.slope) || 0;
-
-    const separation =
-        Number(current.maSeparationNormalized) || 0;
-
-    // --------------------------------------------------------
-    // DIRECCIÓN PRINCIPAL DE MA50
-    // --------------------------------------------------------
-
-    let direction = null;
-
-    if (ma50Slope > 0) {
-        direction = "CALL";
-    } else if (ma50Slope < 0) {
-        direction = "PUT";
-    }
-
-    // --------------------------------------------------------
-    // CONTAR LATERALIDAD ACTUAL
-    // --------------------------------------------------------
-    //
-    // No queremos solamente saber si la MA50 actual es lateral.
-    //
-    // Queremos saber cuántas velas consecutivas llevan
-    // mostrando una MA50 prácticamente plana.
-    //
-    // Esto evita considerar una sola vela plana como un
-    // verdadero régimen lateral.
-    // --------------------------------------------------------
-
-    const lateralLimit =
-        Number(CONFIG.MA50_LATERAL_BLOCK);
-
-    const confirmationCandles =
-        Math.max(
-            1,
-            Number(CONFIG.MA50_LATERAL_CONFIRM_CANDLES) || 2
-        );
-
-    let lateralCount = 0;
-
-    for (
-        let i = index;
-        i >= 0;
-        i--
-    ) {
-
-        const lateralData =
-            detectMA50Lateral(candles, i);
-
-        if (!lateralData) {
-            break;
-        }
-
-        const slope =
-            Math.abs(Number(lateralData.slope) || 0);
-
-        if (slope <= lateralLimit) {
-            lateralCount++;
-        } else {
-            break;
-        }
-
-        /*
-         * No necesitamos recorrer todo el histórico.
-         * Para confirmar lateralidad solamente necesitamos
-         * superar el número mínimo de velas requerido.
-         */
-        if (
-            lateralCount >=
-            confirmationCandles
-        ) {
-            break;
-        }
-    }
-
-    // --------------------------------------------------------
-    // CONTAR LATERALIDAD PREVIA
-    // --------------------------------------------------------
-    //
-    // Esto es importante para detectar:
-    //
-    // LATERAL
-    //    ↓
-    // salida del lateral
-    //    ↓
-    // EMERGING_TREND
-    //
-    // No debemos utilizar solamente el estado actual.
-    // --------------------------------------------------------
-
-    let previousLateralCount = 0;
-
-    const lateralLookback =
-        Math.max(
-            confirmationCandles,
-            Number(CONFIG.LATERAL_LOOKBACK) || 6
-        );
-
-    /*
-     * Empezamos una vela atrás.
-     *
-     * Si la vela actual ya dejó de ser lateral pero las
-     * anteriores sí lo fueron, podremos identificar la
-     * transición.
-     */
-
-    for (
-        let offset = 1;
-        offset <= lateralLookback;
-        offset++
-    ) {
-
-        const i = index - offset;
-
-        if (i < CONFIG.SLOW_MA) {
-            break;
-        }
-
-        const lateralData =
-            detectMA50Lateral(candles, i);
-
-        if (!lateralData) {
-            break;
-        }
-
-        const slope =
-            Math.abs(Number(lateralData.slope) || 0);
-
-        if (slope <= lateralLimit) {
-            previousLateralCount++;
-        } else {
-            break;
-        }
-    }
-
-    const recentlyLateral =
-        previousLateralCount >=
-        confirmationCandles;
-
-    // --------------------------------------------------------
-    // ALINEACIÓN MA10
-    // --------------------------------------------------------
-
-    let ma10Aligned = false;
-
-    if (direction === "CALL") {
-
-        ma10Aligned =
-            ma10Slope >=
-            Number(CONFIG.EMERGING_MIN_MA10_SLOPE);
-
-    } else if (direction === "PUT") {
-
-        ma10Aligned =
-            ma10Slope <=
-            -Number(CONFIG.EMERGING_MIN_MA10_SLOPE);
-    }
-
-    // --------------------------------------------------------
-    // ALINEACIÓN DEL PRECIO CON MA50
-    // --------------------------------------------------------
-
-    const close =
-        Number(candles[index]?.close);
-
-    const ma50 =
-        Number(current.ma50);
-
-    let priceAligned = false;
-
-    if (
-        Number.isFinite(close) &&
-        Number.isFinite(ma50)
-    ) {
-
-        if (direction === "CALL") {
-            priceAligned = close > ma50;
-        }
-
-        if (direction === "PUT") {
-            priceAligned = close < ma50;
-        }
-    }
-
-    // --------------------------------------------------------
-    // LATERALIDAD ACTUAL FUERTE
-    // --------------------------------------------------------
-
-    if (
-        lateralCount >=
-        confirmationCandles
-    ) {
-
-        return {
-            regime: "LATERAL",
-            reason: "MA50_LATERAL",
-            direction: null,
-
-            tradable: false,
-            allowReversal: false,
-
-            ma50Slope: round(ma50Slope, 4),
-            ma10Slope: round(ma10Slope, 4),
-
-            separation: round(separation, 4),
-
-            lateralCount,
-            previousLateralCount,
-
-            recentlyLateral
-        };
-    }
-
-    // --------------------------------------------------------
-    // SALIDA DE LATERALIDAD
-    // --------------------------------------------------------
-    //
-    // Para considerar que realmente está apareciendo una
-    // tendencia necesitamos varias confirmaciones.
-    //
-    // 1. Veníamos de lateral.
-    // 2. MA50 empezó a inclinarse.
-    // 3. Existe separación MA10/MA50.
-    // 4. MA10 acompaña la dirección.
-    // 5. Precio está del lado correcto de MA50.
-    // --------------------------------------------------------
-
-    const emergingSlope =
-        Math.abs(ma50Slope) >=
-        Number(CONFIG.MA50_EMERGING_SLOPE);
-
-    const emergingSeparation =
-        separation >=
-        Number(CONFIG.EMERGING_MIN_SEPARATION);
-
-    const emergingTrend =
-        recentlyLateral &&
-        emergingSlope &&
-        emergingSeparation &&
-        ma10Aligned &&
-        priceAligned;
-
-    if (emergingTrend) {
-
-        return {
-            regime: "EMERGING_TREND",
-            reason: "EXITING_LATERAL_WITH_ALIGNMENT",
-            direction,
-
-            /*
-             * IMPORTANTE:
-             *
-             * Todavía NO permitimos las entradas normales.
-             * Este estado está reservado para detectar una
-             * posible reversión/breakout.
-             */
-            tradable: false,
-            allowReversal: true,
-
-            ma50Slope: round(ma50Slope, 4),
-            ma10Slope: round(ma10Slope, 4),
-
-            separation: round(separation, 4),
-
-            lateralCount,
-            previousLateralCount,
-
-            recentlyLateral: true
-        };
-    }
-
-    // --------------------------------------------------------
-    // TRANSICIÓN
-    // --------------------------------------------------------
-    //
-    // Aquí tenemos un mercado que ya no es claramente lateral,
-    // pero tampoco posee suficiente estructura para considerarlo
-    // una tendencia confirmada.
-    //
-    // Es precisamente una zona peligrosa para una estrategia
-    // de continuación.
-    // --------------------------------------------------------
-
-    const weakMA50 =
-        Math.abs(ma50Slope) <=
-        Number(CONFIG.MA50_LATERAL_MAX);
-
-    const weakSeparation =
-        separation <
-        Number(CONFIG.MIN_TREND_SEPARATION);
-
-    if (
-        weakMA50 ||
-        weakSeparation
-    ) {
-
-        return {
-            regime: "TRANSITION",
-            reason:
-                weakMA50
-                    ? "MA50_TRANSITION"
-                    : "INSUFFICIENT_TREND_SEPARATION",
-
-            direction,
-
-            tradable:
-                CONFIG.BLOCK_TRANSITION_ENTRIES
-                    ? false
-                    : true,
-
-            allowReversal:
-                recentlyLateral &&
-                emergingSlope,
-
-            ma50Slope: round(ma50Slope, 4),
-            ma10Slope: round(ma10Slope, 4),
-
-            separation: round(separation, 4),
-
-            lateralCount,
-            previousLateralCount,
-
-            recentlyLateral
-        };
-    }
-
-    // --------------------------------------------------------
-    // TENDENCIA CONFIRMADA
-    // --------------------------------------------------------
-    //
-    // Para llegar aquí:
-    //
-    // - no estamos en lateral fuerte
-    // - no estamos en transición
-    // - existe separación suficiente
-    // - existe una dirección clara
-    // --------------------------------------------------------
-
-    if (
-        direction &&
-        separation >=
-        Number(CONFIG.MIN_TREND_SEPARATION)
-    ) {
-
-        return {
-            regime: "TREND",
-            reason: "TREND_CONFIRMED",
-            direction,
-
-            tradable: true,
-
-            /*
-             * En una tendencia ya confirmada no necesitamos
-             * tratarla como breakout de reversión.
-             */
-            allowReversal: false,
-
-            ma50Slope: round(ma50Slope, 4),
-            ma10Slope: round(ma10Slope, 4),
-
-            separation: round(separation, 4),
-
-            lateralCount,
-            previousLateralCount,
-
-            recentlyLateral
-        };
-    }
-
-    // --------------------------------------------------------
-    // UNKNOWN / FALLBACK
-    // --------------------------------------------------------
+    const slope = detectMA10Slope(candles, index);
+    const ma50Lateral = detectMA50Lateral(candles, index);
+    const sequence = detectCandleSequence(candles, index);
+    const directionChange = detectDirectionChange(candles, index);
 
     return {
-        regime: "UNKNOWN",
-        reason: "NO_VALID_MARKET_STRUCTURE",
+
         direction,
 
-        tradable: false,
-        allowReversal: false,
+        ma10: ma.ma10,
+        ma50: ma.ma50,
 
-        ma50Slope: round(ma50Slope, 4),
-        ma10Slope: round(ma10Slope, 4),
+        ma10Distance: ma.ma10Distance,
+        ma50Distance: ma.ma50Distance,
+        maDistance: ma.maDistance,
+        maDistanceRatio: ma.maDistanceRatio,
+        symmetryClass: ma.symmetryClass,
 
-        separation: round(separation, 4),
+        ma10DistanceNormalized: ma.ma10DistanceNormalized,
+        ma50DistanceNormalized: ma.ma50DistanceNormalized,
+        maDistanceNormalized: ma.maDistanceNormalized,
+        maSeparationNormalized: ma.maSeparationNormalized,
 
-        lateralCount,
-        previousLateralCount,
+        ma10Slope: slope.slope,
+        ma10SlopeDirection: slope.direction,
+        ma10SlopeAcceleration: slope.acceleration,
+        ma10SlopeStrong: slope.strong,
 
-        recentlyLateral
+        ma50Lateral: ma50Lateral.lateral,
+        ma50Slope: ma50Lateral.slope,
+
+        candleSequenceDirection: sequence.direction,
+        candleSequenceCount: sequence.count,
+        candleSequenceStrength: sequence.averageStrength,
+
+        directionChangeDetected: directionChange.detected,
+        directionChangeDirection: directionChange.direction,
+
+        close: ma.close,
+        avgRange: ma.avgRange
     };
 }
 
 
 // ============================================================
-// DETECTOR DE DEBILITAMIENTO DE TENDENCIA
-// ============================================================
-//
-// Este detector NO genera una entrada.
-//
-// Su función es identificar:
-//
-// TENDENCIA FUERTE
-//       ↓
-// TENDENCIA PERDIENDO FUERZA
-//       ↓
-// TRANSICIÓN
-//       ↓
-// POSIBLE REVERSIÓN
-//
-// Esto es especialmente importante para evitar seguir entrando
-// CALL/CALL/CALL cuando la tendencia ya está agotándose.
-// ============================================================
-
-function detectTrendWeakening(candles, index, state = {}) {
-
-    const result = {
-        weakening: false,
-        direction: null,
-
-        currentStrength: 0,
-        previousStrength: 0,
-        strengthDelta: 0,
-
-        nearZero: false,
-        signChanged: false,
-
-        reason: "NO_DATA"
-    };
-
-    if (
-        !Array.isArray(candles) ||
-        index < 2
-    ) {
-        return result;
-    }
-
-    const current =
-        detectCandleSequence(
-            candles,
-            index
-        );
-
-    const previous =
-        detectCandleSequence(
-            candles,
-            index - 1
-        );
-
-    if (!current || !previous) {
-        return result;
-    }
-
-    const currentStrength =
-        Number(current.strength) || 0;
-
-    const previousStrength =
-        Number(previous.strength) || 0;
-
-    const strengthDelta =
-        currentStrength -
-        previousStrength;
-
-    let direction = null;
-
-    if (previousStrength > 0) {
-        direction = "CALL";
-    } else if (previousStrength < 0) {
-        direction = "PUT";
-    }
-
-    /*
-     * La tendencia está perdiendo fuerza cuando:
-     *
-     * CALL:
-     *   strength positiva
-     *   pero disminuye
-     *
-     * PUT:
-     *   strength negativa
-     *   pero aumenta hacia cero
-     */
-
-    let weakening = false;
-
-    if (
-        previousStrength > 0 &&
-        strengthDelta < 0
-    ) {
-        weakening = true;
-    }
-
-    if (
-        previousStrength < 0 &&
-        strengthDelta > 0
-    ) {
-        weakening = true;
-    }
-
-    /*
-     * Zona cercana a cero.
-     *
-     * No utilizamos solamente "strength < 0" para declarar
-     * reversión.
-     *
-     * Primero necesitamos observar pérdida de fuerza.
-     */
-
-    const nearZero =
-        Math.abs(currentStrength) <=
-        0.20;
-
-    /*
-     * Cambio de signo:
-     *
-     * CALL → PUT
-     * PUT  → CALL
-     */
-
-    const signChanged =
-        (
-            previousStrength > 0 &&
-            currentStrength < 0
-        ) ||
-        (
-            previousStrength < 0 &&
-            currentStrength > 0
-        );
-
-    let reason = "STABLE";
-
-    if (signChanged) {
-        reason = "STRENGTH_SIGN_CHANGE";
-    } else if (nearZero && weakening) {
-        reason = "STRENGTH_NEAR_ZERO";
-    } else if (weakening) {
-        reason = "STRENGTH_WEAKENING";
-    }
-
-    return {
-        weakening,
-        direction,
-
-        currentStrength:
-            round(currentStrength, 4),
-
-        previousStrength:
-            round(previousStrength, 4),
-
-        strengthDelta:
-            round(strengthDelta, 4),
-
-        nearZero,
-        signChanged,
-
-        reason
-    };
-}
-
-
-// ============================================================
-// CONFIRMACIÓN DE REVERSIÓN
-// ============================================================
-//
-// La reversión no debe dispararse solamente porque:
-//     close > MA50
-// o:
-//     close < MA50
-//
-// Buscamos una secuencia:
-//
-// 1. Tendencia previa.
-// 2. Pérdida de fuerza.
-// 3. Precio cruza MA50.
-// 4. Precio mantiene el lado nuevo.
-// 5. MA50 comienza a inclinarse.
-// 6. MA10 empieza a acompañar.
-//
-// Este detector prepara la información para que
-// detectMA50Breakout() pueda utilizarla.
-// ============================================================
-
-function detectReversalContext(candles, index, state = {}) {
-
-    const result = {
-        detected: false,
-
-        previousDirection: null,
-        reversalDirection: null,
-
-        strengthWeakening: false,
-        strengthNearZero: false,
-        strengthSignChanged: false,
-
-        priceCrossedMA50: false,
-        priceHoldingMA50: false,
-
-        ma10Aligned: false,
-        ma50Emerging: false,
-
-        confirmationCandles: 0,
-
-        reason: "NO_REVERSAL"
-    };
-
-    if (
-        !Array.isArray(candles) ||
-        index < CONFIG.SLOW_MA + 5
-    ) {
-        return result;
-    }
-
-    const current =
-        getMAData(candles, index);
-
-    const previous =
-        getMAData(candles, index - 1);
-
-    if (!current || !previous) {
-        return result;
-    }
-
-    // --------------------------------------------------------
-    // CONTEXTO DE FUERZA
-    // --------------------------------------------------------
-
-    const weakening =
-        detectTrendWeakening(
-            candles,
-            index,
-            state
-        );
-
-    result.previousDirection =
-        weakening.direction || null;
-
-    result.strengthWeakening =
-        Boolean(weakening.weakening);
-
-    result.strengthNearZero =
-        Boolean(weakening.nearZero);
-
-    result.strengthSignChanged =
-        Boolean(weakening.signChanged);
-
-    // --------------------------------------------------------
-    // CROSS MA50
-    // --------------------------------------------------------
-
-    const currentClose =
-        Number(candles[index]?.close);
-
-    const previousClose =
-        Number(candles[index - 1]?.close);
-
-    const currentMA50 =
-        Number(current.ma50);
-
-    const previousMA50 =
-        Number(previous.ma50);
-
-    if (
-        Number.isFinite(currentClose) &&
-        Number.isFinite(previousClose) &&
-        Number.isFinite(currentMA50) &&
-        Number.isFinite(previousMA50)
-    ) {
-
-        const crossedUp =
-            previousClose <= previousMA50 &&
-            currentClose > currentMA50;
-
-        const crossedDown =
-            previousClose >= previousMA50 &&
-            currentClose < currentMA50;
-
-        if (crossedUp) {
-            result.priceCrossedMA50 = true;
-            result.reversalDirection = "CALL";
-        }
-
-        if (crossedDown) {
-            result.priceCrossedMA50 = true;
-            result.reversalDirection = "PUT";
-        }
-    }
-
-    // --------------------------------------------------------
-    // SI YA CRUZÓ MA50, COMPROBAR SI MANTIENE EL LADO NUEVO
-    // --------------------------------------------------------
-
-    if (
-        result.reversalDirection === "CALL"
-    ) {
-
-        result.priceHoldingMA50 =
-            currentClose > currentMA50;
-
-    } else if (
-        result.reversalDirection === "PUT"
-    ) {
-
-        result.priceHoldingMA50 =
-            currentClose < currentMA50;
-    }
-
-    // --------------------------------------------------------
-    // PENDIENTE MA50
-    // --------------------------------------------------------
-
-    const ma50Detection =
-        detectMA50Lateral(
-            candles,
-            index
-        );
-
-    const ma10Detection =
-        detectMA10Slope(
-            candles,
-            index
-        );
-
-    const ma50Slope =
-        Number(ma50Detection?.slope) || 0;
-
-    const ma10Slope =
-        Number(ma10Detection?.slope) || 0;
-
-    result.ma50Emerging =
-        Math.abs(ma50Slope) >=
-        Number(CONFIG.MA50_EMERGING_SLOPE);
-
-    // --------------------------------------------------------
-    // ALINEACIÓN MA10
-    // --------------------------------------------------------
-
-    if (
-        result.reversalDirection === "CALL"
-    ) {
-
-        result.ma10Aligned =
-            ma10Slope >=
-            Number(CONFIG.EMERGING_MIN_MA10_SLOPE);
-
-    } else if (
-        result.reversalDirection === "PUT"
-    ) {
-
-        result.ma10Aligned =
-            ma10Slope <=
-            -Number(CONFIG.EMERGING_MIN_MA10_SLOPE);
-    }
-
-    // --------------------------------------------------------
-    // CONFIRMACIÓN DE VELAS
-    // --------------------------------------------------------
-    //
-    // Después de cruzar MA50 queremos saber cuántas velas
-    // consecutivas permanecen en el nuevo lado.
-    // --------------------------------------------------------
-
-    if (
-        result.reversalDirection
-    ) {
-
-        let confirmation = 0;
-
-        for (
-            let i = index;
-            i >= 0 && confirmation < 3;
-            i--
-        ) {
-
-            const candle =
-                candles[i];
-
-            const close =
-                Number(candle?.close);
-
-            const ma =
-                Number(
-                    getMAData(
-                        candles,
-                        i
-                    )?.ma50
-                );
-
-            if (
-                !Number.isFinite(close) ||
-                !Number.isFinite(ma)
-            ) {
-                break;
-            }
-
-            if (
-                result.reversalDirection === "CALL" &&
-                close > ma
-            ) {
-                confirmation++;
-                continue;
-            }
-
-            if (
-                result.reversalDirection === "PUT" &&
-                close < ma
-            ) {
-                confirmation++;
-                continue;
-            }
-
-            break;
-        }
-
-        result.confirmationCandles =
-            confirmation;
-    }
-
-    // --------------------------------------------------------
-    // RESULTADO FINAL
-    // --------------------------------------------------------
-
-    /*
-     * El contexto de reversión solamente se considera válido
-     * cuando tenemos:
-     *
-     * - debilitamiento de la tendencia
-     * - cruce MA50
-     * - precio manteniéndose del nuevo lado
-     */
-
-    result.detected =
-        (
-            result.strengthWeakening ||
-            result.strengthNearZero ||
-            result.strengthSignChanged
-        ) &&
-        result.priceCrossedMA50 &&
-        result.priceHoldingMA50;
-
-    if (result.detected) {
-
-        result.reason =
-            result.strengthSignChanged
-                ? "STRENGTH_CHANGE_MA50_CROSS"
-                : "WEAKENING_MA50_CROSS";
-
-    } else if (
-        result.priceCrossedMA50
-    ) {
-
-        result.reason =
-            "MA50_CROSS_WITHOUT_CONFIRMATION";
-    }
-
-    return result;
-}
-
-
-// ============================================================
-// ANÁLISIS COMÚN
-// ============================================================
-
-function buildAnalysis({
-    candles,
-    index,
-    current,
-    trend,
-    sequence,
-    slope,
-    ma50,
-    ma50Symmetry,
-    marketRegime,
-    reversalContext,
-    filter = null
-}) {
-
-    const market =
-        marketRegime || {
-            regime: "UNKNOWN",
-            reason: "NO_MARKET_REGIME",
-            direction: null,
-            tradable: false,
-            allowReversal: false,
-            ma50Slope: 0,
-            ma10Slope: 0,
-            separation: 0,
-            lateralCount: 0,
-            previousLateralCount: 0,
-            recentlyLateral: false
-        };
-
-    return {
-
-        // ----------------------------------------------------
-        // TENDENCIA
-        // ----------------------------------------------------
-
-        trend:
-            trend || null,
-
-        // ----------------------------------------------------
-        // MA
-        // ----------------------------------------------------
-
-        ma10:
-            current?.ma10 ?? null,
-
-        ma50:
-            current?.ma50 ?? null,
-
-        maDifference:
-            current?.maDifference ?? null,
-
-        maSeparation:
-            current?.maSeparation ?? null,
-
-        maSeparationNormalized:
-            current?.maSeparationNormalized ?? null,
-
-        maDistanceRatio:
-            current?.maDistanceRatio ?? null,
-
-        ma10Distance:
-            current?.ma10Distance ?? null,
-
-        ma50Distance:
-            current?.ma50Distance ?? null,
-
-        ma10AboveMA50:
-            current?.ma10AboveMA50 ?? null,
-
-        ma10BelowMA50:
-            current?.ma10BelowMA50 ?? null,
-
-        // ----------------------------------------------------
-        // SLOPES
-        // ----------------------------------------------------
-
-        ma10Slope:
-            slope?.slope ?? null,
-
-        ma10SlopeDirection:
-            slope?.direction ?? null,
-
-        ma50Slope:
-            market.ma50Slope,
-
-        // ----------------------------------------------------
-        // SECUENCIA
-        // ----------------------------------------------------
-
-        sequence:
-            sequence || null,
-
-        sequenceStrength:
-            sequence?.strength ?? null,
-
-        sequenceDirection:
-            sequence?.direction ?? null,
-
-        // ----------------------------------------------------
-        // SIMETRÍA
-        // ----------------------------------------------------
-
-        ma50Symmetry:
-            ma50Symmetry || null,
-
-        // ----------------------------------------------------
-        // RÉGIMEN DEL MERCADO
-        // ----------------------------------------------------
-
-        marketRegime:
-            market.regime,
-
-        marketReason:
-            market.reason,
-
-        marketDirection:
-            market.direction,
-
-        marketTradable:
-            market.tradable,
-
-        marketAllowReversal:
-            market.allowReversal,
-
-        marketMA50Slope:
-            market.ma50Slope,
-
-        marketMA10Slope:
-            market.ma10Slope,
-
-        marketLateralCount:
-            market.lateralCount,
-
-        marketPreviousLateralCount:
-            market.previousLateralCount,
-
-        marketRecentlyLateral:
-            market.recentlyLateral,
-
-        marketSeparation:
-            market.separation,
-
-        // ----------------------------------------------------
-        // REVERSIÓN
-        // ----------------------------------------------------
-
-        reversalContext:
-            reversalContext || null,
-
-        // ----------------------------------------------------
-        // FILTRO
-        // ----------------------------------------------------
-
-        filter:
-            filter || null,
-
-        filterBlocked:
-            Boolean(filter)
-    };
-}
-
-
-// ============================================================
-// RESULTADO NEUTRAL
+// NEUTRAL
 // ============================================================
 
 function neutral(analysis = {}) {
 
     return {
+
         signal: null,
         score: 0,
-
-        strategy: "sma_v5",
-
+        strategy: "sma",
         entryType: null,
-
-        reason:
-            analysis.filter ||
-            analysis.marketReason ||
-            "NO_SIGNAL",
-
-        counterTrend: false,
-
         analysis
     };
 }
 
 
 // ============================================================
-// CONSTRUCCIÓN DEL RESULTADO
+// CONSTRUIR RESPUESTA
 // ============================================================
 
 function buildResult({
     signal,
-    score = 0,
-    entryType = null,
-    reason = null,
-    trendDirection = null,
-    analysis = {}
+    trendDirection,
+    score,
+    entryType,
+    ma10,
+    ma50,
+    distance,
+    strength,
+    analysis
 }) {
-
-    const normalizedSignal =
-        signal === "CALL" ||
-        signal === "PUT"
-            ? signal
-            : null;
-
-    const counterTrend =
-        Boolean(
-            normalizedSignal &&
-            trendDirection &&
-            normalizedSignal !== trendDirection
-        );
 
     return {
 
-        signal:
-            normalizedSignal,
-
-        score:
-            Number(score) || 0,
-
-        strategy:
-            "sma_v5",
-
+        signal,
+        score,
+        strategy: "sma",
         entryType,
 
-        reason,
+        trend: trendDirection === "CALL" ? "UP" : "DOWN",
+        counterTrend: signal !== trendDirection,
 
-        counterTrend,
-
+        ma10,
+        ma50,
+        distance,
+        strength,
         analysis
     };
 }
+
+
 // ============================================================
-// SMA STRATEGY V5 - MOTOR PRINCIPAL
-// ============================================================
-//
-// FLUJO:
-//
-// 1. Validar candles
-// 2. Calcular MA10 / MA50
-// 3. Detectar régimen de mercado
-// 4. Detectar debilitamiento / reversión
-// 5. Detectar breakout MA50 si corresponde
-// 6. BLOQUEAR LATERAL
-// 7. BLOQUEAR TRANSICIÓN
-// 8. Validar separación MA10/MA50
-// 9. Buscar MEAN REVERSION
-// 10. Buscar MA REJECTION
-// 11. Buscar PULLBACK
-// 12. Buscar CONTINUATION
-// 13. Registrar entrada
-//
-// IMPORTANTE:
-//
-// La estrategia NO convierte cualquier cruce de MA50 en una
-// operación de reversión.
-//
-// La reversión solamente se permite cuando el mercado viene
-// de una zona lateral/transición y existe estructura suficiente.
+// SMA STRATEGY V5
 // ============================================================
 
-function smaStrategy(candles, state = {}) {
+// Estado de respaldo: si el bot NO pasa `state`, se guarda aquí
+// (uno por símbolo, si las velas traen `symbol`) para que persista
+// entre ticks. Si tu bot ya pasa su propio state, se usa ese.
+const fallbackStates = new Map();
 
-    // ========================================================
-    // VALIDACIÓN BÁSICA
-    // ========================================================
 
-    if (!Array.isArray(candles)) {
+function resolveState(candles, state) {
 
-        return neutral({
-            filter: "INVALID_CANDLES"
-        });
+    if (state && typeof state === "object") {
+
+        return state;
     }
 
-    const requiredCandles =
-        Math.max(
-            CONFIG.SLOW_MA + 5,
-            CONFIG.MIN_CANDLES || 0
-        );
+    const last = Array.isArray(candles)
+        ? candles[candles.length - 1]
+        : null;
 
-    if (candles.length < requiredCandles) {
+    const key = last?.symbol ?? candles?.[0]?.symbol ?? "default";
 
-        return neutral({
-            filter: "INSUFFICIENT_CANDLES",
-            candles: candles.length,
-            required: requiredCandles
-        });
+    if (!fallbackStates.has(key)) {
+
+        fallbackStates.set(key, {});
     }
 
-    // ========================================================
-    // ÍNDICE ABSOLUTO
-    // ========================================================
-    //
-    // El candleBuilder puede trabajar con una ventana deslizante.
-    //
-    // Por eso NO debemos utilizar simplemente "index" para
-    // registrar operaciones en state.
-    //
-    // advanceAbsoluteIndex() mantiene el contador correcto.
-    // ========================================================
-
-    const index =
-        candles.length - 1;
-
-    const absIndex =
-        advanceAbsoluteIndex(
-            state,
-            candles,
-            index
-        );
-
-    // ========================================================
-    // ACTUALIZAR ESTADO DE TENDENCIA
-    // ========================================================
-
-    updateTrendState(
-        state,
-        candles,
-        index
-    );
-
-    // ========================================================
-    // DATOS MA
-    // ========================================================
-
-    const current =
-        getMAData(
-            candles,
-            index
-        );
-
-    if (!current) {
-
-        return neutral({
-            filter: "MA_DATA_UNAVAILABLE"
-        });
-    }
-
-    // ========================================================
-    // TENDENCIA
-    // ========================================================
-
-    const trend =
-        getTrend(
-            candles,
-            index
-        );
-
-    // ========================================================
-    // PENDIENTE MA10
-    // ========================================================
-
-    const slope =
-        detectMA10Slope(
-            candles,
-            index
-        );
-
-    // ========================================================
-    // SECUENCIA DE VELAS
-    // ========================================================
-
-    const sequence =
-        detectCandleSequence(
-            candles,
-            index
-        );
-
-    // ========================================================
-    // SIMETRÍA MA50
-    // ========================================================
-
-    const ma50Symmetry =
-        detectMA50Symmetry(
-            candles,
-            index
-        );
-
-    // ========================================================
-    // RÉGIMEN DEL MERCADO
-    // ========================================================
-
-    const marketRegime =
-        detectMarketRegime(
-            candles,
-            index
-        );
-
-    // Guardar siempre el régimen actual.
-    state.lastMarketRegime =
-        marketRegime;
-
-    state.marketRegime =
-        marketRegime.regime;
-
-    // ========================================================
-    // CONTEXTO DE REVERSIÓN
-    // ========================================================
-
-    const reversalContext =
-        detectReversalContext(
-            candles,
-            index,
-            state
-        );
-
-    // ========================================================
-    // ANÁLISIS COMÚN
-    // ========================================================
-
-    const commonAnalysis =
-        buildAnalysis({
-            candles,
-            index,
-            current,
-            trend,
-            sequence,
-            slope,
-            ma50Symmetry,
-            marketRegime,
-            reversalContext
-        });
-
-    // ========================================================
-    // 1. BREAKOUT / REVERSIÓN MA50
-    // ========================================================
-    //
-    // ESTE BLOQUE DEBE IR ANTES DEL BLOQUEO LATERAL.
-    //
-    // ¿Por qué?
-    //
-    // Porque una reversión válida precisamente puede aparecer
-    // cuando el mercado está saliendo de una lateralidad.
-    //
-    // Ejemplo:
-    //
-    // MA50 plana
-    //      ↓
-    // precio rompe MA50
-    //      ↓
-    // MA50 comienza a inclinarse
-    //      ↓
-    // MA10 empieza a acompañar
-    //      ↓
-    // REVERSAL
-    //
-    // En cambio, si simplemente estamos en lateralidad,
-    // allowReversal será false.
-    // ========================================================
-
-    if (
-        CONFIG.MA50_BREAKOUT_ENABLED &&
-        marketRegime.allowReversal
-    ) {
-
-        const breakout =
-            detectMA50Breakout(
-                candles,
-                index
-            );
-
-        if (breakout) {
-
-            const breakoutDirection =
-                breakout.direction;
-
-            // ------------------------------------------------
-            // Dirección del régimen
-            // ------------------------------------------------
-
-            const regimeDirection =
-                marketRegime.direction;
-
-            let reversalDirectionOk = true;
-
-            if (
-                regimeDirection &&
-                breakoutDirection
-            ) {
-
-                reversalDirectionOk =
-                    regimeDirection ===
-                    breakoutDirection;
-            }
-
-            // ------------------------------------------------
-            // Separación mínima
-            // ------------------------------------------------
-
-            const separation =
-                Number(
-                    current.maSeparationNormalized
-                ) || 0;
-
-            const separationOk =
-                separation >=
-                Number(
-                    CONFIG.EMERGING_MIN_SEPARATION
-                );
-
-            // ------------------------------------------------
-            // Contexto de debilitamiento
-            // ------------------------------------------------
-
-            const weakeningOk =
-                reversalContext.strengthWeakening ||
-                reversalContext.strengthNearZero ||
-                reversalContext.strengthSignChanged;
-
-            // ------------------------------------------------
-            // Confirmación de precio
-            // ------------------------------------------------
-
-            const priceConfirmation =
-                reversalContext.priceHoldingMA50;
-
-            // ------------------------------------------------
-            // MA50 emergente
-            // ------------------------------------------------
-
-            const ma50Emerging =
-                Math.abs(
-                    Number(
-                        marketRegime.ma50Slope
-                    ) || 0
-                ) >=
-                Number(
-                    CONFIG.MA50_EMERGING_SLOPE
-                );
-
-            // ------------------------------------------------
-            // Validación final
-            // ------------------------------------------------
-
-            if (
-                separationOk &&
-                reversalDirectionOk &&
-                weakeningOk &&
-                priceConfirmation &&
-                ma50Emerging
-            ) {
-
-                const canEnterReversal =
-                    canEnter(
-                        state,
-                        absIndex,
-                        breakoutDirection
-                    );
-
-                if (canEnterReversal) {
-
-                    registerEntry(
-                        absIndex,
-                        "MA50_BREAKOUT_REVERSAL",
-                        breakoutDirection,
-                        state
-                    );
-
-                    state.lastReversalIndex =
-                        absIndex;
-
-                    const reversalScore =
-                        8 +
-                        (
-                            reversalContext.strengthSignChanged
-                                ? 2
-                                : 0
-                        ) +
-                        (
-                            reversalContext.confirmationCandles >= 2
-                                ? 1
-                                : 0
-                        );
-
-                    return buildResult({
-                        signal:
-                            breakoutDirection,
-
-                        score:
-                            reversalScore,
-
-                        entryType:
-                            "MA50_BREAKOUT_REVERSAL",
-
-                        reason:
-                            "MA50_BREAKOUT_REVERSAL_CONFIRMED",
-
-                        trendDirection:
-                            trend,
-
-                        analysis: {
-                            ...commonAnalysis,
-
-                            breakout,
-
-                            reversalContext,
-
-                            marketRegime,
-
-                            reversal:
-                                true,
-
-                            reversalScore
-                        }
-                    });
-                }
-            }
-        }
-    }
-
-    // ========================================================
-    // 2. BLOQUEO DE LATERALIDAD
-    // ========================================================
-    //
-    // Aquí está el cambio fundamental.
-    //
-    // Antes:
-    //
-    // ma50.lateral
-    //      ↓
-    // solamente afectaba algunos detectores.
-    //
-    // Ahora:
-    //
-    // MARKET REGIME = LATERAL
-    //      ↓
-    // BLOQUEO GLOBAL
-    //
-    // Esto evita que PULLBACK / CONTINUATION / REJECTION
-    // sigan entrando dentro de una MA50 plana.
-    // ========================================================
-
-    if (
-        marketRegime.regime ===
-        "LATERAL"
-    ) {
-
-        state.blockedByLateral =
-            Number(
-                state.blockedByLateral
-            ) + 1;
-
-        return neutral({
-            ...commonAnalysis,
-
-            marketRegime,
-
-            filter:
-                "MA50_LATERAL",
-
-            filterBlocked:
-                true
-        });
-    }
-
-    // ========================================================
-    // 3. BLOQUEO DE TRANSICIÓN
-    // ========================================================
-
-    if (
-        marketRegime.regime ===
-            "TRANSITION" &&
-        CONFIG.BLOCK_TRANSITION_ENTRIES
-    ) {
-
-        state.blockedByTransition =
-            Number(
-                state.blockedByTransition
-            ) + 1;
-
-        return neutral({
-            ...commonAnalysis,
-
-            marketRegime,
-
-            filter:
-                "MARKET_TRANSITION",
-
-            filterBlocked:
-                true
-        });
-    }
-
-    // ========================================================
-    // 4. UNKNOWN
-    // ========================================================
-
-    if (
-        marketRegime.regime ===
-        "UNKNOWN"
-    ) {
-
-        return neutral({
-            ...commonAnalysis,
-
-            marketRegime,
-
-            filter:
-                "UNKNOWN_MARKET_REGIME",
-
-            filterBlocked:
-                true
-        });
-    }
-
-    // ========================================================
-    // 5. FILTRO DE SEPARACIÓN MA10 / MA50
-    // ========================================================
-    //
-    // Evita operar cuando las medias están demasiado juntas.
-    //
-    // Esto es especialmente importante después de salir de
-    // lateralidad.
-    // ========================================================
-
-    const separationCheck =
-        checkMASeparation(
-            current,
-            trend
-        );
-
-    if (
-        separationCheck &&
-        separationCheck.blocked
-    ) {
-
-        return neutral({
-            ...commonAnalysis,
-
-            marketRegime,
-
-            filter:
-                "MA_SEPARATION",
-
-            filterBlocked:
-                true,
-
-            separation:
-                separationCheck
-        });
-    }
-
-    // ========================================================
-    // 6. VALIDAR DIRECCIÓN
-    // ========================================================
-
-    const confirmedDirection =
-        directionConfirmed(
-            candles,
-            index,
-            trend
-        );
-
-    // ========================================================
-    // 7. MEAN REVERSION MA10
-    // ========================================================
-    //
-    // Este detector busca situaciones donde el precio se ha
-    // extendido demasiado de MA10 y empieza a regresar.
-    //
-    // No debe ejecutarse contra una estructura completamente
-    // lateral porque el régimen ya fue filtrado arriba.
-    // ========================================================
-
-    if (
-        CONFIG.MA10_MEAN_REVERSION_ENABLED
-    ) {
-
-        const meanReversion =
-            detectMA10MeanReversion(
-                candles,
-                index,
-                trend,
-                slope
-            );
-
-        if (
-            meanReversion &&
-            meanReversion.signal
-        ) {
-
-            const signal =
-                meanReversion.signal;
-
-            // ----------------------------------------------
-            // Validar entrada
-            // ----------------------------------------------
-
-            if (
-                canEnter(
-                    state,
-                    absIndex,
-                    signal
-                )
-            ) {
-
-                registerEntry(
-                    absIndex,
-                    "MA10_MEAN_REVERSION",
-                    signal,
-                    state
-                );
-
-                return buildResult({
-
-                    signal,
-
-                    score:
-                        Number(
-                            meanReversion.score
-                        ) || 0,
-
-                    entryType:
-                        "MA10_MEAN_REVERSION",
-
-                    reason:
-                        "MA10_MEAN_REVERSION_CONFIRMED",
-
-                    trendDirection:
-                        trend,
-
-                    analysis: {
-
-                        ...commonAnalysis,
-
-                        marketRegime,
-
-                        meanReversion
-                    }
-                });
-            }
-        }
-    }
-
-    // ========================================================
-    // 8. MA10 PRE-REJECTION
-    // ========================================================
-    //
-    // Detecta rejeição antecipada de MA10.
-    //
-    // É importante que continue existindo porque pode detectar
-    // entradas antes de uma confirmação completa.
-    // ========================================================
-
-    if (
-        CONFIG.MA10_PRE_REJECTION_ENABLED
-    ) {
-
-        const preRejection =
-            detectMA10PreRejection(
-                candles,
-                index,
-                trend,
-                slope,
-                ma50Symmetry
-            );
-
-        if (
-            preRejection &&
-            preRejection.signal
-        ) {
-
-            const signal =
-                preRejection.signal;
-
-            if (
-                canEnter(
-                    state,
-                    absIndex,
-                    signal
-                )
-            ) {
-
-                registerEntry(
-                    absIndex,
-                    "MA10_PRE_REJECTION",
-                    signal,
-                    state
-                );
-
-                return buildResult({
-
-                    signal,
-
-                    score:
-                        Number(
-                            preRejection.score
-                        ) || 0,
-
-                    entryType:
-                        "MA10_PRE_REJECTION",
-
-                    reason:
-                        "MA10_PRE_REJECTION_CONFIRMED",
-
-                    trendDirection:
-                        trend,
-
-                    analysis: {
-
-                        ...commonAnalysis,
-
-                        marketRegime,
-
-                        preRejection
-                    }
-                });
-            }
-        }
-    }
-
-    // ========================================================
-    // 9. MA REJECTION
-    // ========================================================
-
-    if (
-        CONFIG.MA_REJECTION_ENABLED
-    ) {
-
-        const rejection =
-            detectRejection(
-                candles,
-                index,
-                trend
-            );
-
-        if (
-            rejection &&
-            rejection.signal
-        ) {
-
-            const signal =
-                rejection.signal;
-
-            // ----------------------------------------------
-            // Confirmar dirección
-            // ----------------------------------------------
-
-            const directionOk =
-                !confirmedDirection ||
-                confirmedDirection === signal;
-
-            if (
-                directionOk &&
-                canEnter(
-                    state,
-                    absIndex,
-                    signal
-                )
-            ) {
-
-                registerEntry(
-                    absIndex,
-                    "MA_REJECTION",
-                    signal,
-                    state
-                );
-
-                return buildResult({
-
-                    signal,
-
-                    score:
-                        Number(
-                            rejection.score
-                        ) || 0,
-
-                    entryType:
-                        "MA_REJECTION",
-
-                    reason:
-                        "MA_REJECTION_CONFIRMED",
-
-                    trendDirection:
-                        trend,
-
-                    analysis: {
-
-                        ...commonAnalysis,
-
-                        marketRegime,
-
-                        rejection
-                    }
-                });
-            }
-        }
-    }
-
-    // ========================================================
-    // 10. PULLBACK
-    // ========================================================
-
-    const retracement =
-        detectRetracement(
-            candles,
-            index,
-            trend
-        );
-
-    if (
-        retracement &&
-        retracement.signal
-    ) {
-
-        const signal =
-            retracement.signal;
-
-        const directionOk =
-            !confirmedDirection ||
-            confirmedDirection === signal;
-
-        if (
-            directionOk &&
-            canEnter(
-                state,
-                absIndex,
-                signal
-            )
-        ) {
-
-            registerEntry(
-                absIndex,
-                "PULLBACK",
-                signal,
-                state
-            );
-
-            return buildResult({
-
-                signal,
-
-                score:
-                    Number(
-                        retracement.score
-                    ) || 0,
-
-                entryType:
-                    "PULLBACK",
-
-                reason:
-                    "PULLBACK_CONFIRMED",
-
-                trendDirection:
-                    trend,
-
-                analysis: {
-
-                    ...commonAnalysis,
-
-                    marketRegime,
-
-                    retracement
-                }
-            });
-        }
-    }
-
-    // ========================================================
-    // 11. CONTINUATION
-    // ========================================================
-    //
-    // Este es el último detector.
-    //
-    // Solamente se llega aquí si:
-    //
-    // - NO estamos en lateral
-    // - NO estamos en transición
-    // - NO hubo reversión
-    // - NO hubo mean reversion
-    // - NO hubo rejection
-    // - NO hubo pullback
-    //
-    // Por tanto CONTINUATION representa una entrada de tendencia
-    // relativamente limpia.
-    // ========================================================
-
-    const continuation =
-        detectContinuation(
-            candles,
-            index,
-            trend
-        );
-
-    if (
-        continuation &&
-        continuation.signal
-    ) {
-
-        const signal =
-            continuation.signal;
-
-        const directionOk =
-            !confirmedDirection ||
-            confirmedDirection === signal;
-
-        if (
-            directionOk &&
-            canEnter(
-                state,
-                absIndex,
-                signal
-            )
-        ) {
-
-            registerEntry(
-                absIndex,
-                "CONTINUATION",
-                signal,
-                state
-            );
-
-            return buildResult({
-
-                signal,
-
-                score:
-                    Number(
-                        continuation.score
-                    ) || 0,
-
-                entryType:
-                    "CONTINUATION",
-
-                reason:
-                    "TREND_CONTINUATION_CONFIRMED",
-
-                trendDirection:
-                    trend,
-
-                analysis: {
-
-                    ...commonAnalysis,
-
-                    marketRegime,
-
-                    continuation
-                }
-            });
-        }
-    }
-
-    // ========================================================
-    // 12. SIN SEÑAL
-    // ========================================================
-
-    return neutral({
-
-        ...commonAnalysis,
-
-        marketRegime,
-
-        filter:
-            "NO_VALID_ENTRY",
-
-        filterBlocked:
-            false
-    });
+    return fallbackStates.get(key);
 }
 
 
-// ============================================================
-// EXPORTS
-// ============================================================
-//
-// IMPORTANTE:
-//
-// Mantener aquí los exports que ya utiliza botEngine.
-//
-// Si tu archivo original exporta más funciones, se conservan
-// también en la PARTE 5.
-// ============================================================
+function smaStrategy(candles, stateInput) {
 
-module.exports = {
-    smaStrategy,
+    const state = resolveState(candles, stateInput);
 
-    detectMarketRegime,
-    detectTrendWeakening,
-    detectReversalContext,
 
-    detectMA50Breakout,
-    detectMA50Lateral,
-    detectMA50Symmetry,
+    if (
+        !Array.isArray(candles) ||
+        candles.length < CONFIG.SLOW_MA + 5
+    ) {
 
-    detectMA10Slope,
-    detectMA10MeanReversion,
-    detectMA10PreRejection,
+        return neutral();
+    }
 
-    detectRetracement,
-    detectRejection,
-    detectContinuation,
+    resetCache(candles);
 
-    detectCandleSequence,
-    detectDirectionChange,
+    const index = candles.length - 1;
 
-    checkMASeparation,
+    const absIndex = advanceAbsoluteIndex(state, candles[index]);
 
-    calculateSMA: smaAt
-};
-// ============================================================
-// EXPORT FINAL - COMPATIBLE CON BOTENGINE
-// ============================================================
-//
-// Compatible con:
-//
-// const getSignal = require("../bot/smaStrategy");
-//
-// y también permite:
-//
-// const {
-//     smaStrategy,
-//     detectMarketRegime,
-//     detectMA50Breakout
-// } = require("../bot/smaStrategy");
-//
-// ============================================================
+    // La tendencia SIEMPRE se actualiza (aunque el filtro bloquee),
+    // para no perder cruces ni reiniciar contadores tarde.
+    const s = updateTrendState(candles, index, absIndex, state);
+
+    const direction = s.trendDirection;
+
+    if (!direction) {
+
+        return neutral();
+    }
+
+    const current = getMAData(candles, index);
+
+    if (!current) {
+
+        return neutral();
+    }
+
+    const strength = candleStrength(candles[index]);
+
+    const commonAnalysis = buildAnalysis(candles, index, direction);
+
+    s.lastMA10Distance = current.ma10Distance;
+    s.lastMA50Distance = current.ma50Distance;
+    s.lastMADistance = current.maDistance;
+    s.lastMADistanceRatio = current.maDistanceRatio;
+    s.lastSymmetryClass = current.symmetryClass;
+    s.lastAnalysis = commonAnalysis;
+
+    // ========================================================
+    // 0. MA50 BREAKOUT (NUEVO)
+    // ========================================================
+    //
+    // Se evalúa ANTES del filtro de separación: este patrón
+    // ocurre justo cuando MA10 y MA50 están cerca.
+    // No depende de la tendencia MA10/MA50 (que aún es la
+    // contraria), por eso la señal puede salir marcada como
+    // counterTrend respecto a la tendencia de medias.
+    //
+    // ========================================================
+
+    if (CONFIG.MA50_BREAKOUT_ENABLED) {
+
+        const breakout = detectMA50Breakout(candles, index);
+
+        if (CONFIG.DEBUG) {
+
+            console.log("💥 MA50 BREAKOUT:", breakout);
+        }
+
+        const separationOk =
+            CONFIG.BREAKOUT_BYPASS_SEPARATION_FILTER ||
+            checkMASeparation(candles, index).passed;
+
+        if (
+            breakout.detected &&
+            separationOk &&
+            canEnter(absIndex, state)
+        ) {
+
+            registerEntry(
+                absIndex,
+                "MA50_BREAKOUT",
+                breakout.direction,
+                state
+            );
+
+            return buildResult({
+                signal: breakout.direction,
+                trendDirection: direction,
+                score: 9,
+                entryType: "MA50_BREAKOUT",
+                ma10: current.ma10,
+                ma50: current.ma50,
+                distance: current.distance,
+                strength,
+                analysis: { ...commonAnalysis, breakout }
+            });
+        }
+    }
+
+    // ========================================================
+    // RÉGIMEN DE MERCADO
+    // ========================================================
+    //
+    // 1) Primero se permite la REVERSIÓN al salir de lateral
+    //    (puede ocurrir justo cuando la MA50 aún es casi plana).
+    // 2) Después se bloquea LATERAL / TRANSITION / UNKNOWN.
+    //
+    // ========================================================
+
+    const regime = detectMarketRegime(candles, index);
+
+    s.marketRegime = regime.regime;
+    s.lastMarketRegime = regime;
+
+    Object.assign(commonAnalysis, {
+
+        marketRegime: regime.regime,
+        marketReason: regime.reason,
+        marketMA50Slope: regime.ma50Slope,
+        marketMA10Slope: regime.ma10Slope,
+        marketSeparation: regime.separation,
+        marketLateralCount: regime.lateralCount,
+        marketRecentlyLateral: regime.recentlyLateral
+    });
+
+    if (
+        CONFIG.REGIME_FILTER_ENABLED &&
+        CONFIG.MA50_REVERSAL_ENABLED &&
+        regime.allowReversal
+    ) {
+
+        const rev = detectReversalContext(candles, index);
+
+        const sepOk =
+            current.maSeparationNormalized >=
+            CONFIG.EMERGING_MIN_SEPARATION;
+
+        const dirOk =
+            !regime.direction ||
+            regime.direction === rev.reversalDirection;
+
+        const emerging =
+            Math.abs(regime.ma50Slope) >=
+            CONFIG.MA50_EMERGING_SLOPE;
+
+        if (
+            rev.detected &&
+            sepOk &&
+            dirOk &&
+            emerging &&
+            canEnter(absIndex, state)
+        ) {
+
+            registerEntry(
+                absIndex,
+                "MA50_BREAKOUT_REVERSAL",
+                rev.reversalDirection,
+                state
+            );
+
+            s.lastReversalIndex = absIndex;
+
+            const reversalScore = Math.min(
+                10,
+                8 +
+                (rev.strengthSignChanged ? 2 : 0) +
+                (rev.confirmationCandles >= 2 ? 1 : 0)
+            );
+
+            return buildResult({
+                signal: rev.reversalDirection,
+                trendDirection: direction,
+                score: reversalScore,
+                entryType: "MA50_BREAKOUT_REVERSAL",
+                ma10: current.ma10,
+                ma50: current.ma50,
+                distance: current.distance,
+                strength,
+                analysis: { ...commonAnalysis, reversalContext: rev }
+            });
+        }
+    }
+
+    if (CONFIG.REGIME_FILTER_ENABLED) {
+
+        let blockedBy = null;
+
+        if (regime.regime === "LATERAL") {
+
+            blockedBy = "MA50_LATERAL";
+
+            s.blockedByLateral = (s.blockedByLateral || 0) + 1;
+
+        } else if (
+            regime.regime === "TRANSITION" &&
+            CONFIG.BLOCK_TRANSITION_ENTRIES
+        ) {
+
+            blockedBy = "MARKET_TRANSITION";
+
+            s.blockedByTransition = (s.blockedByTransition || 0) + 1;
+
+        } else if (regime.regime === "UNKNOWN") {
+
+            blockedBy = "UNKNOWN_MARKET_REGIME";
+        }
+
+        if (blockedBy) {
+
+            return neutral({
+                ...commonAnalysis,
+                filter: blockedBy,
+                filterBlocked: true
+            });
+        }
+    }
+
+    // ========================================================
+    // FILTRO: MA10 MUY CERCA DE MA50  (NUEVO)
+    // ========================================================
+    //
+    // Se evalúa ANTES de cualquier detector de entrada.
+    // Si las medias están pegadas, no se opera.
+    //
+    // ========================================================
+
+    const separationCheck = checkMASeparation(candles, index);
+
+    s.lastSeparationCheck = separationCheck;
+
+    if (!separationCheck.passed) {
+
+        s.blockedBySeparation++;
+
+        if (CONFIG.DEBUG) {
+
+            console.log("⛔ FILTRO MA SEPARATION:", {
+                absIndex,
+                ...separationCheck
+            });
+        }
+
+        return neutral({
+
+            ...commonAnalysis,
+
+            filter: "MA_SEPARATION",
+            filterBlocked: true,
+            separationCheck
+        });
+    }
+
+    if (!canEnter(absIndex, state)) {
+
+        return neutral();
+    }
+
+    // --------------------------------------------------------
+    // 1. MA10 PRE-REJECTION
+    // --------------------------------------------------------
+
+    if (CONFIG.MA10_PRE_REJECTION_ENABLED) {
+
+        const preRejection =
+            detectMA10PreRejection(candles, index, direction);
+
+        if (CONFIG.DEBUG) {
+
+            console.log(`🔬 PRE-REJECTION ${direction}:`, preRejection);
+        }
+
+        if (preRejection.detected) {
+
+            registerEntry(
+                absIndex,
+                "MA10_PRE_REJECTION",
+                preRejection.signal,
+                state
+            );
+
+            return buildResult({
+                signal: preRejection.signal,
+                trendDirection: direction,
+                score: 9,
+                entryType: "MA10_PRE_REJECTION",
+                ma10: current.ma10,
+                ma50: current.ma50,
+                distance: current.distance,
+                strength,
+                analysis: { ...commonAnalysis, preRejection, separationCheck }
+            });
+        }
+    }
+
+    // --------------------------------------------------------
+    // 2. MEAN REVERSION
+    // --------------------------------------------------------
+
+    if (CONFIG.MA10_MEAN_REVERSION_ENABLED) {
+
+        const meanReversion =
+            detectMA10MeanReversion(candles, index, direction);
+
+        if (CONFIG.DEBUG) {
+
+            console.log(`↩️ MEAN REVERSION ${direction}:`, meanReversion);
+        }
+
+        if (meanReversion.detected) {
+
+            registerEntry(
+                absIndex,
+                "MA10_MEAN_REVERSION",
+                meanReversion.signal,
+                state
+            );
+
+            return buildResult({
+                signal: meanReversion.signal,
+                trendDirection: direction,
+                score: 8,
+                entryType: "MA10_MEAN_REVERSION",
+                ma10: current.ma10,
+                ma50: current.ma50,
+                distance: current.distance,
+                strength,
+                analysis: { ...commonAnalysis, meanReversion, separationCheck }
+            });
+        }
+    }
+
+    // --------------------------------------------------------
+    // 3. MA REJECTION
+    // --------------------------------------------------------
+
+    if (CONFIG.MA_REJECTION_ENABLED) {
+
+        const rejection = detectRejection(candles, index, direction);
+
+        if (CONFIG.DEBUG) {
+
+            console.log(`🔎 MA REJECTION ${direction}:`, rejection);
+        }
+
+        if (rejection.detected) {
+
+            registerEntry(absIndex, "MA_REJECTION", direction, state);
+
+            return buildResult({
+                signal: direction,
+                trendDirection: direction,
+                score: 10,
+                entryType: "MA_REJECTION",
+                ma10: rejection.ma10,
+                ma50: rejection.ma50,
+                distance: rejection.distance,
+                strength: rejection.strength,
+                analysis: { ...commonAnalysis, rejection, separationCheck }
+            });
+        }
+    }
+
+    // --------------------------------------------------------
+    // 4. PULLBACK
+    // --------------------------------------------------------
+
+    const retracement = detectRetracement(candles, index, direction);
+
+    if (
+        retracement.detected &&
+        directionConfirmed(candles, index, direction)
+    ) {
+
+        registerEntry(absIndex, "PULLBACK", direction, state);
+
+        return buildResult({
+            signal: direction,
+            trendDirection: direction,
+            score: 8,
+            entryType: "PULLBACK",
+            ma10: current.ma10,
+            ma50: current.ma50,
+            distance: current.distance,
+            strength,
+            analysis: { ...commonAnalysis, retracement, separationCheck }
+        });
+    }
+
+    // --------------------------------------------------------
+    // 5. CONTINUATION
+    // --------------------------------------------------------
+
+    if (
+        detectContinuation(candles, index, direction) &&
+        directionConfirmed(candles, index, direction)
+    ) {
+
+        registerEntry(absIndex, "CONTINUATION", direction, state);
+
+        return buildResult({
+            signal: direction,
+            trendDirection: direction,
+            score: 7,
+            entryType: "CONTINUATION",
+            ma10: current.ma10,
+            ma50: current.ma50,
+            distance: current.distance,
+            strength,
+            analysis: { ...commonAnalysis, continuation: true, separationCheck }
+        });
+    }
+
+    return neutral();
+}
+
 
 module.exports = smaStrategy;
 
-
-// ============================================================
-// FUNCIONES AUXILIARES DISPONIBLES
-// ============================================================
-
-module.exports.smaStrategy =
-    smaStrategy;
-
-module.exports.detectMarketRegime =
-    detectMarketRegime;
-
-module.exports.detectTrendWeakening =
-    detectTrendWeakening;
-
-module.exports.detectReversalContext =
-    detectReversalContext;
-
-module.exports.detectMA50Breakout =
-    detectMA50Breakout;
-
-module.exports.detectMA50Lateral =
-    detectMA50Lateral;
-
-module.exports.detectMA50Symmetry =
-    detectMA50Symmetry;
-
-module.exports.detectMA10Slope =
-    detectMA10Slope;
-
-module.exports.detectMA10MeanReversion =
-    detectMA10MeanReversion;
-
-module.exports.detectMA10PreRejection =
-    detectMA10PreRejection;
-
-module.exports.detectRetracement =
-    detectRetracement;
-
-module.exports.detectRejection =
-    detectRejection;
-
-module.exports.detectContinuation =
-    detectContinuation;
-
-module.exports.detectCandleSequence =
-    detectCandleSequence;
-
-module.exports.detectDirectionChange =
-    detectDirectionChange;
-
-module.exports.checkMASeparation =
-    checkMASeparation;
-
-module.exports.calculateSMA =
-    smaAt;
+// Compatibilidad con require("...").smaStrategy y utilidades
+module.exports.smaStrategy = smaStrategy;
+module.exports.detectMarketRegime = detectMarketRegime;
+module.exports.detectTrendWeakening = detectTrendWeakening;
+module.exports.detectReversalContext = detectReversalContext;
+module.exports.detectMA50Breakout = detectMA50Breakout;
+module.exports.detectMA50Lateral = detectMA50Lateral;
+module.exports.detectMA10Slope = detectMA10Slope;
+module.exports.checkMASeparation = checkMASeparation;
