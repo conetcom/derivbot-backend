@@ -175,6 +175,42 @@ const CONFIG = {
     MA50_REVERSAL_ENABLED: true,
 
     // --------------------------------------------------------
+    // PASO DEL PRECIO POR LA MA10 (CONTRA LA TENDENCIA)
+    // --------------------------------------------------------
+    //
+    // Tendencia alcista: si el precio CIERRA por debajo de la MA10
+    // ya no es un "rebote en la MA10": el retroceso va hacia la MA50.
+    // Las entradas a favor de la tendencia (MA_REJECTION, PULLBACK,
+    // CONTINUATION) se bloquean hasta que el precio recupere la MA10.
+    // (En tendencia bajista es lo mismo, espejado.)
+    //
+    // --------------------------------------------------------
+
+    // true => bloquea entradas a favor de la tendencia tras el paso
+    MA10_BREAK_GATE_ENABLED: true,
+
+    // Cuánto debe cerrar más allá de la MA10 (en rangos promedio)
+    // para contar como "paso". Evita que un roce cuente.
+    MA10_BREAK_MIN_DEPTH: 0.10,
+
+    // Cuántas velas atrás se busca el último paso
+    MA10_BREAK_LOOKBACK: 6,
+
+    // Cierres consecutivos del lado de la tendencia necesarios
+    // para dar por recuperada la MA10
+    MA10_BREAK_RECLAIM_CANDLES: 2,
+
+    // Entrada OPCIONAL en la dirección del paso (hacia la MA50).
+    // Apagada por defecto: pruébala por separado antes de activarla.
+    MA10_BREAK_ENTRY_ENABLED: false,
+
+    // Fuerza mínima (cuerpo/rango) de la vela que atraviesa la MA10
+    MA10_BREAK_MIN_STRENGTH: 0.50,
+
+    // Espacio mínimo hasta la MA50 (en rangos) para operar el paso
+    MA10_BREAK_MIN_ROOM_TO_MA50: 0.50,
+
+    // --------------------------------------------------------
     // EXTENSIÓN
     // --------------------------------------------------------
 
@@ -1640,6 +1676,155 @@ function directionConfirmed(candles, index, direction) {
 
 
 // ============================================================
+// PASO DEL PRECIO POR LA MA10 CONTRA LA TENDENCIA
+// ============================================================
+//
+// Trabaja en términos de "lado de la tendencia":
+//
+//   signedDistance > 0  -> cierre del lado de la tendencia
+//                          (sobre la MA10 si la tendencia es CALL)
+//   signedDistance < 0  -> cierre más allá de la MA10, en contra
+//
+// Devuelve:
+//
+//   beyondNow            el cierre actual está más allá de la MA10
+//   freshBreak           ESTA vela es la que atraviesa la MA10
+//   recentBreak          hubo un paso en las últimas N velas
+//   candlesSinceBreak    velas desde el último paso
+//   candlesOnTrendSide   cierres consecutivos recuperados
+//   blocked              true => no entrar a favor de la tendencia
+//   direction            dirección del paso (contraria a la tendencia)
+//
+// ============================================================
+
+function ma10Side(candles, i, direction) {
+
+    const ma = getMAData(candles, i);
+
+    if (!ma) {
+
+        return null;
+    }
+
+    const diff = number(candles[i]?.close) - ma.ma10;
+
+    const signed = direction === "CALL" ? diff : -diff;
+
+    return {
+
+        signedDistance: signed,
+        normalized: signed / ma.avgRange
+    };
+}
+
+
+function detectMA10Break(candles, index, direction) {
+
+    const result = {
+
+        direction: oppositeDirection(direction),
+        beyondNow: false,
+        depth: 0,
+        freshBreak: false,
+        recentBreak: false,
+        candlesSinceBreak: null,
+        candlesOnTrendSide: 0,
+        blocked: false,
+        reason: null
+    };
+
+    if (
+        !CONFIG.MA10_BREAK_GATE_ENABLED &&
+        !CONFIG.MA10_BREAK_ENTRY_ENABLED
+    ) {
+
+        return result;
+    }
+
+    if (!direction || index < 2) {
+
+        return result;
+    }
+
+    const minDepth = CONFIG.MA10_BREAK_MIN_DEPTH;
+
+    const now = ma10Side(candles, index, direction);
+
+    if (!now) {
+
+        return result;
+    }
+
+    result.beyondNow = now.normalized <= -minDepth;
+
+    result.depth = round(Math.max(0, -now.normalized), 4);
+
+    // Cierres consecutivos ESTRICTAMENTE del lado de la tendencia
+    let onSide = 0;
+
+    for (let i = index; i >= 0 && onSide < 10; i--) {
+
+        const side = ma10Side(candles, i, direction);
+
+        if (!side || side.signedDistance <= 0) break;
+
+        onSide++;
+    }
+
+    result.candlesOnTrendSide = onSide;
+
+    // Último cierre más allá de la MA10
+    let lastBreak = null;
+
+    for (
+        let k = 0;
+        k <= CONFIG.MA10_BREAK_LOOKBACK && index - k >= 0;
+        k++
+    ) {
+
+        const side = ma10Side(candles, index - k, direction);
+
+        if (side && side.normalized <= -minDepth) {
+
+            lastBreak = index - k;
+
+            break;
+        }
+    }
+
+    if (lastBreak != null) {
+
+        result.recentBreak = true;
+
+        result.candlesSinceBreak = index - lastBreak;
+    }
+
+    const prev = ma10Side(candles, index - 1, direction);
+
+    result.freshBreak =
+        result.beyondNow &&
+        !!prev &&
+        prev.normalized > -minDepth;
+
+    if (result.recentBreak) {
+
+        if (result.beyondNow) {
+
+            result.blocked = true;
+            result.reason = "PRICE_BEYOND_MA10_AGAINST_TREND";
+
+        } else if (onSide < CONFIG.MA10_BREAK_RECLAIM_CANDLES) {
+
+            result.blocked = true;
+            result.reason = "MA10_RECLAIM_PENDING";
+        }
+    }
+
+    return result;
+}
+
+
+// ============================================================
 // RÉGIMEN DE MERCADO
 // ============================================================
 //
@@ -2613,6 +2798,82 @@ function smaStrategy(candles, stateInput) {
         return neutral();
     }
 
+    // ========================================================
+    // PASO POR LA MA10 CONTRA LA TENDENCIA
+    // ========================================================
+
+    const ma10Break = detectMA10Break(candles, index, direction);
+
+    const trendEntriesBlocked =
+        CONFIG.MA10_BREAK_GATE_ENABLED && ma10Break.blocked;
+
+    const suppressed = [];
+
+    Object.assign(commonAnalysis, {
+
+        ma10BreakBeyond: ma10Break.beyondNow,
+        ma10BreakDepth: ma10Break.depth,
+        ma10BreakRecent: ma10Break.recentBreak,
+        ma10BreakCandlesSince: ma10Break.candlesSinceBreak,
+        ma10BreakReclaimCandles: ma10Break.candlesOnTrendSide,
+        ma10BreakBlocked: ma10Break.blocked
+    });
+
+    // Entrada opcional: acompañar el paso hacia la MA50
+    if (CONFIG.MA10_BREAK_ENTRY_ENABLED && ma10Break.freshBreak) {
+
+        const k = candles[index];
+
+        const againstTrend =
+            direction === "CALL" ? isBearish(k) : isBullish(k);
+
+        const kStrength = candleStrength(k);
+
+        const room =
+            (
+                direction === "CALL"
+                    ? current.close - current.ma50
+                    : current.ma50 - current.close
+            ) / current.avgRange;
+
+        const trendIntact =
+            direction === "CALL"
+                ? current.ma10 > current.ma50
+                : current.ma10 < current.ma50;
+
+        if (
+            againstTrend &&
+            kStrength >= CONFIG.MA10_BREAK_MIN_STRENGTH &&
+            room >= CONFIG.MA10_BREAK_MIN_ROOM_TO_MA50 &&
+            trendIntact
+        ) {
+
+            registerEntry(
+                absIndex,
+                "MA10_BREAK_PULLBACK",
+                ma10Break.direction,
+                state
+            );
+
+            return buildResult({
+                signal: ma10Break.direction,
+                trendDirection: direction,
+                score: 8,
+                entryType: "MA10_BREAK_PULLBACK",
+                ma10: current.ma10,
+                ma50: current.ma50,
+                distance: current.distance,
+                strength: kStrength,
+                analysis: {
+                    ...commonAnalysis,
+                    ma10Break,
+                    roomToMA50: round(room, 4),
+                    separationCheck
+                }
+            });
+        }
+    }
+
     // --------------------------------------------------------
     // 1. MA10 PRE-REJECTION
     // --------------------------------------------------------
@@ -2700,7 +2961,12 @@ function smaStrategy(candles, stateInput) {
             console.log(`🔎 MA REJECTION ${direction}:`, rejection);
         }
 
-        if (rejection.detected) {
+        if (rejection.detected && trendEntriesBlocked) {
+
+            suppressed.push("MA_REJECTION");
+        }
+
+        if (rejection.detected && !trendEntriesBlocked) {
 
             registerEntry(absIndex, "MA_REJECTION", direction, state);
 
@@ -2726,6 +2992,16 @@ function smaStrategy(candles, stateInput) {
 
     if (
         retracement.detected &&
+        trendEntriesBlocked &&
+        directionConfirmed(candles, index, direction)
+    ) {
+
+        suppressed.push("PULLBACK");
+    }
+
+    if (
+        retracement.detected &&
+        !trendEntriesBlocked &&
         directionConfirmed(candles, index, direction)
     ) {
 
@@ -2748,10 +3024,16 @@ function smaStrategy(candles, stateInput) {
     // 5. CONTINUATION
     // --------------------------------------------------------
 
-    if (
+    const continuationDetected =
         detectContinuation(candles, index, direction) &&
-        directionConfirmed(candles, index, direction)
-    ) {
+        directionConfirmed(candles, index, direction);
+
+    if (continuationDetected && trendEntriesBlocked) {
+
+        suppressed.push("CONTINUATION");
+    }
+
+    if (continuationDetected && !trendEntriesBlocked) {
 
         registerEntry(absIndex, "CONTINUATION", direction, state);
 
@@ -2765,6 +3047,19 @@ function smaStrategy(candles, stateInput) {
             distance: current.distance,
             strength,
             analysis: { ...commonAnalysis, continuation: true, separationCheck }
+        });
+    }
+
+    if (suppressed.length) {
+
+        s.blockedByMA10Break = (s.blockedByMA10Break || 0) + 1;
+
+        return neutral({
+            ...commonAnalysis,
+            filter: "MA10_BREAK_AGAINST_TREND",
+            filterBlocked: true,
+            suppressedEntries: suppressed,
+            ma10Break
         });
     }
 
@@ -2782,4 +3077,6 @@ module.exports.detectReversalContext = detectReversalContext;
 module.exports.detectMA50Breakout = detectMA50Breakout;
 module.exports.detectMA50Lateral = detectMA50Lateral;
 module.exports.detectMA10Slope = detectMA10Slope;
+module.exports.detectMA10Break = detectMA10Break;
 module.exports.checkMASeparation = checkMASeparation;
+
