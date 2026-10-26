@@ -2725,38 +2725,37 @@ function smaStrategy(candles, stateInput) {
     }
 
     if (CONFIG.REGIME_FILTER_ENABLED) {
+    let blockedBy = null;
 
-        let blockedBy = null;
+    if (regime.regime === "LATERAL") {
+        blockedBy = "MA50_LATERAL";
+        s.blockedByLateral = (s.blockedByLateral || 0) + 1;
 
-        if (regime.regime === "LATERAL") {
+    } else if (regime.regime === "UNKNOWN") {
+        blockedBy = "UNKNOWN_MARKET_REGIME";
 
-            blockedBy = "MA50_LATERAL";
+    } else if (
+        regime.regime === "TRANSITION" &&
+        CONFIG.BLOCK_TRANSITION_ENTRIES
+    ) {
+        blockedBy = "MARKET_TRANSITION";
+        s.blockedByTransition = (s.blockedByTransition || 0) + 1;
 
-            s.blockedByLateral = (s.blockedByLateral || 0) + 1;
-
-        } else if (
-            regime.regime === "TRANSITION" &&
-            CONFIG.BLOCK_TRANSITION_ENTRIES
-        ) {
-
-            blockedBy = "MARKET_TRANSITION";
-
-            s.blockedByTransition = (s.blockedByTransition || 0) + 1;
-
-        } else if (regime.regime === "UNKNOWN") {
-
-            blockedBy = "UNKNOWN_MARKET_REGIME";
-        }
-
-        if (blockedBy) {
-
-            return neutral({
-                ...commonAnalysis,
-                filter: blockedBy,
-                filterBlocked: true
-            });
-        }
+    } else if (regime.regime === "EMERGING_TREND") {
+        // La reversión especial ya tuvo su oportunidad.
+        // No permitir entradas normales en esta fase.
+        blockedBy = "EMERGING_TREND_REVERSAL_ONLY";
     }
+
+    if (blockedBy) {
+        return neutral({
+            ...commonAnalysis,
+            filter: blockedBy,
+            filterBlocked: true,
+            marketRegime: regime.regime
+        });
+    }
+}
 
     // ========================================================
     // FILTRO: MA10 MUY CERCA DE MA50  (NUEVO)

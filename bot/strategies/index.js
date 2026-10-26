@@ -3,6 +3,7 @@ const rsiStrategy = require("./rsiStrategy");
 const forexStrategy = require("./forexStrategy");
 const smartMoneyLiquidityStrategy = require("./smartMoneyLiquidityStrategy");
 const syntheticProStrategy = require("./syntheticProStrategy");
+const simplemastrategy = require("./simplemastrategy");
 
 const strategies = {
 
@@ -10,6 +11,11 @@ const strategies = {
         id: "sma",
         name: "SMA + Smart Money",
         handler: smaStrategy
+    },
+     sma: {
+        id: "simplemastrategy",
+        name: "Strategia simple",
+        handler: simplemastrategy
     },
 
     liquidity: {

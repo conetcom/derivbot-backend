@@ -236,57 +236,102 @@ function createClient(url) {
     };
 }
 
-async function main() {
 
+async function main() {
     const args = parseArgs(process.argv);
 
     const symbol = args.symbol || "R_75";
     const granularity = Number(args.granularity || 60);
     const days = Number(args.days || 30);
 
+    if (!Number.isInteger(granularity) || granularity <= 0) {
+        throw new Error("La granularidad debe ser un entero positivo.");
+    }
+
+    if (!Number.isFinite(days) || days <= 0) {
+        throw new Error("El número de días debe ser mayor que cero.");
+    }
+
     const out =
         args.out ||
-        path.join("backtest", "data", `${symbol}_${granularity}.json`);
+        path.join(
+            "backtest",
+            "data",
+            `${symbol}_${granularity}.json`
+        );
 
+    const appId = args["app-id"] || "1089";
+
+    // WebSocket público de Deriv: no requiere token para velas públicas.
     const url =
-        args.url ||
-        `wss://ws.derivws.com/websockets/v3?app_id=${args["app-id"] || 1089}`;
+    args.url ||
+    "wss://api.derivws.com/trading/v1/options/ws/public";
 
-    console.log(`Conectando a ${url}`);
+    console.log("Conectando al WebSocket público de Deriv...");
+    console.log("Símbolo:", symbol);
+    console.log("Granularidad:", granularity);
+    console.log("Días:", days);
 
     const client = createClient(url);
 
-    await client.ready;
+    try {
+        await client.ready;
 
-    const candles = await fetchAll({
+        console.log("✅ WebSocket conectado.");
 
-        send: client.send,
-        symbol,
-        granularity,
-        days,
-        onProgress: p =>
-            console.log(
-                `  velas: ${p.total}  (más antigua: ${new Date(p.oldest * 1000).toISOString()})`
-            )
-    });
+        const candles = await fetchAll({
+            send: client.send,
+            symbol,
+            granularity,
+            days,
 
-    client.close();
+            onProgress: p => {
+                console.log(
+                    `Velas recibidas: ${p.total} | ` +
+                    `más antigua: ${new Date(
+                        p.oldest * 1000
+                    ).toISOString()}`
+                );
+            }
+        });
 
-    fs.mkdirSync(path.dirname(out), { recursive: true });
+        if (!candles.length) {
+            throw new Error(
+                "Deriv no devolvió velas para el símbolo y período solicitados."
+            );
+        }
 
-    fs.writeFileSync(
-        out,
-        JSON.stringify({ symbol, granularity, candles })
-    );
+        fs.mkdirSync(path.dirname(out), {
+            recursive: true
+        });
 
-    console.log(
-        `\n✅ ${candles.length} velas guardadas en ${out}\n` +
-        `   desde ${new Date(candles[0].epoch * 1000).toISOString()}\n` +
-        `   hasta ${new Date(candles[candles.length - 1].epoch * 1000).toISOString()}`
-    );
+        fs.writeFileSync(
+            out,
+            JSON.stringify({
+                symbol,
+                granularity,
+                candles
+            }, null, 2),
+            "utf8"
+        );
 
-    process.exit(0);
+        console.log(`\n✅ Descarga completada: ${candles.length} velas`);
+        console.log("Archivo:", path.resolve(out));
+        console.log(
+            "Desde:",
+            new Date(candles[0].epoch * 1000).toISOString()
+        );
+        console.log(
+            "Hasta:",
+            new Date(
+                candles[candles.length - 1].epoch * 1000
+            ).toISOString()
+        );
+    } finally {
+        client.close();
+    }
 }
+
 
 module.exports = { fetchAll, parseArgs };
 
