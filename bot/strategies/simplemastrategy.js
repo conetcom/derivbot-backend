@@ -1,45 +1,64 @@
 // ============================================================
-// SIMPLE MA STRATEGY  -  MA10 / MA50
+// LAST CANDLE STRATEGY  -  seguir la última vela, solo con MA10
 // ============================================================
 //
-// COMPRA (CALL) si TODO se cumple en la última vela cerrada:
+// REGLA:
 //
-//   1. la vela cerró al alza        (cierre > apertura)
-//   2. el cierre está sobre la MA10
-//   3. el cierre está sobre la MA50
-//   4. la MA10 va en subida
+//   1. La dirección la marca la ÚLTIMA VELA cerrada:
+//        verde (cierre > apertura)  -> CALL
+//        roja  (cierre < apertura)  -> PUT
+//        doji  (cierre = apertura)  -> sin señal
 //
-// VENTA (PUT): exactamente lo contrario.
+//   2. FILTRO: la MA10 no puede estar horizontal.
+//        Debe estar subiendo O bajando (cualquiera de las dos).
 //
-// Nada más. Sin filtros, sin estado, sin régimen.
+// Nada más: sin MA50, sin régimen, sin estado complicado.
+//
+// "Horizontal" se mide así:
+//
+//   pendiente = (MA10 ahora - MA10 hace N velas) / rango promedio de vela
+//
+//   |pendiente| < MIN_SLOPE  ->  horizontal  ->  NO se opera
+//
+// Se divide por el rango promedio para que el umbral valga igual
+// para oro, índices o divisas, sin depender del precio.
 //
 // ============================================================
 
 const CONFIG = {
 
-    FAST_MA: 10,
-    SLOW_MA: 50,
+    MA_PERIOD: 10,
 
-    // "MA10 va en subida": MA10 de ahora > MA10 de hace N velas.
-    // 1 = muy sensible; 3 = un poco más estable.
-    MA10_SLOPE_LOOKBACK: 2,
+    // Rango promedio usado para normalizar la pendiente
+    RANGE_PERIOD: 10,
 
-    // Velas mínimas entre una señal y la siguiente.
-    // 1 = puede dar señal en cada vela mientras se cumplan las condiciones.
-    MIN_CANDLES_BETWEEN_SIGNALS: 1
+    // MA10 de ahora contra la de hace N velas
+    SLOPE_LOOKBACK: 3,
+
+    // Pendiente mínima (en rangos de vela). Por debajo = horizontal.
+    //   0.08 = poco exigente   0.20 = exigente
+    MIN_SLOPE: 0.04,
+
+    // false => se sigue la vela AUNQUE vaya contra la MA10
+    //          (lo que pediste: "sin importar si es roja o verde")
+    // true  => solo se opera si la vela va en el mismo sentido que la MA10
+    REQUIRE_SLOPE_MATCH: false,
+
+    // Velas mínimas entre una señal y la siguiente (1 = sin límite)
+    MIN_CANDLES_BETWEEN_SIGNALS: 2
 };
 
 // Ajustes por entorno (SOLO para backtests):
-//   SIMPLE_CONFIG_OVERRIDES='{"MA10_SLOPE_LOOKBACK":1}' node backtest.js ...
-if (process.env.SIMPLE_CONFIG_OVERRIDES) {
+//   LASTCANDLE_CONFIG_OVERRIDES='{"MIN_SLOPE":0.15}' node backtest.js ...
+if (process.env.LASTCANDLE_CONFIG_OVERRIDES) {
 
     try {
 
-        Object.assign(CONFIG, JSON.parse(process.env.SIMPLE_CONFIG_OVERRIDES));
+        Object.assign(CONFIG, JSON.parse(process.env.LASTCANDLE_CONFIG_OVERRIDES));
 
     } catch (error) {
 
-        console.error("SIMPLE_CONFIG_OVERRIDES inválido:", error.message);
+        console.error("LASTCANDLE_CONFIG_OVERRIDES inválido:", error.message);
     }
 }
 
@@ -70,6 +89,28 @@ function smaAt(candles, index, period) {
 }
 
 
+function averageRangeAt(candles, index, period) {
+
+    const start = Math.max(0, index - period + 1);
+
+    let total = 0;
+    let count = 0;
+
+    for (let i = start; i <= index; i++) {
+
+        const range = number(candles[i]?.high) - number(candles[i]?.low);
+
+        if (range > 0) {
+
+            total += range;
+            count++;
+        }
+    }
+
+    return count ? total / count : 0;
+}
+
+
 // Estado de respaldo por si el bot no pasa `state`
 const fallbackStates = new Map();
 
@@ -85,23 +126,25 @@ function resolveState(candles, state) {
 }
 
 
-function neutral(reason) {
+function neutral(reason, extra = {}) {
 
     return {
 
         signal: null,
         score: 0,
-        strategy: "simple_ma",
+        strategy: "last_candle",
         entryType: null,
         counterTrend: false,
-        analysis: { filter: reason }
+        analysis: { filter: reason, ...extra }
     };
 }
 
 
-function simpleMAStrategy(candles, stateInput) {
+function lastCandleStrategy(candles, stateInput) {
 
-    if (!Array.isArray(candles) || candles.length < CONFIG.SLOW_MA + CONFIG.MA10_SLOPE_LOOKBACK + 1) {
+    const needed = CONFIG.MA_PERIOD + CONFIG.SLOPE_LOOKBACK + 1;
+
+    if (!Array.isArray(candles) || candles.length < needed) {
 
         return neutral("NOT_ENOUGH_DATA");
     }
@@ -114,46 +157,53 @@ function simpleMAStrategy(candles, stateInput) {
     const open = number(last.open);
     const close = number(last.close);
 
-    const ma10 = smaAt(candles, index, CONFIG.FAST_MA);
-    const ma50 = smaAt(candles, index, CONFIG.SLOW_MA);
-    const ma10Before = smaAt(candles, index - CONFIG.MA10_SLOPE_LOOKBACK, CONFIG.FAST_MA);
+    // ---- 1. dirección = color de la última vela ----
 
-    if (ma10 == null || ma50 == null || ma10Before == null) {
+    let signal = null;
+
+    if (close > open) signal = "CALL";
+    else if (close < open) signal = "PUT";
+
+    if (!signal) {
+
+        return neutral("DOJI");
+    }
+
+    // ---- 2. la MA10 no puede estar horizontal ----
+
+    const ma10 = smaAt(candles, index, CONFIG.MA_PERIOD);
+    const ma10Before = smaAt(candles, index - CONFIG.SLOPE_LOOKBACK, CONFIG.MA_PERIOD);
+    const avgRange = averageRangeAt(candles, index, CONFIG.RANGE_PERIOD);
+
+    if (ma10 == null || ma10Before == null || !avgRange) {
 
         return neutral("NO_MA_DATA");
     }
 
-    const bullishCandle = close > open;
-    const bearishCandle = close < open;
+    const slope = (ma10 - ma10Before) / avgRange;
 
-    const ma10Rising = ma10 > ma10Before;
-    const ma10Falling = ma10 < ma10Before;
+    if (Math.abs(slope) < CONFIG.MIN_SLOPE) {
 
-    let signal = null;
-
-    if (bullishCandle && close > ma10 && close > ma50 && ma10Rising) {
-
-        signal = "CALL";
-
-    } else if (bearishCandle && close < ma10 && close < ma50 && ma10Falling) {
-
-        signal = "PUT";
+        return neutral("MA10_FLAT", { ma10Slope: slope });
     }
 
-    if (!signal) {
+    const ma10Direction = slope > 0 ? "CALL" : "PUT";
 
-        return neutral("NO_SETUP");
+    if (CONFIG.REQUIRE_SLOPE_MATCH && ma10Direction !== signal) {
+
+        return neutral("CANDLE_AGAINST_MA10", { ma10Slope: slope });
     }
 
-    // Espaciado entre señales (por número de vela, no por tamaño de ventana)
+    // ---- espaciado entre señales ----
+
     const key = last.epoch ?? last.time ?? last.timestamp ?? null;
 
-    if (!state.simpleMA) {
+    if (!state.lastCandle) {
 
-        state.simpleMA = { counter: -1, lastKey: null, lastSignalCounter: null };
+        state.lastCandle = { counter: -1, lastKey: null, lastSignalCounter: null };
     }
 
-    const s = state.simpleMA;
+    const s = state.lastCandle;
 
     if (key == null || key !== s.lastKey) {
 
@@ -171,38 +221,36 @@ function simpleMAStrategy(candles, stateInput) {
 
     s.lastSignalCounter = s.counter;
 
-    const ma10Distance = Math.abs(close - ma10);
-    const ma50Distance = Math.abs(close - ma50);
-    const maDistance = Math.abs(ma10 - ma50);
+    // `counterTrend` aquí significa: la vela va contra la MA10
+    const againstMA10 = ma10Direction !== signal;
 
     return {
 
         signal,
-        score: 7,
-        strategy: "simple_ma",
-        entryType: "SIMPLE_MA",
-        trend: signal === "CALL" ? "UP" : "DOWN",
-        counterTrend: false,
+        score: 6,
+        strategy: "last_candle",
+        entryType: againstMA10 ? "LAST_CANDLE_AGAINST_MA10" : "LAST_CANDLE_WITH_MA10",
+        trend: ma10Direction === "CALL" ? "UP" : "DOWN",
+        counterTrend: againstMA10,
 
         ma10,
-        ma50,
-        distance: ma10Distance,
+        distance: Math.abs(close - ma10),
         strength: Math.abs(close - open),
 
         analysis: {
 
             ma10,
-            ma50,
-            ma10Distance,
-            ma50Distance,
-            maDistance,
-            maDistanceRatio: maDistance > 0 ? ma50Distance / maDistance : 0,
-            ma10Slope: ma10 - ma10Before
+            ma10Distance: Math.abs(close - ma10),
+            ma10Slope: Number(slope.toFixed(4)),
+            ma10SlopeDirection: ma10Direction,
+            avgRange,
+            candleColor: signal === "CALL" ? "GREEN" : "RED",
+            againstMA10
         }
     };
 }
 
 
-module.exports = simpleMAStrategy;
-module.exports.simpleMAStrategy = simpleMAStrategy;
+module.exports = lastCandleStrategy;
+module.exports.lastCandleStrategy = lastCandleStrategy;
 module.exports.CONFIG = CONFIG;
