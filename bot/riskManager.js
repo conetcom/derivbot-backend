@@ -23,7 +23,7 @@ calculateBaseStake() {
 
     while (this.maxMartingale > 0) {
 
-        const multiplier = Math.pow(3, this.maxMartingale + 1) - 1;
+        const multiplier = Math.pow(2, this.maxMartingale + 1) - 1;
 
         const stake = riskCapital / multiplier;
 
@@ -75,7 +75,7 @@ calculateBaseStake() {
         this.martingaleStep++;
 
         this.currentStake = Number(
-            (this.currentStake * 2).toFixed(2)
+            (this.currentStake * 3).toFixed(2)
         );
 
         console.log(
