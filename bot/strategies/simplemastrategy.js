@@ -45,7 +45,7 @@ const CONFIG = {
     REQUIRE_SLOPE_MATCH: false,
 
     // Velas mínimas entre una señal y la siguiente (1 = sin límite)
-    MIN_CANDLES_BETWEEN_SIGNALS: 2
+    MIN_CANDLES_BETWEEN_SIGNALS: 1
 };
 
 // Ajustes por entorno (SOLO para backtests):
@@ -161,8 +161,8 @@ function lastCandleStrategy(candles, stateInput) {
 
     let signal = null;
 
-    if (close > open) signal = "CALL";
-    else if (close < open) signal = "PUT";
+    if (close > open) signal = "PUT";
+    else if (close < open) signal = "CALL";
 
     if (!signal) {
 
