@@ -30,14 +30,14 @@ const CONFIG = {
     MA_PERIOD: 10,
 
     // Rango promedio usado para normalizar la pendiente
-    RANGE_PERIOD: 10,
+    RANGE_PERIOD: 5,
 
     // MA10 de ahora contra la de hace N velas
     SLOPE_LOOKBACK: 3,
 
     // Pendiente mínima (en rangos de vela). Por debajo = horizontal.
     //   0.08 = poco exigente   0.20 = exigente
-    MIN_SLOPE: 0.04,
+    MIN_SLOPE: 0.1,
 
     // false => se sigue la vela AUNQUE vaya contra la MA10
     //          (lo que pediste: "sin importar si es roja o verde")
@@ -163,11 +163,11 @@ function lastCandleStrategy(candles, stateInput) {
 
     if (close > open) signal = "PUT";
     else if (close < open) signal = "CALL";
-
+/*
     if (!signal) {
 
         return neutral("DOJI");
-    }
+    }*/
 
     // ---- 2. la MA10 no puede estar horizontal ----
 
