@@ -175,7 +175,7 @@ function lastCandleStrategy(candles, stateInput) {
     const ma10Before = smaAt(candles, index - CONFIG.SLOPE_LOOKBACK, CONFIG.MA_PERIOD);
     const avgRange = averageRangeAt(candles, index, CONFIG.RANGE_PERIOD);
 
-    /*if (ma10 == null || ma10Before == null || !avgRange) {
+    if (ma10 == null || ma10Before == null || !avgRange) {
 
         return neutral("NO_MA_DATA");
     }
@@ -193,7 +193,7 @@ function lastCandleStrategy(candles, stateInput) {
 
         return neutral("CANDLE_AGAINST_MA10", { ma10Slope: slope });
     }
-*/
+
     // ---- espaciado entre señales ----
 
     const key = last.epoch ?? last.time ?? last.timestamp ?? null;
