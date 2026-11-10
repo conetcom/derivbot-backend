@@ -161,8 +161,8 @@ function lastCandleStrategy(candles, stateInput) {
 
     let signal = null;
 
-    if (close > open) signal = "PUT";
-    else if (close < open) signal = "CALL";
+    if (close > open) signal = "CALL";
+    else if (close < open) signal = "PUT";
 /*
     if (!signal) {
 
