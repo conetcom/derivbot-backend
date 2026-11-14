@@ -33,7 +33,7 @@ const CONFIG = {
     //   1.5 = estricto (descarta casi todo lo irregular)
     //   2.0 = intermedio
     //   3.0 = permisivo (solo descarta velas enormes)
-    BIG_FACTOR: 2.0,
+    BIG_FACTOR: 3.0,
 
     // Doji: cuerpo menor a este % del rango de la vela (high - low).
     //   0.10 = el cuerpo es menos del 10% de la vela
