@@ -1,55 +1,62 @@
 // ============================================================
-// LAST CANDLE STRATEGY  -  seguir la última vela, solo con MA10
+// LAST CANDLE STRATEGY v2  -  seguir la última vela, cuerpos parecidos
 // ============================================================
 //
 // REGLA:
 //
 //   1. La dirección la marca la ÚLTIMA VELA cerrada:
-//        verde (cierre > apertura)  -> CALL
-//        roja  (cierre < apertura)  -> PUT
-//        doji  (cierre = apertura)  -> sin señal
+//        verde -> CALL        roja -> PUT
+//        doji  -> NO se opera
 //
-//   2. FILTRO: la MA10 no puede estar horizontal.
-//        Debe estar subiendo O bajando (cualquiera de las dos).
+//   2. Se comparan los CUERPOS de las últimas N velas
+//      (cuerpo = |cierre - apertura|, N = BODY_LOOKBACK):
 //
-// Nada más: sin MA50, sin régimen, sin estado complicado.
+//        - cuerpos PARECIDOS                        -> se opera
+//        - una vela MUCHO más grande que las demás  -> NO se opera
 //
-// "Horizontal" se mide así:
+//      "Mucho más grande" = su cuerpo es más de BIG_FACTOR veces
+//      el cuerpo promedio de las OTRAS velas de la ventana.
+//      Cuenta cualquier vela de la ventana, también la última.
 //
-//   pendiente = (MA10 ahora - MA10 hace N velas) / rango promedio de vela
-//
-//   |pendiente| < MIN_SLOPE  ->  horizontal  ->  NO se opera
-//
-// Se divide por el rango promedio para que el umbral valga igual
-// para oro, índices o divisas, sin depender del precio.
+// Sin MA50, sin régimen. El filtro de MA10 horizontal de la
+// versión anterior queda APAGADO (MA10_FILTER_ENABLED: false);
+// se puede volver a encender.
 //
 // ============================================================
 
 const CONFIG = {
 
-    MA_PERIOD: 10,
+    // Cuántas velas se comparan (incluye la última)
+    BODY_LOOKBACK: 5,
 
-    // Rango promedio usado para normalizar la pendiente
-    RANGE_PERIOD: 5,
+    // "Mucho más grande": cuerpo > BIG_FACTOR x promedio de las otras
+    //   1.5 = estricto (descarta casi todo lo irregular)
+    //   2.0 = intermedio
+    //   3.0 = permisivo (solo descarta velas enormes)
+    BIG_FACTOR: 2.0,
 
-    // MA10 de ahora contra la de hace N velas
-    SLOPE_LOOKBACK: 3,
-
-    // Pendiente mínima (en rangos de vela). Por debajo = horizontal.
-    //   0.08 = poco exigente   0.20 = exigente
-    MIN_SLOPE: 0.1,
-
-    // false => se sigue la vela AUNQUE vaya contra la MA10
-    //          (lo que pediste: "sin importar si es roja o verde")
-    // true  => solo se opera si la vela va en el mismo sentido que la MA10
-    REQUIRE_SLOPE_MATCH: false,
+    // Doji: cuerpo menor a este % del rango de la vela (high - low).
+    //   0.10 = el cuerpo es menos del 10% de la vela
+    //   0    = solo cierre EXACTAMENTE igual a la apertura
+    DOJI_BODY_RATIO: 0.10,
 
     // Velas mínimas entre una señal y la siguiente (1 = sin límite)
-    MIN_CANDLES_BETWEEN_SIGNALS: 1
+    MIN_CANDLES_BETWEEN_SIGNALS: 1,
+
+    // ---------------- filtro opcional de MA10 ----------------
+    // true => además exige que la MA10 no esté horizontal
+    MA10_FILTER_ENABLED: false,
+    MA_PERIOD: 10,
+    RANGE_PERIOD: 5,
+    SLOPE_LOOKBACK: 3,
+    MIN_SLOPE: 0.1,
+
+    // true => solo opera si la vela va en el mismo sentido que la MA10
+    REQUIRE_SLOPE_MATCH: false
 };
 
 // Ajustes por entorno (SOLO para backtests):
-//   LASTCANDLE_CONFIG_OVERRIDES='{"MIN_SLOPE":0.15}' node backtest.js ...
+//   LASTCANDLE_CONFIG_OVERRIDES='{"BIG_FACTOR":3}' node backtest.js ...
 if (process.env.LASTCANDLE_CONFIG_OVERRIDES) {
 
     try {
@@ -68,6 +75,12 @@ function number(value, fallback = 0) {
     const n = Number(value);
 
     return Number.isFinite(n) ? n : fallback;
+}
+
+
+function bodyOf(candle) {
+
+    return Math.abs(number(candle?.close) - number(candle?.open));
 }
 
 
@@ -140,9 +153,60 @@ function neutral(reason, extra = {}) {
 }
 
 
+// ============================================================
+// Comparación de cuerpos
+// ============================================================
+//
+// Devuelve la vela de cuerpo más grande de la ventana y cuántas
+// veces supera al cuerpo promedio de las demás.
+//
+//   offset 0 = la última vela, 1 = la anterior, ...
+//
+// ============================================================
+
+function compareBodies(candles, index, lookback) {
+
+    const bodies = [];
+
+    for (let k = 0; k < lookback; k++) {
+
+        bodies.push(bodyOf(candles[index - k]));
+    }
+
+    let maxBody = -1;
+    let maxOffset = 0;
+
+    bodies.forEach((b, k) => {
+
+        if (b > maxBody) {
+
+            maxBody = b;
+            maxOffset = k;
+        }
+    });
+
+    const others = bodies.filter((_, k) => k !== maxOffset);
+
+    const meanOthers = others.reduce((a, b) => a + b, 0) / others.length;
+
+    // Si las demás no tienen cuerpo, cualquier vela con cuerpo es "enorme".
+    const ratio =
+        meanOthers > 0
+            ? maxBody / meanOthers
+            : (maxBody > 0 ? Infinity : 1);
+
+    return { maxBody, maxOffset, meanOthers, ratio, bodies };
+}
+
+
 function lastCandleStrategy(candles, stateInput) {
 
-    const needed = CONFIG.MA_PERIOD + CONFIG.SLOPE_LOOKBACK + 1;
+    const needed = Math.max(
+        CONFIG.BODY_LOOKBACK,
+        CONFIG.MA10_FILTER_ENABLED
+            ? CONFIG.MA_PERIOD + CONFIG.SLOPE_LOOKBACK + 1
+            : 0
+    );
 
     if (!Array.isArray(candles) || candles.length < needed) {
 
@@ -156,42 +220,70 @@ function lastCandleStrategy(candles, stateInput) {
 
     const open = number(last.open);
     const close = number(last.close);
+    const range = number(last.high) - number(last.low);
+    const body = Math.abs(close - open);
 
-    // ---- 1. dirección = color de la última vela ----
+    // ---- 1. doji: no se opera ----
 
-    let signal = null;
+    const isDoji =
+        body === 0 ||
+        range <= 0 ||
+        body / range < CONFIG.DOJI_BODY_RATIO;
 
-    if (close > open) signal = "CALL";
-    else if (close < open) signal = "PUT";
-/*
-    if (!signal) {
+    if (isDoji) {
 
-        return neutral("DOJI");
-    }*/
-
-    // ---- 2. la MA10 no puede estar horizontal ----
-
-    const ma10 = smaAt(candles, index, CONFIG.MA_PERIOD);
-    const ma10Before = smaAt(candles, index - CONFIG.SLOPE_LOOKBACK, CONFIG.MA_PERIOD);
-    const avgRange = averageRangeAt(candles, index, CONFIG.RANGE_PERIOD);
-
-    if (ma10 == null || ma10Before == null || !avgRange) {
-
-        return neutral("NO_MA_DATA");
+        return neutral("DOJI", {
+            bodyOfRange: range > 0 ? Number((body / range).toFixed(4)) : 0
+        });
     }
 
-    const slope = (ma10 - ma10Before) / avgRange;
+    // ---- 2. dirección = color de la última vela ----
 
-    if (Math.abs(slope) < CONFIG.MIN_SLOPE) {
+    const signal = close > open ? "CALL" : "PUT";
 
-        return neutral("MA10_FLAT", { ma10Slope: slope });
+    // ---- 3. ¿hay una vela mucho más grande? ----
+
+    const cmp = compareBodies(candles, index, CONFIG.BODY_LOOKBACK);
+
+    if (cmp.ratio > CONFIG.BIG_FACTOR) {
+
+        return neutral("BIG_CANDLE", {
+            bodyRatioMax: Number.isFinite(cmp.ratio) ? Number(cmp.ratio.toFixed(3)) : null,
+            bigCandleOffset: cmp.maxOffset
+        });
     }
 
-    const ma10Direction = slope > 0 ? "CALL" : "PUT";
+    // ---- 4. (opcional) la MA10 no puede estar horizontal ----
 
-    if (CONFIG.REQUIRE_SLOPE_MATCH && ma10Direction !== signal) {
+    let ma10 = null;
+    let slope = null;
+    let ma10Direction = null;
 
-        return neutral("CANDLE_AGAINST_MA10", { ma10Slope: slope });
+    if (CONFIG.MA10_FILTER_ENABLED) {
+
+        ma10 = smaAt(candles, index, CONFIG.MA_PERIOD);
+
+        const ma10Before = smaAt(candles, index - CONFIG.SLOPE_LOOKBACK, CONFIG.MA_PERIOD);
+        const avgRange = averageRangeAt(candles, index, CONFIG.RANGE_PERIOD);
+
+        if (ma10 == null || ma10Before == null || !avgRange) {
+
+            return neutral("NO_MA_DATA");
+        }
+
+        slope = (ma10 - ma10Before) / avgRange;
+
+        if (Math.abs(slope) < CONFIG.MIN_SLOPE) {
+
+            return neutral("MA10_FLAT", { ma10Slope: slope });
+        }
+
+        ma10Direction = slope > 0 ? "CALL" : "PUT";
+
+        if (CONFIG.REQUIRE_SLOPE_MATCH && ma10Direction !== signal) {
+
+            return neutral("CANDLE_AGAINST_MA10", { ma10Slope: slope });
+        }
     }
 
     // ---- espaciado entre señales ----
@@ -221,31 +313,30 @@ function lastCandleStrategy(candles, stateInput) {
 
     s.lastSignalCounter = s.counter;
 
-    // `counterTrend` aquí significa: la vela va contra la MA10
-    const againstMA10 = ma10Direction !== signal;
-
     return {
 
         signal,
         score: 6,
         strategy: "last_candle",
-        entryType: againstMA10 ? "LAST_CANDLE_AGAINST_MA10" : "LAST_CANDLE_WITH_MA10",
-        trend: ma10Direction === "CALL" ? "UP" : "DOWN",
-        counterTrend: againstMA10,
+        entryType: "LAST_CANDLE_SIMILAR_BODIES",
+        trend: signal === "CALL" ? "UP" : "DOWN",
+        counterTrend: false,
 
         ma10,
-        distance: Math.abs(close - ma10),
-        strength: Math.abs(close - open),
+        distance: ma10 != null ? Math.abs(close - ma10) : 0,
+        strength: body,
 
         analysis: {
 
-            ma10,
-            ma10Distance: Math.abs(close - ma10),
-            ma10Slope: Number(slope.toFixed(4)),
-            ma10SlopeDirection: ma10Direction,
-            avgRange,
             candleColor: signal === "CALL" ? "GREEN" : "RED",
-            againstMA10
+            lastBody: body,
+            bodyOfRange: Number((body / range).toFixed(4)),
+            bodyRatioMax: Number(cmp.ratio.toFixed(3)),
+            meanBodyOthers: Number(cmp.meanOthers.toFixed(6)),
+            bodyLookback: CONFIG.BODY_LOOKBACK,
+            ma10,
+            ma10Slope: slope != null ? Number(slope.toFixed(4)) : null,
+            ma10SlopeDirection: ma10Direction
         }
     };
 }
@@ -253,4 +344,5 @@ function lastCandleStrategy(candles, stateInput) {
 
 module.exports = lastCandleStrategy;
 module.exports.lastCandleStrategy = lastCandleStrategy;
+module.exports.compareBodies = compareBodies;
 module.exports.CONFIG = CONFIG;
